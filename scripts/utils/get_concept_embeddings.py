@@ -43,17 +43,38 @@ class MrconsoConceptDataset(Dataset):
         return len(self.concepts)
 
 
+def flush_embeddings(embeddings_list, concept_dataset, i, output_emb_file, output_vocab_file,
+                     assert_length_min=None, assert_length_max=None):
+    embeddings_output = ""
+    vocab_output = ""
+    if assert_length_min is not None:
+        assert assert_length_min <= len(embeddings_list) <= assert_length_max
+    for emb in embeddings_list:
+        concept_emb_str = " ".join(str(x) for x in emb)
+        embeddings_output += f"{i} {concept_emb_str} 0\n"
+        concept_cui = concept_dataset.mrconso.iloc[i].CUI
+        concept_str = concept_dataset.mrconso.iloc[i].STR
+        vocab_output += f"{i}\t{concept_str}\t{concept_cui}\n"
+        i += 1
+    output_emb_file.write(embeddings_output)
+    output_vocab_file.write(vocab_output)
+
+    return i
+
+
 def main():
     parser = ArgumentParser()
     parser.add_argument('--mrconso')
     parser.add_argument('--encoder_name')
     parser.add_argument('--batch_size', type=int, default=256)
+    parser.add_argument('--embeddings_flush_size', type=int, default=10000)
     parser.add_argument('--output_embeddings_path')
     parser.add_argument('--output_vocab_path')
     args = parser.parse_args()
 
     mrconso_path = args.mrconso
     encoder_name = args.encoder_name
+    embeddings_flush_size = args.embeddings_flush_size
     batch_size = args.batch_size
     output_embeddings_path = args.output_embeddings_path
     output_dir = os.path.dirname(output_embeddings_path)
@@ -82,20 +103,14 @@ def main():
                 concept_embeddings = get_concept_embeddings(concept_batch, model, tokenizer,
                                                             device).detach().cpu().numpy()
                 embeddings_list.extend(concept_embeddings)
-                if len(embeddings_list) > 5000:
-                    embeddings_output = ""
-                    vocab_output = ""
-                    assert 5000 < len(embeddings_list) <= 5000 + batch_size
-                    for emb in embeddings_list:
-                        concept_emb_str = " ".join(str(x) for x in emb)
-                        embeddings_output += f"{i} {concept_emb_str} 0\n"
-                        concept_cui = concept_dataset.mrconso.iloc[i].CUI
-                        concept_str = concept_dataset.mrconso.iloc[i].STR
-                        vocab_output += f"{i}\t{concept_str}\t{concept_cui}\n"
-                        i += 1
-                    output_emb_file.write(embeddings_output)
-                    output_vocab_file.write(vocab_output)
-
+                if len(embeddings_list) > embeddings_flush_size:
+                    i = flush_embeddings(embeddings_list, concept_dataset, i, output_emb_file, output_vocab_file,
+                                         assert_length_min=embeddings_flush_size,
+                                         assert_length_max=embeddings_flush_size + batch_size)
+                    embeddings_list = []
+                if len(embeddings_list) > 0:
+                    i = flush_embeddings(embeddings_list, concept_dataset, i, output_emb_file, output_vocab_file,
+                                         assert_length_min=None, assert_length_max=None)
                     embeddings_list = []
             assert i == mrconso_df.shape[0]
 
