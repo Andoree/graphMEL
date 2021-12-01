@@ -82,8 +82,8 @@ def main():
                 for emb in concept_embeddings:
                     concept_emb_str = " ".join(str(x) for x in emb)
                     output_emb_file.write(f"{i} {concept_emb_str} 0\n")
-                    concept_cui = concept_dataset.mrconso[i].CUI
-                    concept_str = concept_dataset.mrconso[i].CUI
+                    concept_cui = concept_dataset.mrconso.iloc[i].CUI
+                    concept_str = concept_dataset.mrconso.iloc[i].STR
                     output_vocab_file.write(f"{i}\t{concept_str}\t{concept_cui}\n")
                     i += 1
             assert i == mrconso_df.shape[0]
