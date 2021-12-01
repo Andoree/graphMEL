@@ -1,6 +1,5 @@
 import pandas as pd
 
-
 def read_mrconso(fpath):
     columns = ['CUI', 'LAT', 'TS', 'LUI', 'STT', 'SUI', 'ISPREF', 'AUI', 'SAUI', 'SCUI', 'SDUI', 'SAB', 'TTY', 'CODE',
                'STR', 'SRL', 'SUPPRESS', 'CVF', 'NOCOL']
