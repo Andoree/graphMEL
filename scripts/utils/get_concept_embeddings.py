@@ -47,7 +47,7 @@ def main():
     parser = ArgumentParser()
     parser.add_argument('--mrconso')
     parser.add_argument('--encoder_name')
-    parser.add_argument('--batch_size', type=int, default=64)
+    parser.add_argument('--batch_size', type=int, default=256)
     parser.add_argument('--output_embeddings_path')
     parser.add_argument('--output_vocab_path')
     args = parser.parse_args()
@@ -64,7 +64,7 @@ def main():
         os.makedirs(output_dir)
 
     mrconso_df = read_mrconso(mrconso_path)
-    device = "cuda" if torch.cuda.is_available else "cpu"
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     tokenizer = AutoTokenizer.from_pretrained(encoder_name, )
     model = AutoModel.from_pretrained(encoder_name, ).to(device)
 
@@ -77,15 +77,25 @@ def main():
             open(output_vocab_path, 'w+', encoding="utf-8") as output_vocab_file:
         with torch.no_grad():
             i = 0
+            embeddings_list = []
             for concept_batch in tqdm(concept_loader):
-                concept_embeddings = get_concept_embeddings(concept_batch, model, tokenizer, device).cpu()
-                for emb in concept_embeddings:
-                    concept_emb_str = " ".join(str(x) for x in emb)
-                    output_emb_file.write(f"{i} {concept_emb_str} 0\n")
-                    concept_cui = concept_dataset.mrconso.iloc[i].CUI
-                    concept_str = concept_dataset.mrconso.iloc[i].STR
-                    output_vocab_file.write(f"{i}\t{concept_str}\t{concept_cui}\n")
-                    i += 1
+                concept_embeddings = get_concept_embeddings(concept_batch, model, tokenizer,
+                                                            device).detach().cpu().numpy()
+                embeddings_list.extend(concept_embeddings)
+                if len(embeddings_list) > 5000:
+                    embeddings_output = ""
+                    vocab_output = ""
+                    assert 5000 < len(embeddings_list) <= 5000 + batch_size
+                    for emb in embeddings_list:
+                        concept_emb_str = " ".join(str(x) for x in emb)
+                        embeddings_output += f"{i} {concept_emb_str} 0\n"
+                        concept_cui = concept_dataset.mrconso.iloc[i].CUI
+                        concept_str = concept_dataset.mrconso.iloc[i].STR
+                        vocab_output += f"{i}\t{concept_str}\t{concept_cui}\n"
+                        output_emb_file.write(embeddings_output)
+                        output_vocab_file.write(vocab_output)
+
+                        i += 1
             assert i == mrconso_df.shape[0]
 
 
