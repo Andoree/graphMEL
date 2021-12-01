@@ -92,10 +92,11 @@ def main():
                         concept_cui = concept_dataset.mrconso.iloc[i].CUI
                         concept_str = concept_dataset.mrconso.iloc[i].STR
                         vocab_output += f"{i}\t{concept_str}\t{concept_cui}\n"
-                        output_emb_file.write(embeddings_output)
-                        output_vocab_file.write(vocab_output)
-
                         i += 1
+                    output_emb_file.write(embeddings_output)
+                    output_vocab_file.write(vocab_output)
+
+                    embeddings_list = []
             assert i == mrconso_df.shape[0]
 
 
