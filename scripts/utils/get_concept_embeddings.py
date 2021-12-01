@@ -6,7 +6,7 @@ from transformers import AutoTokenizer, AutoModel
 import torch
 from tqdm import tqdm
 
-from graph_EL.scripts.utils.read_umls import read_mrconso
+from read_umls import read_mrconso
 
 
 def get_concept_embeddings(concepts, model, tokenizer, device):
