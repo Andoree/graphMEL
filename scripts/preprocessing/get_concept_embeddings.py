@@ -82,7 +82,8 @@ def main():
 
     output_vocab_path = args.output_vocab_path
     output_paths_list = (output_embeddings_path, output_vocab_path)
-    for output_dir in output_paths_list:
+    for path in output_paths_list:
+        output_dir = os.path.dirname(path)
         if not os.path.exists(output_dir) and output_dir != '':
             os.makedirs(output_dir)
 
