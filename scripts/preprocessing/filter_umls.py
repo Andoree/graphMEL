@@ -28,4 +28,4 @@ if __name__ == '__main__':
     final = filtered_umls
     if not args.save_all:
         final = final[[args.concept_id_column, 'STR']]
-    final.drop_duplicates().to_csv(args.save_to, index=False, header=True, sep='\t')
+    final.drop_duplicates().to_csv(args.save_to, index=False, header=False, sep='|')
