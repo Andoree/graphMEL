@@ -1,16 +1,8 @@
 import codecs
 import os.path
 from argparse import ArgumentParser
-# from utils import read_mrrel, read_mrconso
-import pandas as pd
 
-
-def read_mrconso(fpath):
-    columns = ['CUI', 'LAT', 'TS', 'LUI', 'STT', 'SUI', 'ISPREF', 'AUI', 'SAUI', 'SCUI', 'SDUI', 'SAB', 'TTY', 'CODE',
-               'STR', 'SRL', 'SUPPRESS', 'CVF', 'NOCOL']
-    return pd.read_csv(fpath, names=columns, sep='|', encoding='utf-8')
-
-
+from utils.read_umls import read_mrconso
 
 
 def main():

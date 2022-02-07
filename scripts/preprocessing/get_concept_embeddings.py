@@ -6,7 +6,7 @@ from transformers import AutoTokenizer, AutoModel
 import torch
 from tqdm import tqdm
 
-from read_umls import read_mrconso
+from utils.read_umls import read_mrconso
 
 
 def get_concept_embeddings(concepts, model, tokenizer, device):
@@ -48,7 +48,9 @@ def flush_embeddings(embeddings_list, concept_dataset, i, output_emb_file, outpu
     embeddings_output = ""
     vocab_output = ""
     if assert_length_min is not None:
-        assert assert_length_min <= len(embeddings_list) <= assert_length_max
+        assert assert_length_min <= len(embeddings_list)
+    if assert_length_max is not None:
+        assert len(embeddings_list) <= assert_length_max
     for emb in embeddings_list:
         concept_emb_str = " ".join(str(x) for x in emb)
         embeddings_output += f"{i} {concept_emb_str} 0\n"
@@ -77,17 +79,18 @@ def main():
     embeddings_flush_size = args.embeddings_flush_size
     batch_size = args.batch_size
     output_embeddings_path = args.output_embeddings_path
-    output_dir = os.path.dirname(output_embeddings_path)
-    if not os.path.exists(output_dir) and output_dir != '':
-        os.makedirs(output_dir)
+
     output_vocab_path = args.output_vocab_path
-    if not os.path.exists(output_dir) and output_dir != '':
-        os.makedirs(output_dir)
+    output_paths_list = (output_embeddings_path, output_vocab_path)
+    for output_dir in output_paths_list:
+        if not os.path.exists(output_dir) and output_dir != '':
+            os.makedirs(output_dir)
 
     mrconso_df = read_mrconso(mrconso_path)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     tokenizer = AutoTokenizer.from_pretrained(encoder_name, )
     model = AutoModel.from_pretrained(encoder_name, ).to(device)
+    model.eval()
 
     concept_dataset = MrconsoConceptDataset(mrconso_df)
     concept_loader = torch.utils.data.DataLoader(
@@ -108,10 +111,10 @@ def main():
                                          assert_length_min=embeddings_flush_size,
                                          assert_length_max=embeddings_flush_size + batch_size)
                     embeddings_list = []
-                if len(embeddings_list) > 0:
-                    i = flush_embeddings(embeddings_list, concept_dataset, i, output_emb_file, output_vocab_file,
-                                         assert_length_min=None, assert_length_max=None)
-                    embeddings_list = []
+            if len(embeddings_list) > 0:
+                i = flush_embeddings(embeddings_list, concept_dataset, i, output_emb_file, output_vocab_file,
+                                     assert_length_min=None, assert_length_max=None)
+
             assert i == mrconso_df.shape[0]
 
 
