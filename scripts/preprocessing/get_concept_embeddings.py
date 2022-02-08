@@ -34,7 +34,7 @@ def get_concept_embeddings(concepts, model, tokenizer, device):
 class MrconsoConceptDataset(Dataset):
     def __init__(self, mrconso_df):
         self.mrconso = mrconso_df
-        self.concepts = mrconso_df["STR"].fillna('').apply(lambda x: x.replace('\n', ' ')).values
+        self.concepts = mrconso_df["STR"].fillna('').apply(lambda x: x.strip().replace('\n', ' ')).values
 
     def __getitem__(self, idx):
         return self.concepts[idx]
@@ -56,7 +56,7 @@ def flush_embeddings(embeddings_list, concept_dataset, i, output_emb_file, outpu
         embeddings_output += f"{i} {concept_emb_str} 0\n"
         concept_cui = concept_dataset.mrconso.iloc[i].CUI
         concept_str = concept_dataset.mrconso.iloc[i].STR
-        vocab_output += f"{i}\t{concept_str}\t{concept_cui}\n"
+        vocab_output += f"{i}\t{concept_str.strip()}\t{concept_cui.strip()}\n"
         i += 1
     output_emb_file.write(embeddings_output)
     output_vocab_file.write(vocab_output)
