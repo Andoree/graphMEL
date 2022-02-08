@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=embed_concepts          # Название задачи
-#SBATCH --error=delete.err        # Файл для вывода ошибок
-#SBATCH --output=delete.txt       # Файл для вывода результатов
+#SBATCH --job-name=links_creation          # Название задачи
+#SBATCH --error=logs/create_link_file_for_graphbert.err        # Файл для вывода ошибок
+#SBATCH --output=logs/create_link_file_for_graphbert.txt       # Файл для вывода результатов
 #SBATCH --time=02:00:00                      # Максимальное время выполнения
 #SBATCH --cpus-per-task=1                   # Количество CPU на одну задачу
 
