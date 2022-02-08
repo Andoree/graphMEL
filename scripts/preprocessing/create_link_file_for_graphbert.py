@@ -7,7 +7,8 @@ from typing import Dict, List, Tuple
 import pandas as pd
 
 from utils.read_umls import read_mrrel
-
+from tqdm import tqdm
+import logging
 
 def load_cui2node_ids_list(node2id_path: str) -> Dict[str, List[str]]:
     cui2node_ids_list_map = {}
@@ -33,7 +34,7 @@ def load_cui2node_ids_list(node2id_path: str) -> Dict[str, List[str]]:
 
 def generate_edges_list(mrrel_df: pd.DataFrame, cui2node_ids_list_map: Dict[str, List[str]]) -> List[Tuple[int, int]]:
     edges_str_set = set()
-    for idx, row in mrrel_df.iterrows():
+    for idx, row in tqdm(mrrel_df.iterrows(), miniters=mrrel_df.shape[0] // 500):
         cui_1 = row["CUI1"]
         cui_2 = row["CUI2"]
         cui_1_node_ids = cui2node_ids_list_map[cui_1]
@@ -54,10 +55,13 @@ def main(args):
     output_dir = os.path.dirname(output_link_path)
     if not os.path.exists(output_dir) and output_dir != '':
         os.makedirs(output_dir)
-
+    logging.info("Loading MRREL....")
     mrrel_df = read_mrrel(mrrel_path)
+    logging.info("Loading CUI to node id map....")
     cui2node_ids_list_map = load_cui2node_ids_list(node2id_path)
+    logging.info("Creating graph edges....")
     edges_list = generate_edges_list(mrrel_df=mrrel_df, cui2node_ids_list_map=cui2node_ids_list_map)
+    logging.info("Saving graph edges....")
     with codecs.open(output_link_path, 'w+', encoding="utf-8") as out_file:
         for (node_id_1, node_id_2) in edges_list:
             out_file.write(f"{node_id_1}\t{node_id_2}\n")
