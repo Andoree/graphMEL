@@ -34,7 +34,7 @@ def get_concept_embeddings(concepts, model, tokenizer, device):
 class MrconsoConceptDataset(Dataset):
     def __init__(self, mrconso_df):
         self.mrconso = mrconso_df
-        self.concepts = mrconso_df["STR"].fillna('').values
+        self.concepts = mrconso_df["STR"].fillna('').apply(lambda x: x.replace('\n', ' ')).values
 
     def __getitem__(self, idx):
         return self.concepts[idx]
