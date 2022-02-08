@@ -5,7 +5,7 @@ from torch.utils.data import Dataset
 from transformers import AutoTokenizer, AutoModel
 import torch
 from tqdm import tqdm
-
+import logging
 from utils.read_umls import read_mrconso
 
 
@@ -88,16 +88,20 @@ def main():
             os.makedirs(output_dir)
 
     mrconso_df = read_mrconso(mrconso_path)
+    logging.info(f"MRCONSO is loaded. {mrconso_df.shape[0]} rows")
+    mrconso_df.dropna(subset=("CUI",), inplace=True)
+    logging.info(f"Dropped rows with no CUI. There are {mrconso_df.shape[0]} rows remaining")
     device = "cuda" if torch.cuda.is_available() else "cpu"
     tokenizer = AutoTokenizer.from_pretrained(encoder_name, )
     model = AutoModel.from_pretrained(encoder_name, ).to(device)
+    logging.info(f"Successfully loaded model: {encoder_name}")
     model.eval()
 
     concept_dataset = MrconsoConceptDataset(mrconso_df)
     concept_loader = torch.utils.data.DataLoader(
         concept_dataset, batch_size=batch_size, shuffle=False, drop_last=False,
     )
-
+    logging.info("Embedding inference is starting....")
     with open(output_embeddings_path, 'w+', encoding="utf-8") as output_emb_file, \
             open(output_vocab_path, 'w+', encoding="utf-8") as output_vocab_file:
         with torch.no_grad():
