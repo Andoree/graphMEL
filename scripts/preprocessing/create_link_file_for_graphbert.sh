@@ -6,5 +6,5 @@
 #SBATCH --cpus-per-task=1                   # Количество CPU на одну задачу
 
 python create_link_file_for_graphbert.py --mrrel ../../UMLS/MRREL.RRF \
---node2id_path result/vocab.txt \
+--node2id_path result/all_vocab.txt \
 --output_link_path result/link.tsv
