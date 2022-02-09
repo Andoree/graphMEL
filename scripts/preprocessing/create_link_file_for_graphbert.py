@@ -16,7 +16,10 @@ def load_cui2node_ids_list(node2id_path: str) -> Dict[str, List[str]]:
     with codecs.open(node2id_path, 'r', encoding="utf-8", ) as inp_file:
         i = 0
         for line in inp_file:
-            attrs = line.split('\t')
+            attrs = line.strip().split('\t')
+            # print(line)
+            # print(attrs)
+            # print('---')
             node_id = attrs[0]
             concept_str = attrs[1]
             cui = attrs[2]
@@ -34,17 +37,23 @@ def load_cui2node_ids_list(node2id_path: str) -> Dict[str, List[str]]:
 
 def generate_edges_list(mrrel_df: pd.DataFrame, cui2node_ids_list_map: Dict[str, List[str]]) -> List[Tuple[int, int]]:
     edges_str_set = set()
-    for idx, row in tqdm(mrrel_df.iterrows(), miniters=mrrel_df.shape[0] // 500):
+    not_matched_cui_count = 0
+    for idx, row in tqdm(mrrel_df.iterrows(), miniters=mrrel_df.shape[0] // 500, total=mrrel_df.shape[0]):
         cui_1 = row["CUI1"]
         cui_2 = row["CUI2"]
-        cui_1_node_ids = cui2node_ids_list_map[cui_1]
-        cui_2_node_ids = cui2node_ids_list_map[cui_2]
-        for node_id_1, node_id_2 in product(cui_1_node_ids, cui_2_node_ids):
-            edge_str = f"{node_id_1}~~~{node_id_2}"
-            edges_str_set.add(edge_str)
-            edge_str = f"{node_id_2}~~~{node_id_1}"
-            edges_str_set.add(edge_str)
+        if cui2node_ids_list_map.get(cui_1) is not None and cui2node_ids_list_map.get(cui_2) is not None:
+        
+            cui_1_node_ids = cui2node_ids_list_map[cui_1]
+            cui_2_node_ids = cui2node_ids_list_map[cui_2]
+            for node_id_1, node_id_2 in product(cui_1_node_ids, cui_2_node_ids):
+                edge_str = f"{node_id_1}~~~{node_id_2}"
+                edges_str_set.add(edge_str)
+                edge_str = f"{node_id_2}~~~{node_id_1}"
+                edges_str_set.add(edge_str)
+        else:
+            not_matched_cui_count += 1
     edges_list = [(int(s.split('~~~')[0]), int(s.split('~~~')[1])) for s in edges_str_set]
+    logging.info(f"Finished generating edges. {not_matched_cui_count} CUIs are not matched to any node")
     return edges_list
 
 

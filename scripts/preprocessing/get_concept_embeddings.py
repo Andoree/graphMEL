@@ -56,7 +56,7 @@ def flush_embeddings(embeddings_list, concept_dataset, i, output_emb_file, outpu
         embeddings_output += f"{i} {concept_emb_str} 0\n"
         concept_cui = concept_dataset.mrconso.iloc[i].CUI
         concept_str = concept_dataset.mrconso.iloc[i].STR
-        vocab_output += f"{i}\t{concept_str.strip()}\t{concept_cui.strip()}\n"
+        vocab_output += f"{i}\t{concept_str}\t{concept_cui}\n"
         i += 1
     output_emb_file.write(embeddings_output)
     output_vocab_file.write(vocab_output)
