@@ -1,4 +1,5 @@
 import codecs
+import gc
 import os.path
 from argparse import ArgumentParser
 from itertools import product
@@ -9,6 +10,7 @@ import pandas as pd
 from utils.read_umls import read_mrrel
 from tqdm import tqdm
 import logging
+
 
 def load_cui2node_ids_list(node2id_path: str) -> Dict[str, List[str]]:
     cui2node_ids_list_map = {}
@@ -39,23 +41,34 @@ def generate_edges_list(mrrel_df: pd.DataFrame, cui2node_ids_list_map: Dict[str,
     for idx, row in tqdm(mrrel_df.iterrows(), miniters=mrrel_df.shape[0] // 500, total=mrrel_df.shape[0]):
         cui_1 = row["CUI1"]
         cui_2 = row["CUI2"]
+        if cui_1 > cui_2:
+            cui_1, cui_2 = cui_2, cui_1
         if cui2node_ids_list_map.get(cui_1) is not None and cui2node_ids_list_map.get(cui_2) is not None:
-            cui_1_cui_2_str = f"{cui_1}~~~{cui_2}"
-            cui_2_cui_1_str = f"{cui_2}~~~{cui_1}"
-            if cui_2_cui_1_str not in cui_str_set and cui_1_cui_2_str not in cui_str_set:
+            two_cuis_str = f"{cui_1}~~{cui_2}"
+            # cui_2_cui_1_str = f"{cui_2}~~~{cui_1}"
+            if two_cuis_str not in cui_str_set:
                 cui_1_node_ids = cui2node_ids_list_map[cui_1]
                 cui_2_node_ids = cui2node_ids_list_map[cui_2]
                 for node_id_1, node_id_2 in product(cui_1_node_ids, cui_2_node_ids):
-                    edge_str = f"{node_id_1}~~~{node_id_2}"
+                    if node_id_1 > node_id_2:
+                        node_id_1, node_id_2 = node_id_2, node_id_1
+                    edge_str = f"{node_id_1}~~{node_id_2}"
                     edges_str_set.add(edge_str)
-                    edge_str = f"{node_id_2}~~~{node_id_1}"
-                    edges_str_set.add(edge_str)
-            cui_str_set.add(cui_1_cui_2_str)
-            cui_str_set.add(cui_2_cui_1_str)
+                    # edge_str = f"{node_id_2}~~~{node_id_1}"
+                    # edges_str_set.add(edge_str)
+            cui_str_set.add(two_cuis_str)
+            # cui_str_set.add(cui_2_cui_1_str)
         else:
             not_matched_cui_count += 1
-    edges_list = [(int(s.split('~~~')[0]), int(s.split('~~~')[1])) for s in edges_str_set]
-    logging.info(f"Finished generating edges. {not_matched_cui_count} CUIs are not matched to any node")
+    logging.info(f"Finished generating edges."
+                 f"There are {len(edges_str_set)} non-oriented edges"
+                 f"{not_matched_cui_count} CUIs are not matched to any node\n"
+                 f"Converting edges set to list....")
+
+    edges_list = [(int(s.split('~~')[0]), int(s.split('~~')[1])) for s in edges_str_set]
+    logging.info("Finished converting edges set to list")
+    del edges_str_set
+    logging.info(f"Removing temporary files. Freed space: {gc.collect()}")
     return edges_list
 
 
@@ -74,8 +87,19 @@ def main(args):
     edges_list = generate_edges_list(mrrel_df=mrrel_df, cui2node_ids_list_map=cui2node_ids_list_map)
     logging.info("Saving graph edges....")
     with codecs.open(output_link_path, 'w+', encoding="utf-8") as out_file:
-        for (node_id_1, node_id_2) in edges_list:
-            out_file.write(f"{node_id_1}\t{node_id_2}\n")
+        buffer = []
+        for (node_id_1, node_id_2) in tqdm(edges_list, miniters=len(edges_list) // 500):
+            buffer.append((node_id_1, node_id_2))
+            if len(buffer) > 100000:
+                s = "".join((f"{t[0]}\t{t[1]}\n{t[1]}\t{t[0]}\n" for t in buffer))
+                out_file.write(s)
+                buffer.clear()
+        if len(buffer) > 0:
+            s = "".join((f"{t[0]}\t{t[1]}\n{t[1]}\t{t[0]}\n" for t in buffer))
+            out_file.write(s)
+
+            # out_file.write(f"{node_id_1}\t{node_id_2}\n")
+            # out_file.write(f"{node_id_2}\t{node_id_1}\n")
 
 
 if __name__ == '__main__':
