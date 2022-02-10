@@ -11,7 +11,7 @@ from helpers.preprocess import Preprocessor
 from helpers.pretrain import GraphBertNodeAttributeReconstruction
 from graph_bert.MethodGraphBertGraphRecovery import MethodGraphBertGraphRecovery
 from graph_bert.MethodGraphBertNodeConstruct import MethodGraphBertNodeConstruct
-from compute_graphbert_embeddings import GraphBERTEmbeddingsSaver
+from graph_bert_embeddings_predict import GraphBERTEmbeddingsSaver
 
 def main():
     options = load_args()

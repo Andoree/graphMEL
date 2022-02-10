@@ -11,7 +11,7 @@ from graph_bert.DatasetLoader import DatasetLoader
 from graph_bert.MethodBertComp import GraphBertConfig
 from graph_bert.MethodGraphBertGraphRecovery import MethodGraphBertGraphRecovery
 from graph_bert.MethodGraphBertNodeConstruct import MethodGraphBertNodeConstruct
-from graph_bert_training import ExitOnExceptionHandler, Writer
+from helpers.logging_helpers import ExitOnExceptionHandler, Writer
 from itertools import combinations
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
