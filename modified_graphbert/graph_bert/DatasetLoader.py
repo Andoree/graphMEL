@@ -26,7 +26,7 @@ class DatasetLoader(dataset):
     load_all_tag = False
     compute_s = False
 
-    device = 'cpu'
+    device = 'cuda'
 
     def __init__(self, seed=None, dName=None, dDescription=None):
         super(DatasetLoader, self).__init__(dName, dDescription)
@@ -141,9 +141,13 @@ class DatasetLoader(dataset):
             idx_train = range(5)
             idx_val = range(5, 10)
             idx_test = range(5, 10)
+        elif self.dataset_name == "umls":
+            idx_train = range(5)
+            idx_val = range(5, 10)
+            idx_test = range(5, 10)
 
         features = torch.FloatTensor(np.array(features))
-        if 'wordnet' in self.dataset_name:
+        if 'wordnet' in self.dataset_name or 'umls' in self.dataset_name:
             labels = None
         else:
             labels = torch.LongTensor(np.where(one_hot_labels)[1])
