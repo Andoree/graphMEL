@@ -95,20 +95,24 @@ class DatasetLoader(dataset):
 
         idx_features_labels = np.genfromtxt("{}/node".format(self.dataset_source_folder_path), dtype=np.dtype(str))
         features = idx_features_labels[:, 1:-1].astype(np.float32)
-        if 'wordnet' in self.dataset_name:
+        if 'wordnet' in self.dataset_name or 'UMLS' in self.dataset_name:
             one_hot_labels = features
         else:
             one_hot_labels = self.encode_onehot(idx_features_labels[:, -1])
+        logging.info('Finished loading features...')
 
         # build graph
         idx = np.array(idx_features_labels[:, 0], dtype=np.int32)
+        logging.info('Successfully created index')
         idx_map = {j: i for i, j in enumerate(idx)}
         index_id_map = {i: j for i, j in enumerate(idx)}
-
+        logging.info('Loading edges....')
         edges_unordered = np.genfromtxt("{}/link".format(self.dataset_source_folder_path),
                                         dtype=np.int32)
+        logging.info('Edges are loaded....')
         edges = np.array(list(map(idx_map.get, edges_unordered.flatten())),
                          dtype=np.int32).reshape(edges_unordered.shape)
+        logging.info('Creating sparse matrix....')
         adj = sp.coo_matrix((np.ones(edges.shape[0]), (edges[:, 0], edges[:, 1])),
                             shape=(one_hot_labels.shape[0], one_hot_labels.shape[0]),
                             dtype=np.float32)
