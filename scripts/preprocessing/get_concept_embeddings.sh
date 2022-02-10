@@ -1,12 +1,14 @@
 #!/bin/bash
 #SBATCH --job-name=embed_concepts          # Название задачи
-#SBATCH --error=delete.err        # Файл для вывода ошибок
-#SBATCH --output=delete.txt       # Файл для вывода результатов
-#SBATCH --time=03:00:00                      # Максимальное время выполнения
+#SBATCH --error=logs/get_concept_embeddings.err        # Файл для вывода ошибок
+#SBATCH --output=logs/get_concept_embeddings.txt       # Файл для вывода результатов
+#SBATCH --time=12:00:00                      # Максимальное время выполнения
 #SBATCH --cpus-per-task=8                   # Количество CPU на одну задачу
 #SBATCH --gpus=1
+#SBATCH --constraint=type_c|type_b|type_a
 
-python get_concept_embeddings.py --mrconso ../../UMLS/MRCONSO_test.RRF \
+python get_concept_embeddings.py --mrconso ../../UMLS/filtered_MRCONSO.RRF \
 --encoder_name "../../models/cambridgeltl/SapBERT-UMLS-2020AB-all-lang-from-XLMR/" \
---output_embeddings_path embeddings.txt \
---output_vocab_path vocab.txt
+--batch_size 512 \
+--output_embeddings_path result/all_embeddings.txt \
+--output_vocab_path result/all_vocab.txt
