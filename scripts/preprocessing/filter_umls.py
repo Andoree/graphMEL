@@ -1,6 +1,6 @@
 import pandas as pd
 from argparse import ArgumentParser
-from utils.read_umls import read_mrconso, read_mrsty
+from utils.io import read_mrconso, read_mrsty
 
 if __name__ == '__main__':
     parser = ArgumentParser()

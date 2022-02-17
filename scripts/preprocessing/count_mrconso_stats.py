@@ -2,7 +2,7 @@ import codecs
 import os.path
 from argparse import ArgumentParser
 
-from utils.read_umls import read_mrconso
+from utils.io import read_mrconso
 
 
 def main():
