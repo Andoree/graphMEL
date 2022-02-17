@@ -7,7 +7,7 @@ from typing import Dict, List, Tuple
 
 import pandas as pd
 
-from utils.read_umls import read_mrrel
+from utils.io import read_mrrel
 from tqdm import tqdm
 import logging
 
