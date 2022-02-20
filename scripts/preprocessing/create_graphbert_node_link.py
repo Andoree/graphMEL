@@ -3,7 +3,7 @@ import os
 from argparse import ArgumentParser
 from typing import Dict, List, Tuple
 
-from utils.io import read_mrconso, read_mrrel
+from graph_EL.scripts.utils.io import read_mrconso, read_mrrel
 import pandas as pd
 
 

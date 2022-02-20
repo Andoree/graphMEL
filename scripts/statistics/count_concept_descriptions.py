@@ -4,8 +4,8 @@ from argparse import ArgumentParser
 
 import pandas as pd
 
-from preprocessing.utils.io import read_mrconso
-from preprocessing.utils.io import read_mrdef
+from graph_EL.scripts.utils.io import read_mrconso
+from graph_EL.scripts.utils.io import read_mrdef
 
 
 def calc_concept_definition_stats(mrconso_df: pd.DataFrame, mrdef_df: pd.DataFrame):
@@ -14,7 +14,7 @@ def calc_concept_definition_stats(mrconso_df: pd.DataFrame, mrdef_df: pd.DataFra
     res = {
         "# Unique CUIs": len(num_unique_concepts),
         "# Concepts with definitions": len(num_concepts_with_defs),
-        "Concepts with definitions proportion": len(num_concepts_with_defs) / len(num_unique_concepts)
+        "# Concepts with definitions proportion": len(num_concepts_with_defs) / len(num_unique_concepts)
     }
     return res
 

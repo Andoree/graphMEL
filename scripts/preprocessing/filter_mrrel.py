@@ -1,6 +1,6 @@
 import pandas as pd
 from argparse import ArgumentParser
-from utils.io import read_mrrel
+from graph_EL.scripts.utils.io import read_mrrel
 
 if __name__ == '__main__':
     parser = ArgumentParser()
