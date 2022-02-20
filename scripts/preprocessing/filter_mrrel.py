@@ -1,6 +1,6 @@
 import pandas as pd
 from argparse import ArgumentParser
-from graphMEL.scripts.utils.io import read_mrrel
+from graphmel.scripts.utils.io import read_mrrel
 
 if __name__ == '__main__':
     parser = ArgumentParser()

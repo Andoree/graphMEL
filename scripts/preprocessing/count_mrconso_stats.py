@@ -2,7 +2,7 @@ import codecs
 import os.path
 from argparse import ArgumentParser
 
-from graphMEL.scripts.utils.io import read_mrconso
+from graphmel.scripts.utils.io import read_mrconso
 
 
 def main():
