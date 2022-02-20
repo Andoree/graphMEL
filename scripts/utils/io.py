@@ -69,9 +69,10 @@ def read_mrsty(fpath):
 
 def read_mrrel(fpath):
     columns = ["CUI1", "AUI1", "STYPE1", "REL", "CUI2", "AUI2", "STYPE2", "RELA", "RUI", "SRUI", "RSAB", "VSAB",
-               "SL", "RG", "DIR", "SUPPRESS", "CVF"]
+               "SL", "RG", "DIR", "SUPPRESS", "CVF", 'NOCOL']
     return pd.read_csv(fpath, names=columns, sep='|', encoding='utf-8')
 
+
 def read_mrdef(fpath):
-    columns = ["CUI", "AUI", "ATUI", "SATUI", "SAB", "DEF", "SUPPRESS", "CVF" ]
+    columns = ["CUI", "AUI", "ATUI", "SATUI", "SAB", "DEF", "SUPPRESS", "CVF", 'NOCOL']
     return pd.read_csv(fpath, names=columns, sep='|', encoding='utf-8')
