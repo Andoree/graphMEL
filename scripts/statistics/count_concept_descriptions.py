@@ -4,8 +4,8 @@ from argparse import ArgumentParser
 
 import pandas as pd
 
-from graph_EL.scripts.utils.io import read_mrconso
-from graph_EL.scripts.utils.io import read_mrdef
+from graphMEL.scripts.utils.io import read_mrconso
+from graphMEL.scripts.utils.io import read_mrdef
 
 
 def calc_concept_definition_stats(mrconso_df: pd.DataFrame, mrdef_df: pd.DataFrame):

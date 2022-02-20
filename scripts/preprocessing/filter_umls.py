@@ -1,5 +1,5 @@
 from argparse import ArgumentParser
-from graph_EL.scripts.utils.io import read_mrconso, read_mrsty
+from graphMEL.scripts.utils.io import read_mrconso, read_mrsty
 
 if __name__ == '__main__':
     parser = ArgumentParser()

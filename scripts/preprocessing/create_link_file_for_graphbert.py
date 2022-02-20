@@ -7,7 +7,7 @@ from typing import Dict, List, Tuple
 
 import pandas as pd
 
-from graph_EL.scripts.utils.io import read_mrrel
+from graphMEL.scripts.utils.io import read_mrrel
 from tqdm import tqdm
 import logging
 

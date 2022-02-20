@@ -2,9 +2,9 @@ import logging
 import os
 from argparse import ArgumentParser
 
-from graph_EL.scripts.utils.io import save_tuples, save_dict, save_node_id2terms_list
-from graph_EL.scripts.utils.io import read_mrconso, read_mrrel
-from graph_EL.scripts.utils.umls2graph import get_concept_list_groupby_cui, extract_umls_edges
+from graphMEL.scripts.utils.io import save_tuples, save_dict, save_node_id2terms_list
+from graphMEL.scripts.utils.io import read_mrconso, read_mrrel
+from graphMEL.scripts.utils.umls2graph import get_concept_list_groupby_cui, extract_umls_edges
 
 
 def main():
