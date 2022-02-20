@@ -10,10 +10,10 @@ from preprocessing.utils.io import read_mrdef
 
 def calc_concept_definition_stats(mrconso_df: pd.DataFrame, mrdef_df: pd.DataFrame):
     num_unique_concepts = set(mrconso_df["CUI"].unique())
-    num_concepts_with_defs = set(mrdef_df["CUI"].unique()).intersection(num_unique_concepts)
+    num_concepts_with_defs = set(mrdef_df["CUI"].unique())
     res = {
-        "# Unique CUIs": num_unique_concepts,
-        "# Concepts with definitions": num_concepts_with_defs,
+        "# Unique CUIs": len(num_unique_concepts),
+        "# Concepts with definitions": len(num_concepts_with_defs),
         "Concepts with definitions proportion": len(num_concepts_with_defs) / len(num_unique_concepts)
     }
     return res
@@ -32,11 +32,12 @@ def main():
 
     df_mrconso = read_mrconso(args.mrconso)
     df_mrdef = read_mrdef(args.mrdef)
+    print(df_mrdef)
     d = calc_concept_definition_stats(mrconso_df=df_mrconso, mrdef_df=df_mrdef)
     # TODO: Refactoring
     with codecs.open(output_path, 'w+', encoding="utf-8") as out_file:
         for key, val in d.items():
-            out_file.write(f"{key}:\t{val}")
+            out_file.write(f"{key}:\t{val}\n")
 
 
 if __name__ == '__main__':

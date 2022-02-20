@@ -6,7 +6,7 @@ import pandas as pd
 from tqdm import tqdm
 
 
-def save_node_id2terms_list(save_path: str, mapping: Dict[str, list[str]], node_terms_sep: str = '\t',
+def save_node_id2terms_list(save_path: str, mapping: Dict[str, List[str]], node_terms_sep: str = '\t',
                             terms_sep: str = '~~'):
     num_concepts = len(mapping)
     logging.info(f"Saving CUIs and terms. There are {num_concepts}")
@@ -74,4 +74,4 @@ def read_mrrel(fpath):
 
 def read_mrdef(fpath):
     columns = ["CUI", "AUI", "ATUI", "SATUI", "SAB", "DEF", "SUPPRESS", "CVF" ]
-    pd.read_csv(fpath, names=columns, sep='|', encoding='utf-8')
+    return pd.read_csv(fpath, names=columns, sep='|', encoding='utf-8')
