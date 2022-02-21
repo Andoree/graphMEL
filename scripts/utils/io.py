@@ -27,6 +27,7 @@ def save_dict(save_path: str, dictionary: Dict, sep: str = '\t'):
     logging.info("Saving dictionary")
     with codecs.open(save_path, 'w+', encoding="utf-8") as out_file:
         for key, val in dictionary.items():
+            key, val = str(key), str(val)
             if sep in key or sep in val:
                 raise Exception(f"Separator {sep} is present in dictionary being saved")
             out_file.write(f"{key}{sep}{val}\n")
