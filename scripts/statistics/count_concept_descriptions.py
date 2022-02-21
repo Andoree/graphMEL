@@ -9,13 +9,17 @@ from graphmel.scripts.utils.io import read_mrdef
 
 
 def calc_concept_definition_stats(mrconso_df: pd.DataFrame, mrdef_df: pd.DataFrame):
-    num_unique_concepts = set(mrconso_df["CUI"].unique())
-    num_concepts_with_defs = set(mrdef_df["CUI"].unique())
+    unique_concepts = set(mrconso_df["CUI"].unique())
+    unique_concepts_with_defs = set(mrdef_df["CUI"].unique())
+    concept_def_intersection = unique_concepts.intersection(unique_concepts_with_defs)
     res = {
-        "# Unique CUIs": len(num_unique_concepts),
-        "# Concepts with definitions": len(num_concepts_with_defs),
-        "# Concepts with definitions proportion": len(num_concepts_with_defs) / len(num_unique_concepts)
+        "# Unique CUIs": len(unique_concepts),
+        "# Concepts with definitions": len(unique_concepts_with_defs),
+        "# Concepts with definitions proportion": len(concept_def_intersection) / len(unique_concepts)
     }
+    top_10_concepts = sorted(list(unique_concepts))[:10]
+    top_10_def_concepts = sorted(list(unique_concepts_with_defs))[:10]
+    
     return res
 
 
@@ -32,7 +36,6 @@ def main():
 
     df_mrconso = read_mrconso(args.mrconso)
     df_mrdef = read_mrdef(args.mrdef)
-    print(df_mrdef)
     d = calc_concept_definition_stats(mrconso_df=df_mrconso, mrdef_df=df_mrdef)
     # TODO: Refactoring
     with codecs.open(output_path, 'w+', encoding="utf-8") as out_file:
