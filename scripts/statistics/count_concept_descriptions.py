@@ -21,14 +21,17 @@ def calc_concept_definition_stats(mrconso_df: pd.DataFrame, mrdef_df: pd.DataFra
         mrconso_df["has_def"] = mrconso_df["CUI"].apply(lambda x: 1 if x in unique_concept_ids_with_defs else 0)
         unique_sabs_list = mrconso_df["SAB"].unique()
         cui_with_def_stats_by_sab = {}
+        unique_cui_stats_by_source = {}
         for source_name in unique_sabs_list:
             source_subset_df = mrconso_df[mrconso_df["SAB"] == source_name]
             unique_source_cuis = set(source_subset_df["CUI"].unique())
             unique_source_cuis_with_def = set(source_subset_df[source_subset_df["has_def"] == 1]["CUI"].unique())
 
             cui_with_def_stats_by_sab[source_name] = len(unique_source_cuis_with_def) / len(unique_source_cuis)
+            unique_cui_stats_by_source[source_name] = len(unique_source_cuis)
         for k, v in sorted(cui_with_def_stats_by_sab.items(), key=lambda item: -item[1]):
-            res[f"Concepts with definition proportion, {k}"] = v
+            res[f"{k}, concepts with definition proportion"] = v
+            res[f"{k}, # Unique CUIs"] = unique_cui_stats_by_source[k]
 
     return res
 
