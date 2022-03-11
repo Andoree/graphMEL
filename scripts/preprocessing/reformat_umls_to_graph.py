@@ -44,7 +44,7 @@ def main():
             os.makedirs(output_dir)
     logging.info("Loading MRCONSO....")
     mrconso_df = read_mrconso(args.mrconso)
-    mrconso_df["CUI"] = mrconso_df["CUI"].fillna('')
+    mrconso_df["STR"].fillna('', inplace=True)
     logging.info("Loading MRREL....")
     mrrel_df = read_mrrel(args.mrrel)
 
