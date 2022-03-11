@@ -5,9 +5,9 @@ import pandas as pd
 from tqdm import tqdm
 
 
-def get_concept_list_groupby_cui(mrconso_df: pd.DataFrame) -> (Dict[int, list[str]], Dict[int, str]):
+def get_concept_list_groupby_cui(mrconso_df: pd.DataFrame) -> (Dict[int, List[str]], Dict[int, str]):
     logging.info("Started creating CUI to terms mapping")
-    node_id2terms_list: Dict[int, list[str]] = {}
+    node_id2terms_list: Dict[int, List[str]] = {}
     node_id2cui: Dict[int, str] = {}
     for node_id, row in tqdm(mrconso_df.iterrows(), miniters=mrconso_df.shape[0] // 50):
         cui = row["CUI"].strip()
