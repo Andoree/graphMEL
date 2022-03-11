@@ -4,52 +4,16 @@ import random
 from argparse import ArgumentParser
 
 import numpy as np
-import torch
 
 from graphmel.scripts.training.dataset import tokenize_node_terms, NeighborSampler, convert_edges_tuples_to_edge_index
+from graphmel.scripts.training.model import GraphSAGEOverBert
 from graphmel.scripts.utils.io import load_node_id2terms_list, load_tuples, update_log_file
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from sklearn.linear_model import LogisticRegression
-from torch_geometric.nn import SAGEConv
 # from torch_geometric.data import NeighborSampler as RawNeighborSampler
 from transformers import AutoTokenizer
 from transformers import AutoModel
-
-
-class GraphSAGEOverBert(nn.Module):
-    def __init__(self, bert_encoder, hidden_channels, num_layers, graphsage_dropout):
-        super(GraphSAGEOverBert, self).__init__()
-        self.num_layers = num_layers
-        self.convs = nn.ModuleList()
-        self.bert_encoder = bert_encoder
-        self.bert_hidden_dim = bert_encoder.config.hidden_size
-        self.graphsage_dropout = graphsage_dropout
-
-        for i in range(num_layers):
-            in_channels = self.bert_hidden_dim if i == 0 else hidden_channels
-            self.convs.append(SAGEConv(in_channels, hidden_channels))
-
-    def forward(self, input_ids, attention_mask, adjs):
-        last_hidden_states = self.bert_encoder(input_ids, attention_mask=attention_mask,
-                                               return_dict=True)['last_hidden_state']
-        x = torch.stack([elem[0, :] for elem in last_hidden_states])
-        for i, (edge_index, _, size) in enumerate(adjs):
-            x_target = x[:size[1]]  # Target nodes are always placed first.
-            x = self.convs[i]((x, x_target), edge_index)
-            if i != self.num_layers - 1:
-                x = x.relu()
-                x = F.dropout(x, p=self.graphsage_dropout, training=self.training)
-        return x
-
-    def full_forward(self, x, edge_index):
-        for i, conv in enumerate(self.convs):
-            x = conv(x, edge_index)
-            if i != self.num_layers - 1:
-                x = x.relu()
-                x = F.dropout(x, p=self.graphsage_dropout, training=self.training)
-        return x
 
 
 def model_step(model, input_ids, attention_mask, adjs, device):
@@ -160,7 +124,10 @@ def main(args):
 
     model = GraphSAGEOverBert(bert_encoder=bert_encoder, hidden_channels=args.graphsage_num_channels,
                               num_layers=args.graphsage_num_layers,
-                              graphsage_dropout=args.graphsage_dropout).to(device)
+                              graphsage_dropout=args.graphsage_dropout)
+    if args.gpus > 1:
+        model = nn.DataParallel(model)
+    model = model.to(device)
     train_model(model=model, train_loader=train_loader, val_loader=val_loader, learning_rate=args.learning_rate,
                 num_epochs=args.num_epochs, output_dir=output_dir, device=device)
 
@@ -184,6 +151,7 @@ if __name__ == '__main__':
     parser.add_argument('--learning_rate', type=float)
     parser.add_argument('--num_epochs', type=int)
     parser.add_argument('--random_state', type=int)
+    parser.add_argument('--gpus', type=int)
     parser.add_argument('--output_dir', type=str)
     arguments = parser.parse_args()
     seed = arguments.random_state
