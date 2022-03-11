@@ -11,9 +11,9 @@ from graphmel.scripts.utils.umls2graph import get_concept_list_groupby_cui, extr
 
 def create_graph_files(mrconso_df: pd.DataFrame, mrrel_df: pd.DataFrame, output_node_id2terms_list_path: str,
                        output_node_id2cui_path: str, output_edges_path: str, ignore_not_mapped_edges: bool):
-    node_id2terms_list, node_id2cui = get_concept_list_groupby_cui(mrconso_df=mrconso_df)
-    cui2node_id = {cui: node_id for node_id, cui in node_id2cui.items()}
-    assert len(node_id2cui) == len(cui2node_id)
+    node_id2terms_list, node_id2cui, cui2node_id = get_concept_list_groupby_cui(mrconso_df=mrconso_df)
+    # cui2node_id = {cui: node_id for node_id, cui in node_id2cui.items()}
+    # assert len(node_id2cui.keys()) == len(cui2node_id.keys())
     logging.info("Generating edges....")
     edges = extract_umls_edges(mrrel_df, cui2node_id, ignore_not_mapped_edges=ignore_not_mapped_edges)
     logging.info("Saving the result....")

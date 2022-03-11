@@ -5,21 +5,26 @@ import pandas as pd
 from tqdm import tqdm
 
 
-def get_concept_list_groupby_cui(mrconso_df: pd.DataFrame) -> (Dict[int, List[str]], Dict[int, str]):
+def get_concept_list_groupby_cui(mrconso_df: pd.DataFrame) -> (Dict[int, List[str]], Dict[int, str], Dict[str, int]):
     logging.info("Started creating CUI to terms mapping")
     node_id2terms_list: Dict[int, List[str]] = {}
-    node_id2cui: Dict[int, str] = {}
-    for node_id, row in tqdm(mrconso_df.iterrows(), miniters=mrconso_df.shape[0] // 50):
+
+    unique_cuis_set = set(mrconso_df["CUI"].unique())
+    logging.info(f"There are {len(unique_cuis_set)} unique CUIs in dataset")
+    node_id2cui: Dict[int, str] = {node_id: cui for node_id, cui in enumerate(unique_cuis_set)}
+    cui2node_id: Dict[str, int] = {cui: node_id for node_id, cui in node_id2cui.items()}
+    assert len(node_id2cui) == len(cui2node_id)
+    for _, row in tqdm(mrconso_df.iterrows(), miniters=mrconso_df.shape[0] // 50):
         cui = row["CUI"].strip()
         term_str = row["STR"].strip()
         if term_str == '':
             continue
-        node_id2cui[node_id] = cui
+        node_id = cui2node_id[cui]
         if node_id2terms_list.get(node_id) is None:
             node_id2terms_list[node_id] = []
         node_id2terms_list[node_id].append(term_str.strip())
     logging.info("CUI to terms mapping is created")
-    return node_id2terms_list, node_id2cui
+    return node_id2terms_list, node_id2cui, cui2node_id
 
 
 def extract_umls_edges(mrrel_df: pd.DataFrame, cui2node_id: Dict[str, int], ignore_not_mapped_edges=False) -> List[
