@@ -9,7 +9,7 @@ if __name__ == '__main__':
     parser.add_argument('--langs', nargs='+', default=['ENG', 'FRE', 'GER', 'SPA', 'DUT', ])
     parser.add_argument('--ontology', default=None, nargs='+')
     parser.add_argument('--concept_id_column', default='CUI')
-    parser.add_argument('--filter_unique_str', type=bool, default=True)
+    parser.add_argument('--filter_unique_str', action="store_true")
     parser.add_argument('--save_to')
     parser.add_argument('--save_all', action='store_true')
     args = parser.parse_args()
