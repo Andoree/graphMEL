@@ -22,10 +22,12 @@ def get_concept_list_groupby_cui(mrconso_df: pd.DataFrame) -> (Dict[int, list[st
     return node_id2terms_list, node_id2cui
 
 
-def extract_umls_edges(mrrel_df: pd.DataFrame, cui2node_id: Dict[str, int]) -> List[Tuple[int, int]]:
+def extract_umls_edges(mrrel_df: pd.DataFrame, cui2node_id: Dict[str, int], ignore_not_mapped_edges=False) -> List[
+    Tuple[int, int]]:
     cui_str_set = set()
     logging.info("Started generating graph edges")
     edges: List[Tuple[int, int]] = []
+    not_mapped_edges_counter = 0
     for idx, row in tqdm(mrrel_df.iterrows(), miniters=mrrel_df.shape[0] // 100, total=mrrel_df.shape[0]):
         cui_1 = row["CUI1"].strip()
         cui_2 = row["CUI2"].strip()
@@ -40,7 +42,12 @@ def extract_umls_edges(mrrel_df: pd.DataFrame, cui2node_id: Dict[str, int]) -> L
                 edges.append((cui_2_node_id, cui_1_node_id))
             cui_str_set.add(two_cuis_str)
         else:
-            raise AssertionError(f"Either CUI {cui_1} or {cui_2} are not found in CUI2node_is mapping")
+            if not ignore_not_mapped_edges:
+                raise AssertionError(f"Either CUI {cui_1} or {cui_2} are not found in CUI2node_is mapping")
+            else:
+                not_mapped_edges_counter += 1
+    if not ignore_not_mapped_edges:
+        logging.info(f"{not_mapped_edges_counter} edges are not mapped to any node")
     logging.info(f"Finished generating edges."
                  f"There are {len(edges)} non-oriented edges")
 

@@ -57,6 +57,19 @@ def load_node_id2terms_list(dict_path: str, node_terms_sep: str = '\t', terms_se
     return node_id2_terms
 
 
+def load_tuples(path: str, sep: str = '\t') -> List[Tuple[int, int]]:
+    logging.info(f"Starting loading tuples from: {path}")
+    tuples = []
+    with codecs.open(path, 'r', encoding="utf-8") as inp_file:
+        for line in inp_file:
+            attrs = line.strip().split(sep)
+            node_id_1 = int(attrs[0])
+            node_id_2 = int(attrs[1])
+            tuples.append((node_id_1, node_id_2))
+    logging.info("Finished loading tuples")
+    return tuples
+
+
 def read_mrconso(fpath):
     columns = ['CUI', 'LAT', 'TS', 'LUI', 'STT', 'SUI', 'ISPREF', 'AUI', 'SAUI', 'SCUI', 'SDUI', 'SAB', 'TTY', 'CODE',
                'STR', 'SRL', 'SUPPRESS', 'CVF', 'NOCOL']
@@ -77,3 +90,9 @@ def read_mrrel(fpath):
 def read_mrdef(fpath):
     columns = ["CUI", "AUI", "ATUI", "SATUI", "SAB", "DEF", "SUPPRESS", "CVF", 'NOCOL']
     return pd.read_csv(fpath, names=columns, sep='|', encoding='utf-8')
+
+
+def update_log_file(path: str, dict_to_log: Dict):
+    with codecs.open(path, 'a+', encoding="utf-8") as out_file:
+        s = ', '.join((f"{k} : {v}" for k, v in dict_to_log.items()))
+        out_file.write(f"{s}\n")
