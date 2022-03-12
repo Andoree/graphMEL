@@ -11,15 +11,15 @@ def save_node_id2terms_list(save_path: str, mapping: Dict[str, List[str]], node_
     num_concepts = len(mapping)
     logging.info(f"Saving CUIs and terms. There are {num_concepts}")
     with codecs.open(save_path, 'w+', encoding="utf-8") as out_file:
-        for cui, terms_list in tqdm(mapping.items(), miniters=num_concepts // 50, total=num_concepts):
-            assert node_terms_sep not in cui and terms_sep not in cui
+        for node_id, terms_list in tqdm(mapping.items(), miniters=num_concepts // 50, total=num_concepts):
+            assert node_terms_sep not in str(node_id) and terms_sep not in str(node_id)
             for term in terms_list:
                 if node_terms_sep in term:
                     raise ValueError(f"col_sep {node_terms_sep} is present in data being saved")
                 if terms_sep in term:
                     raise ValueError(f"terms_sep {terms_sep} is present in data being saved")
             terms_str = terms_sep.join(terms_list)
-            out_file.write(f"{cui}{node_terms_sep}{terms_str}\n")
+            out_file.write(f"{node_id}{node_terms_sep}{terms_str}\n")
     logging.info("Finished saving CUIs and terms")
 
 

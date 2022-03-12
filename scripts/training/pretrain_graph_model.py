@@ -89,6 +89,9 @@ def train_model(model, train_loader, val_loader, learning_rate: float, num_epoch
         update_log_file(path=log_file_path, dict_to_log=log_dict)
 
 
+# TODO: Добавить логирование кривых обучения по эпохам
+# TODO: Откусить испанский (или русский) для того, чтобы произвести на нём отладку
+# TODO: Рисовать кривые обучения, надо же как-то затюнить параметры
 def main(args):
     output_dir = args.output_dir
     if not os.path.exists(output_dir) and output_dir != '':
@@ -110,6 +113,26 @@ def main(args):
                                                      max_length=args.text_encoder_seq_length)
     val_num_nodes = len(set(val_node_id2terms_dict.keys()))
     val_edge_index = convert_edges_tuples_to_edge_index(edges_tuples=val_edges_tuples, num_nodes=val_num_nodes)
+    if args.debug:
+        print("train_node_id2terms_dict:")
+        for k, v in train_node_id2terms_dict.items()[:3]:
+            print(f"{k} ||| {v}")
+        print(f"train_edges_tuples: {len(train_edges_tuples)}, {train_edges_tuples[:3]}")
+        print("train_node_id2token_ids_dict:")
+        for k, v in train_node_id2token_ids_dict.items()[:3]:
+            print(f"{k} ||| {v}")
+        print(f"train_num_nodes: {train_num_nodes}")
+        print(f"train_edge_index size: {train_edge_index.size()}")
+        print('--' * 10)
+        print("val_node_id2terms_dict:")
+        for k, v in val_node_id2terms_dict.items()[:3]:
+            print(f"{k} ||| {v}")
+        print(f"val_edges_tuples: {len(val_edges_tuples)}, {val_edges_tuples[:3]}")
+        print("val_node_id2token_ids_dict:")
+        for k, v in val_node_id2token_ids_dict.items()[:3]:
+            print(f"{k} ||| {v}")
+        print(f"val_num_nodes: {val_num_nodes}")
+        print(f"val_edge_index size: {val_edge_index.size()}")
 
     train_loader = NeighborSampler(node_id_to_token_ids_dict=train_node_id2token_ids_dict, edge_index=train_edge_index,
                                    sizes=args.num_graph_neighbors, random_walk_length=args.random_walk_length,
@@ -150,8 +173,9 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int)
     parser.add_argument('--learning_rate', type=float)
     parser.add_argument('--num_epochs', type=int)
+    parser.add_argument('--debug', action='store_true')
     parser.add_argument('--random_state', type=int)
-    parser.add_argument('--gpus', type=int)
+    parser.add_argument('--gpus', type=int, default=1)
     parser.add_argument('--output_dir', type=str)
     arguments = parser.parse_args()
     seed = arguments.random_state
