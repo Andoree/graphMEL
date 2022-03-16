@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 
 def save_node_id2terms_list(save_path: str, mapping: Dict[str, List[str]], node_terms_sep: str = '\t',
-                            terms_sep: str = '~~'):
+                            terms_sep: str = '|||'):
     num_concepts = len(mapping)
     logging.info(f"Saving CUIs and terms. There are {num_concepts}")
     with codecs.open(save_path, 'w+', encoding="utf-8") as out_file:
@@ -43,7 +43,7 @@ def save_tuples(save_path: str, tuples: List[Tuple], sep='\t'):
     logging.info("Finished saving tuples")
 
 
-def load_node_id2terms_list(dict_path: str, node_terms_sep: str = '\t', terms_sep: str = '~~') \
+def load_node_id2terms_list(dict_path: str, node_terms_sep: str = '\t', terms_sep: str = '|||') \
         -> Dict[int, List[str]]:
     logging.info("Loading node_id to terms map")
     node_id2_terms: Dict[int, List[str]] = {}
