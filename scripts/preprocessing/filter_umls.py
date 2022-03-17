@@ -39,5 +39,5 @@ if __name__ == '__main__':
     final = filtered_umls
     if not args.save_all:
         final = final[[args.concept_id_column, 'STR']]
-    output_path = os.path.join(output_dir, output_path)
+    output_path = os.path.join(output_dir, output_fname)
     final.drop_duplicates().to_csv(output_path, index=False, header=False, sep='|')
