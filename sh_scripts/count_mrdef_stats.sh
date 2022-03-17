@@ -5,7 +5,8 @@
 #SBATCH --time=00:20:00                      # Максимальное время выполнения
 #SBATCH --cpus-per-task=1                   # Количество CPU на одну задачу
 
-python ../scripts/statistics/count_concept_descriptions.py --mrconso "../UMLS/MRCONSO.RRF" \
---mrdef "../UMLS/MRDEF.RRF" \
---output_path "../scripts/statistics/stats.txt"
+python ../scripts/statistics/count_concept_descriptions.py --mrconso "../UMLS/2020AA/MRCONSO.RRF" \
+--groupby_sab \
+--mrdef "../UMLS/2020AA/MRDEF.RRF" \
+--output_path "../scripts/statistics/stats_2020AA.txt"
 
