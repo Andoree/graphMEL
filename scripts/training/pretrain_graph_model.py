@@ -115,22 +115,26 @@ def main(args):
     val_edge_index = convert_edges_tuples_to_edge_index(edges_tuples=val_edges_tuples, num_nodes=val_num_nodes)
     if args.debug:
         print("train_node_id2terms_dict:")
-        for k, v in train_node_id2terms_dict.items()[:3]:
-            print(f"{k} ||| {v}")
+        for i, (k, v) in enumerate(train_node_id2terms_dict.items()):
+            if i < 3:
+                print(f"{k} ||| {v}")
         print(f"train_edges_tuples: {len(train_edges_tuples)}, {train_edges_tuples[:3]}")
         print("train_node_id2token_ids_dict:")
-        for k, v in train_node_id2token_ids_dict.items()[:3]:
-            print(f"{k} ||| {v}")
+        for i, (k, v) in enumerate(train_node_id2token_ids_dict.items()):
+            if i < 3:
+                print(f"{k} ||| {v}")
         print(f"train_num_nodes: {train_num_nodes}")
         print(f"train_edge_index size: {train_edge_index.size()}")
         print('--' * 10)
         print("val_node_id2terms_dict:")
-        for k, v in val_node_id2terms_dict.items()[:3]:
-            print(f"{k} ||| {v}")
+        for i, (k, v) in enumerate(val_node_id2terms_dict.items()):
+            if i < 3:
+                print(f"{k} ||| {v}")
         print(f"val_edges_tuples: {len(val_edges_tuples)}, {val_edges_tuples[:3]}")
         print("val_node_id2token_ids_dict:")
-        for k, v in val_node_id2token_ids_dict.items()[:3]:
-            print(f"{k} ||| {v}")
+        for i, (k, v) in enumerate(val_node_id2token_ids_dict.items()):
+            if i < 3:
+                print(f"{k} ||| {v}")
         print(f"val_num_nodes: {val_num_nodes}")
         print(f"val_edge_index size: {val_edge_index.size()}")
 
