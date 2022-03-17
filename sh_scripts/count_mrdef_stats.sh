@@ -7,6 +7,6 @@
 
 python ../scripts/statistics/count_concept_descriptions.py --mrconso "../UMLS/2020AB/MRCONSO.RRF" \
 --groupby_sab \
---mrdef "../UMLS/2020AA/MRDEF.RRF" \
+--mrdef "../UMLS/2020AB/MRDEF.RRF" \
 --groupby_stats_output_path "../statistics/stats_2020AB.txt" \
 --global_stats_output_path "../statistics/stats_2020AB.txt"
