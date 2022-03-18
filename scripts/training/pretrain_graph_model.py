@@ -4,6 +4,7 @@ import random
 from argparse import ArgumentParser
 
 import numpy as np
+from tqdm import tqdm
 
 from graphmel.scripts.training.dataset import tokenize_node_terms, NeighborSampler, convert_edges_tuples_to_edge_index
 from graphmel.scripts.training.model import GraphSAGEOverBert
@@ -35,7 +36,7 @@ def train_epoch(model, train_loader, optimizer, device):
     total_loss = 0
     num_steps = 0
 
-    for (batch_size, n_id, adjs, input_ids, attention_mask) in train_loader:
+    for (batch_size, n_id, adjs, input_ids, attention_mask) in tqdm(train_loader, miniters=len(train_loader) // 100):
         # `adjs` holds a list of `(edge_index, e_id, size)` tuples.
         adjs = [adj.to(device) for adj in adjs]
         optimizer.zero_grad()
@@ -53,7 +54,7 @@ def eval_epoch(model, val_loader, device):
     model.eval()
     total_loss = 0
     with torch.no_grad():
-        for (batch_size, n_id, adjs, input_ids, attention_mask) in val_loader:
+        for (batch_size, n_id, adjs, input_ids, attention_mask) in tqdm(val_loader, miniters=len(val_loader) // 100):
             # `adjs` holds a list of `(edge_index, e_id, size)` tuples.
             adjs = [adj.to(device) for adj in adjs]
             model_output, loss = model_step(model, input_ids, attention_mask, adjs, device)
@@ -135,7 +136,6 @@ def main(args):
         print("val_node_id2token_ids_dict:")
         for i, (k, v) in enumerate(val_node_id2token_ids_dict.items()):
             if i < 3:
-
                 print(f"{k} ||| {v}")
         print(f"val_num_nodes: {val_num_nodes}")
         print(f"val_edge_index size: {val_edge_index.size()}")
