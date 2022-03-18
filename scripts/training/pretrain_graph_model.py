@@ -161,13 +161,15 @@ def main(args):
                                  shuffle=False, num_nodes=val_num_nodes, seq_max_length=args.text_encoder_seq_length)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-    model = GraphSAGEOverBert(bert_encoder=bert_encoder, hidden_channels=args.graphsage_num_channels,
-                              num_layers=args.graphsage_num_layers,
-                              graphsage_dropout=args.graphsage_dropout)
+    multigpu_flag = False
     if args.gpus > 1:
-        model = nn.DataParallel(model)
-    model = model.to(device)
+        multigpu_flag = True
+    model = GraphSAGEOverBert(bert_encoder=bert_encoder, hidden_channels=args.graphsage_num_channels,
+                              num_layers=args.graphsage_num_layers, multigpu_flag=multigpu_flag,
+                              graphsage_dropout=args.graphsage_dropout).to(device)
+
+    # model = nn.DataParallel(model)
+    # model = model.to(device)
     train_model(model=model, train_loader=train_loader, val_loader=val_loader, learning_rate=args.learning_rate,
                 num_epochs=args.num_epochs, output_dir=output_dir, device=device)
 
