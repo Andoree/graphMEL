@@ -96,8 +96,13 @@ def train_model(model, train_loader, val_loader, learning_rate: float, num_epoch
 # TODO: Рисовать кривые обучения, надо же как-то затюнить параметры
 def main(args):
     output_dir = args.output_dir
+    output_subdir = f"gs_{args.graphsage_num_layers}-{args.graphsage_num_channels}_" \
+                    f"{'.'.join((str(x) for x in args.graph_num_neighbors))}_{args.graphsage_dropout}_" \
+                    f"lr_{args.learning_rate}_b_{args.batch_size}_rwl_{args.random_walk_length}"
+    output_dir = os.path.join(output_dir, output_subdir)
     if not os.path.exists(output_dir) and output_dir != '':
         os.makedirs(output_dir)
+
     train_node_id2terms_dict = load_node_id2terms_list(dict_path=args.train_node2terms_path, )
     train_edges_tuples = load_tuples(args.train_edges_path)
     val_node_id2terms_dict = load_node_id2terms_list(dict_path=args.val_node2terms_path, )
