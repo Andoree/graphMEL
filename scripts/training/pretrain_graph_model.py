@@ -134,16 +134,17 @@ def main(args):
         print("val_node_id2token_ids_dict:")
         for i, (k, v) in enumerate(val_node_id2token_ids_dict.items()):
             if i < 3:
+
                 print(f"{k} ||| {v}")
         print(f"val_num_nodes: {val_num_nodes}")
         print(f"val_edge_index size: {val_edge_index.size()}")
 
     train_loader = NeighborSampler(node_id_to_token_ids_dict=train_node_id2token_ids_dict, edge_index=train_edge_index,
-                                   sizes=args.num_graph_neighbors, random_walk_length=args.random_walk_length,
+                                   sizes=args.graph_num_neighbors, random_walk_length=args.random_walk_length,
                                    batch_size=args.batch_size,
                                    shuffle=True, num_nodes=train_num_nodes, seq_max_length=args.text_encoder_seq_length)
     val_loader = NeighborSampler(node_id_to_token_ids_dict=val_node_id2token_ids_dict, edge_index=val_edge_index,
-                                 sizes=args.num_graph_neighbors, random_walk_length=args.random_walk_length,
+                                 sizes=args.graph_num_neighbors, random_walk_length=args.random_walk_length,
                                  batch_size=args.batch_size,
                                  shuffle=False, num_nodes=val_num_nodes, seq_max_length=args.text_encoder_seq_length)
 
