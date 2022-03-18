@@ -61,10 +61,10 @@ class NeighborSampler(RawNeighborSampler):
         return batch_size, n_id, adjs, batch_input_ids, batch_attention_masks
 
 
-def convert_edges_tuples_to_edge_index(edges_tuples: List[Tuple[int, int]], num_nodes: int) -> torch.Tensor:
-    edge_index = torch.zeros(size=[2, num_nodes], dtype=torch.long)
+def convert_edges_tuples_to_edge_index(edges_tuples: List[Tuple[int, int]]) -> torch.Tensor:
+    edge_index = torch.zeros(size=[2, len(edges_tuples)], dtype=torch.long)
     for idx, (id_1, id_2) in enumerate(edges_tuples):
-        edge_index[0][id_1] = 1
-        edge_index[1][id_2] = 1
+        edge_index[0][idx] = id_1
+        edge_index[1][idx] = id_2
 
     return edge_index

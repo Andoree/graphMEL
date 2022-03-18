@@ -34,6 +34,7 @@ def train_epoch(model, train_loader, optimizer, device):
     model.train()
     total_loss = 0
     num_steps = 0
+
     for (batch_size, n_id, adjs, input_ids, attention_mask) in train_loader:
         # `adjs` holds a list of `(edge_index, e_id, size)` tuples.
         adjs = [adj.to(device) for adj in adjs]
@@ -107,12 +108,12 @@ def main(args):
     train_node_id2token_ids_dict = tokenize_node_terms(train_node_id2terms_dict, tokenizer,
                                                        max_length=args.text_encoder_seq_length)
     train_num_nodes = len(set(train_node_id2terms_dict.keys()))
-    train_edge_index = convert_edges_tuples_to_edge_index(edges_tuples=train_edges_tuples, num_nodes=train_num_nodes)
+    train_edge_index = convert_edges_tuples_to_edge_index(edges_tuples=train_edges_tuples)
 
     val_node_id2token_ids_dict = tokenize_node_terms(val_node_id2terms_dict, tokenizer,
                                                      max_length=args.text_encoder_seq_length)
     val_num_nodes = len(set(val_node_id2terms_dict.keys()))
-    val_edge_index = convert_edges_tuples_to_edge_index(edges_tuples=val_edges_tuples, num_nodes=val_num_nodes)
+    val_edge_index = convert_edges_tuples_to_edge_index(edges_tuples=val_edges_tuples)
     if args.debug:
         print("train_node_id2terms_dict:")
         for i, (k, v) in enumerate(train_node_id2terms_dict.items()):
