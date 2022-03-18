@@ -14,7 +14,7 @@ def calc_concept_definition_stats(mrconso_df: pd.DataFrame, mrdef_df: pd.DataFra
     unique_concept_ids = set(mrconso_df["CUI"].unique())
     unique_concept_ids_with_defs = set(mrdef_df["CUI"].unique())
     concept_def_intersection = unique_concept_ids.intersection(unique_concept_ids_with_defs)
-    stats_dict = {
+    global_stats_dict = {
         "# Unique CUIs": len(unique_concept_ids),
         "# Concepts with definitions": len(unique_concept_ids_with_defs),
         "Concepts with definitions proportion": len(concept_def_intersection) / len(unique_concept_ids)
@@ -43,7 +43,7 @@ def calc_concept_definition_stats(mrconso_df: pd.DataFrame, mrdef_df: pd.DataFra
             entries.append(stats_dict)
         by_dataset_stats_df = pd.DataFrame(entries)
 
-    return by_dataset_stats_df, stats_dict
+    return by_dataset_stats_df, global_stats_dict
 
 
 def main():
@@ -66,11 +66,11 @@ def main():
 
     df_mrconso = read_mrconso(args.mrconso)
     df_mrdef = read_mrdef(args.mrdef)
-    concepts_with_def_stats_df, stats_dict = calc_concept_definition_stats(mrconso_df=df_mrconso, mrdef_df=df_mrdef,
+    concepts_with_def_stats_df, global_stats_dict = calc_concept_definition_stats(mrconso_df=df_mrconso, mrdef_df=df_mrdef,
                                                                            groupby_sab=groupby_sab)
     if concepts_with_def_stats_df is not None:
         concepts_with_def_stats_df.to_csv(groupby_stats_output_path, sep='\t', index=False)
-    save_dict(save_path=global_stats_output_path, dictionary=stats_dict, )
+    save_dict(save_path=global_stats_output_path, dictionary=global_stats_dict, )
 
 
 if __name__ == '__main__':
