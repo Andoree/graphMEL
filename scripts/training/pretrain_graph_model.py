@@ -81,13 +81,19 @@ def train_model(model, train_loader, val_loader, learning_rate: float, num_epoch
         assert epoch_val_loss_1 == epoch_val_loss_2
         log_dict = {"epoch": i, "train loss": {epoch_train_loss}, "val loss": epoch_val_loss_1}
         logging.info(', '.join((f"{k}: {v}" for k, v in log_dict.items())))
-
         # TODO: Потом убрать двойную проверку как удостоверюсь, что валидация детерминирована
         train_loss_history.append(epoch_train_loss)
         val_loss_history.append(epoch_val_loss_1)
 
-        chkpnt_path = os.path.join(output_dir, f"checkpoint_e_{i}_steps_{num_steps}")
-        torch.save(model.state_dict(), chkpnt_path)
+        checkpoint = {
+            'epoch': i + 1,
+            'model_state': model.state_dict(),
+            'optimizer': optimizer,
+        }
+
+        chkpnt_path = os.path.join(output_dir, f"checkpoint_e_{i}_steps_{global_num_steps}.pth")
+        torch.save(checkpoint, chkpnt_path)
+        # torch.save(model.state_dict(), chkpnt_path)
         update_log_file(path=log_file_path, dict_to_log=log_dict)
 
 
