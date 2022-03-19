@@ -151,7 +151,7 @@ def main(args):
                 print(f"{k} ||| {v}")
         print(f"val_num_nodes: {val_num_nodes}")
         print(f"val_edge_index size: {val_edge_index.size()}")
-
+    logging.info(f"There are {train_num_nodes} nodes in train and {val_num_nodes} nodes in validation")
     train_loader = NeighborSampler(node_id_to_token_ids_dict=train_node_id2token_ids_dict, edge_index=train_edge_index,
                                    sizes=args.graph_num_neighbors, random_walk_length=args.random_walk_length,
                                    batch_size=args.batch_size,
