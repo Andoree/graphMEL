@@ -20,19 +20,15 @@ class GraphSAGEOverBert(nn.Module):
         super(GraphSAGEOverBert, self).__init__()
         self.num_layers = num_layers
         self.convs = nn.ModuleList()
+        self.bert_hidden_dim = bert_encoder.config.hidden_size
         if multigpu_flag:
             self.bert_encoder = nn.DataParallel(bert_encoder)
-            for i in range(num_layers):
-                in_channels = self.bert_hidden_dim if i == 0 else hidden_channels
-                self.convs.append(nn.DataParallel(SAGEConv(in_channels, hidden_channels)))
         else:
             self.bert_encoder = bert_encoder
-            for i in range(num_layers):
-                in_channels = self.bert_hidden_dim if i == 0 else hidden_channels
-                self.convs.append(SAGEConv(in_channels, hidden_channels))
-        self.bert_encoder = bert_encoder
-        self.bert_hidden_dim = bert_encoder.config.hidden_size
         self.graphsage_dropout = graphsage_dropout
+        for i in range(num_layers):
+            in_channels = self.bert_hidden_dim if i == 0 else hidden_channels
+            self.convs.append(SAGEConv(in_channels, hidden_channels))
 
 
 

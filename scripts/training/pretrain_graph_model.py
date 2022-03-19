@@ -161,7 +161,7 @@ def main(args):
                                  batch_size=args.batch_size,
                                  shuffle=False, num_nodes=val_num_nodes, seq_max_length=args.text_encoder_seq_length)
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     multigpu_flag = False
     if args.gpus > 1:
         multigpu_flag = True
