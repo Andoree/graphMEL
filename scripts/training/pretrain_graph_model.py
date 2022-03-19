@@ -78,8 +78,9 @@ def train_model(model, train_loader, val_loader, learning_rate: float, num_epoch
         global_num_steps += num_steps
         epoch_val_loss_1 = eval_epoch(model=model, val_loader=val_loader, device=device)
         epoch_val_loss_2 = eval_epoch(model=model, val_loader=val_loader, device=device)
-        assert epoch_val_loss_1 == epoch_val_loss_2
-        log_dict = {"epoch": i, "train loss": {epoch_train_loss}, "val loss": epoch_val_loss_1}
+        # assert epoch_val_loss_1 == epoch_val_loss_2
+        log_dict = {"epoch": i, "train loss": {epoch_train_loss}, "val loss 1": epoch_val_loss_1,
+                    "val loss 2": epoch_val_loss_2}
         logging.info(', '.join((f"{k}: {v}" for k, v in log_dict.items())))
         # TODO: Потом убрать двойную проверку как удостоверюсь, что валидация детерминирована
         train_loss_history.append(epoch_train_loss)
