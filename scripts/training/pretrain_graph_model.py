@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 from graphmel.scripts.training.dataset import tokenize_node_terms, NeighborSampler, convert_edges_tuples_to_edge_index
 from graphmel.scripts.training.model import GraphSAGEOverBert
-from graphmel.scripts.utils.io import load_node_id2terms_list, load_tuples, update_log_file
+from graphmel.scripts.utils.io import load_node_id2terms_list, load_tuples, update_log_file, save_dict
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -63,16 +63,25 @@ def eval_epoch(model, val_loader, device):
     return total_loss / len(val_loader)
 
 
-def train_model(model, train_loader, val_loader, learning_rate: float, num_epochs: int, output_dir: str,
-                device: torch.device):
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+def train_model(model, chkpnt_path: str, train_loader, val_loader, learning_rate: float, num_epochs: int,
+                output_dir: str, device: torch.device):
+    if chkpnt_path is not None:
+        logging.info(f"Successfully loaded checkpoint from: {chkpnt_path}")
+        checkpoint = torch.load(chkpnt_path)
+        optimizer = checkpoint["optimizer"]
+        start_epoch = checkpoint["epoch"]
+        model.load_state_dict(checkpoint["model_state"])
+
+    else:
+        start_epoch = 0
+        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     log_file_path = os.path.join(output_dir, "training_log.txt")
 
     train_loss_history = []
     val_loss_history = []
     logging.info("Starting training process....")
     global_num_steps = 0
-    for i in range(num_epochs):
+    for i in range(start_epoch, start_epoch + num_epochs):
         epoch_train_loss, num_steps = train_epoch(model=model, train_loader=train_loader, optimizer=optimizer,
                                                   device=device)
         global_num_steps += num_steps
@@ -109,6 +118,8 @@ def main(args):
     output_dir = os.path.join(output_dir, output_subdir)
     if not os.path.exists(output_dir) and output_dir != '':
         os.makedirs(output_dir)
+    model_descr_path = os.path.join(output_dir, "model_description.tsv")
+    save_dict(save_path=model_descr_path, dictionary=args, )
 
     train_node_id2terms_dict = load_node_id2terms_list(dict_path=args.train_node2terms_path, )
     train_edges_tuples = load_tuples(args.train_edges_path)
@@ -171,8 +182,8 @@ def main(args):
 
     # model = nn.DataParallel(model)
     # model = model.to(device)
-    train_model(model=model, train_loader=train_loader, val_loader=val_loader, learning_rate=args.learning_rate,
-                num_epochs=args.num_epochs, output_dir=output_dir, device=device)
+    train_model(model=model, chkpnt_path=args.model_checkpoint_path, train_loader=train_loader, val_loader=val_loader,
+                learning_rate=args.learning_rate, num_epochs=args.num_epochs, output_dir=output_dir, device=device)
 
 
 if __name__ == '__main__':
@@ -185,6 +196,7 @@ if __name__ == '__main__':
     parser.add_argument('--val_edges_path', type=str)
     parser.add_argument('--text_encoder', type=str)
     parser.add_argument('--text_encoder_seq_length', type=int)
+    parser.add_argument('--model_checkpoint_path', required=False, default=None)
     parser.add_argument('--graphsage_num_layers', type=int)
     parser.add_argument('--graphsage_num_channels', type=int)
     parser.add_argument('--graph_num_neighbors', type=int, nargs='+', )
