@@ -64,14 +64,13 @@ def eval_epoch(model, val_loader, device):
 
 
 def train_model(model, chkpnt_path: str, train_loader, val_loader, learning_rate: float, num_epochs: int,
-                output_dir: str, device: torch.device):
+                output_dir: str, save_chkpnt_epoch_interval: int, device: torch.device):
     if chkpnt_path is not None:
         logging.info(f"Successfully loaded checkpoint from: {chkpnt_path}")
         checkpoint = torch.load(chkpnt_path)
         optimizer = checkpoint["optimizer"]
         start_epoch = checkpoint["epoch"]
         model.load_state_dict(checkpoint["model_state"])
-
     else:
         start_epoch = 0
         optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
@@ -88,21 +87,21 @@ def train_model(model, chkpnt_path: str, train_loader, val_loader, learning_rate
         epoch_val_loss_1 = eval_epoch(model=model, val_loader=val_loader, device=device)
         epoch_val_loss_2 = eval_epoch(model=model, val_loader=val_loader, device=device)
         # assert epoch_val_loss_1 == epoch_val_loss_2
-        log_dict = {"epoch": i, "train loss": {epoch_train_loss}, "val loss 1": epoch_val_loss_1,
+        log_dict = {"epoch": i, "train loss": epoch_train_loss, "val loss 1": epoch_val_loss_1,
                     "val loss 2": epoch_val_loss_2}
         logging.info(', '.join((f"{k}: {v}" for k, v in log_dict.items())))
         # TODO: Потом убрать двойную проверку как удостоверюсь, что валидация детерминирована
         train_loss_history.append(epoch_train_loss)
         val_loss_history.append(epoch_val_loss_1)
+        if i % save_chkpnt_epoch_interval:
+            checkpoint = {
+                'epoch': i + 1,
+                'model_state': model.state_dict(),
+                'optimizer': optimizer,
+            }
 
-        checkpoint = {
-            'epoch': i + 1,
-            'model_state': model.state_dict(),
-            'optimizer': optimizer,
-        }
-
-        chkpnt_path = os.path.join(output_dir, f"checkpoint_e_{i}_steps_{global_num_steps}.pth")
-        torch.save(checkpoint, chkpnt_path)
+            chkpnt_path = os.path.join(output_dir, f"checkpoint_e_{i}_steps_{global_num_steps}.pth")
+            torch.save(checkpoint, chkpnt_path)
         # torch.save(model.state_dict(), chkpnt_path)
         update_log_file(path=log_file_path, dict_to_log=log_dict)
 
@@ -183,40 +182,41 @@ def main(args):
     # model = nn.DataParallel(model)
     # model = model.to(device)
     train_model(model=model, chkpnt_path=args.model_checkpoint_path, train_loader=train_loader, val_loader=val_loader,
-                learning_rate=args.learning_rate, num_epochs=args.num_epochs, output_dir=output_dir, device=device)
+                learning_rate=args.learning_rate, num_epochs=args.num_epochs, output_dir=output_dir,
+                save_chkpnt_epoch_interval=args.save_every_N_epoch, device=device)
 
-
-if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s',
-                        datefmt='%Y-%m-%d %H:%M:%S', )
-    parser = ArgumentParser()
-    parser.add_argument('--train_node2terms_path', type=str)
-    parser.add_argument('--train_edges_path', type=str)
-    parser.add_argument('--val_node2terms_path', type=str)
-    parser.add_argument('--val_edges_path', type=str)
-    parser.add_argument('--text_encoder', type=str)
-    parser.add_argument('--text_encoder_seq_length', type=int)
-    parser.add_argument('--model_checkpoint_path', required=False, default=None)
-    parser.add_argument('--graphsage_num_layers', type=int)
-    parser.add_argument('--graphsage_num_channels', type=int)
-    parser.add_argument('--graph_num_neighbors', type=int, nargs='+', )
-    parser.add_argument('--graphsage_dropout', type=float, )
-    parser.add_argument('--random_walk_length', type=int)
-    parser.add_argument('--batch_size', type=int)
-    parser.add_argument('--learning_rate', type=float)
-    parser.add_argument('--num_epochs', type=int)
-    parser.add_argument('--debug', action='store_true')
-    parser.add_argument('--random_state', type=int)
-    parser.add_argument('--gpus', type=int, default=1)
-    parser.add_argument('--output_dir', type=str)
-    arguments = parser.parse_args()
-    seed = arguments.random_state
-    torch.manual_seed(seed)
-    torch.random.manual_seed(seed)
-    os.environ['PYTHONHASHSEED'] = str(seed)
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.cuda.random.manual_seed(seed)
-    torch.cuda.random.manual_seed_all(seed)
-    torch.backends.cudnn.deterministic = True
-    main(arguments)
+    if __name__ == '__main__':
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s',
+                            datefmt='%Y-%m-%d %H:%M:%S', )
+        parser = ArgumentParser()
+        parser.add_argument('--train_node2terms_path', type=str)
+        parser.add_argument('--train_edges_path', type=str)
+        parser.add_argument('--val_node2terms_path', type=str)
+        parser.add_argument('--val_edges_path', type=str)
+        parser.add_argument('--text_encoder', type=str)
+        parser.add_argument('--text_encoder_seq_length', type=int)
+        parser.add_argument('--model_checkpoint_path', required=False, default=None)
+        parser.add_argument('--save_every_N_epoch', type=int, default=1)
+        parser.add_argument('--graphsage_num_layers', type=int)
+        parser.add_argument('--graphsage_num_channels', type=int)
+        parser.add_argument('--graph_num_neighbors', type=int, nargs='+', )
+        parser.add_argument('--graphsage_dropout', type=float, )
+        parser.add_argument('--random_walk_length', type=int)
+        parser.add_argument('--batch_size', type=int)
+        parser.add_argument('--learning_rate', type=float)
+        parser.add_argument('--num_epochs', type=int)
+        parser.add_argument('--debug', action='store_true')
+        parser.add_argument('--random_state', type=int)
+        parser.add_argument('--gpus', type=int, default=1)
+        parser.add_argument('--output_dir', type=str)
+        arguments = parser.parse_args()
+        seed = arguments.random_state
+        torch.manual_seed(seed)
+        torch.random.manual_seed(seed)
+        os.environ['PYTHONHASHSEED'] = str(seed)
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.cuda.random.manual_seed(seed)
+        torch.cuda.random.manual_seed_all(seed)
+        torch.backends.cudnn.deterministic = True
+        main(arguments)
