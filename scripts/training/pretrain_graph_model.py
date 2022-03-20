@@ -93,7 +93,7 @@ def train_model(model, chkpnt_path: str, train_loader, val_loader, learning_rate
         # TODO: Потом убрать двойную проверку как удостоверюсь, что валидация детерминирована
         train_loss_history.append(epoch_train_loss)
         val_loss_history.append(epoch_val_loss_1)
-        if i % save_chkpnt_epoch_interval:
+        if i % save_chkpnt_epoch_interval == 0:
             checkpoint = {
                 'epoch': i + 1,
                 'model_state': model.state_dict(),
