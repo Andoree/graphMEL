@@ -118,7 +118,7 @@ def main(args):
     if not os.path.exists(output_dir) and output_dir != '':
         os.makedirs(output_dir)
     model_descr_path = os.path.join(output_dir, "model_description.tsv")
-    save_dict(save_path=model_descr_path, dictionary=args, )
+    save_dict(save_path=model_descr_path, dictionary=vars(args), )
 
     train_node_id2terms_dict = load_node_id2terms_list(dict_path=args.train_node2terms_path, )
     train_edges_tuples = load_tuples(args.train_edges_path)

@@ -88,7 +88,7 @@ def main():
         create_graph_files(mrconso_df=mrconso_df, mrrel_df=mrrel_df,
                            output_node_id2terms_list_path=output_node_id2terms_list_path,
                            output_node_id2cui_path=output_node_id2cui_path,
-                           output_edges_path=output_edges_path, ignore_not_mapped_edges=False)
+                           output_edges_path=output_edges_path, ignore_not_mapped_edges=True)
 
 
 if __name__ == '__main__':
