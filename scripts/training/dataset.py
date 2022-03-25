@@ -72,7 +72,7 @@ def convert_edges_tuples_to_edge_index(edges_tuples: List[Tuple[int, int]]) -> t
     for idx, (id_1, id_2) in enumerate(edges_tuples):
         edge_index[0][idx] = id_1
         edge_index[1][idx] = id_2
-    logging.info(f"Edge index is created. The size is {edge_index.size()}, there are f{edge_index.max()} nodes")
+    logging.info(f"Edge index is created. The size is {edge_index.size()}, there are {edge_index.max()} nodes")
 
     return edge_index
 
@@ -80,7 +80,7 @@ def convert_edges_tuples_to_edge_index(edges_tuples: List[Tuple[int, int]]) -> t
 class Node2vecDataset(Dataset):
     def __init__(self, edge_index, node_id_to_token_ids_dict: Dict[int, List[List[int]]], walk_length: int,
                  walks_per_node: int, p: float, q: float, num_negative_samples: int, context_size: int,
-                 num_nodes=None, ):
+                 seq_max_length, num_nodes=None, ):
         assert walk_length >= context_size
         self.node_id_to_token_ids_dict = node_id_to_token_ids_dict
         self.walks_per_node = walks_per_node
@@ -97,6 +97,7 @@ class Node2vecDataset(Dataset):
         self.p = p
         self.q = q
         self.num_negative_samples = num_negative_samples
+        self.seq_max_length = seq_max_length
 
     def __getitem__(self, idx):
         return idx
@@ -118,7 +119,7 @@ class Node2vecDataset(Dataset):
     def pos_sample(self, batch):
         batch = batch.repeat(self.walks_per_node)
 
-        rowptr, col, _ = self.adj.csr()
+        rowptr, col, _ = self.adj.coo()
         rw = random_walk(rowptr, col, batch, self.walk_length, self.p, self.q)
         if not isinstance(rw, torch.Tensor):
             rw = rw[0]

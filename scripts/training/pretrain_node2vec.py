@@ -108,13 +108,13 @@ def main(args):
                                     p=args.node2vec_p, q=args.node2vec_q,
                                     num_negative_samples=args.node2vec_num_negative_samples,
                                     context_size=args.node2vec_context_size,
-                                    num_nodes=train_num_nodes, )
+                                    num_nodes=train_num_nodes, seq_max_length=args.text_encoder_seq_length)
     val_dataset = Node2vecDataset(edge_index=val_edge_index, node_id_to_token_ids_dict=val_node_id2token_ids_dict,
                                   walk_length=args.node2vec_walk_length, walks_per_node=args.node2vec_walks_per_node,
                                   p=args.node2vec_p, q=args.node2vec_q,
                                   num_negative_samples=args.node2vec_num_negative_samples,
                                   context_size=args.node2vec_context_size,
-                                  num_nodes=val_num_nodes, )
+                                  num_nodes=val_num_nodes, seq_max_length=args.text_encoder_seq_length)
     train_loader = DataLoader(train_dataset, collate_fn=train_dataset.sample, batch_size=args.batch_size,
                               num_workers=args.dataloader_num_workers, shuffle=True)
     val_loader = DataLoader(val_dataset, collate_fn=val_dataset.sample, batch_size=args.batch_size,
