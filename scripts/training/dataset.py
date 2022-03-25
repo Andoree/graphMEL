@@ -72,7 +72,8 @@ def convert_edges_tuples_to_edge_index(edges_tuples: List[Tuple[int, int]]) -> t
     for idx, (id_1, id_2) in enumerate(edges_tuples):
         edge_index[0][idx] = id_1
         edge_index[1][idx] = id_2
-    logging.info(f"Edge index is created. The size is {edge_index.size()}")
+    logging.info(f"Edge index is created. The size is {edge_index.size()}, there are f{edge_index.max()} nodes")
+
     return edge_index
 
 
