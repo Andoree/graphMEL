@@ -1,8 +1,12 @@
 import random
 from typing import Dict, List, Tuple
+
+from torch.utils.data import Dataset
 from torch_geometric.loader import NeighborSampler as RawNeighborSampler
 from torch_cluster import random_walk
 import torch
+from torch_sparse import SparseTensor
+from torch_geometric.utils.num_nodes import maybe_num_nodes
 
 
 def tokenize_node_terms(node_id_to_terms_dict, tokenizer, max_length: int) -> Dict[int, List[List[int]]]:
@@ -68,3 +72,84 @@ def convert_edges_tuples_to_edge_index(edges_tuples: List[Tuple[int, int]]) -> t
         edge_index[1][idx] = id_2
 
     return edge_index
+
+
+class Node2vecDataset(Dataset):
+    def __init__(self, edge_index, node_id_to_token_ids_dict: Dict[int: [List[List[int]]]], walk_length: int,
+                 walks_per_node: int, p: float, q: float, num_negative_samples: int, context_size: int,
+                 num_nodes=None, ):
+        assert walk_length >= context_size
+        self.node_id_to_token_ids_dict = node_id_to_token_ids_dict
+        self.walks_per_node = walks_per_node
+        if random_walk is None:
+            raise ImportError('`Node2Vec` requires `torch-cluster`.')
+
+        N = maybe_num_nodes(edge_index, num_nodes)
+        row, col = edge_index
+        self.adj = SparseTensor(row=row, col=col, sparse_sizes=(N, N))
+        self.adj = self.adj.to('cpu')
+        self.walk_length = walk_length - 1
+        self.context_size = context_size
+        self.walks_per_node = walks_per_node
+        self.p = p
+        self.q = q
+        self.num_negative_samples = num_negative_samples
+
+    def __getitem__(self, idx):
+        return idx
+
+    def __len__(self):
+        return self.adj.sparse_size(0)
+
+    def sample(self, batch):
+        if not isinstance(batch, torch.Tensor):
+            batch = torch.tensor(batch)
+        pos_batch = self.pos_sample(batch)
+        neg_batch = self.neg_sample(batch)
+
+        pos_batch_input_ids, pos_batch_attention_masks = self.node_ids2tokenizer_output(pos_batch)
+        neg_batch_input_ids, neg_batch_attention_masks = self.node_ids2tokenizer_output(neg_batch)
+
+        return pos_batch_input_ids, pos_batch_attention_masks, neg_batch_input_ids, neg_batch_attention_masks
+
+    def pos_sample(self, batch):
+        batch = batch.repeat(self.walks_per_node)
+
+        rowptr, col, _ = self.adj.csr()
+        rw = random_walk(rowptr, col, batch, self.walk_length, self.p, self.q)
+        if not isinstance(rw, torch.Tensor):
+            rw = rw[0]
+
+        walks = []
+        num_walks_per_rw = 1 + self.walk_length + 1 - self.context_size
+        for j in range(num_walks_per_rw):
+            walks.append(rw[:, j:j + self.context_size])
+        return torch.cat(walks, dim=0)
+
+    def neg_sample(self, batch):
+        batch = batch.repeat(self.walks_per_node * self.num_negative_samples)
+
+        rw = torch.randint(self.adj.sparse_size(0),
+                           (batch.size(0), self.walk_length))
+        rw = torch.cat([batch.view(-1, 1), rw], dim=-1)
+
+        walks = []
+        num_walks_per_rw = 1 + self.walk_length + 1 - self.context_size
+        for j in range(num_walks_per_rw):
+            walks.append(rw[:, j:j + self.context_size])
+        return torch.cat(walks, dim=0)
+
+    def node_ids2tokenizer_output(self, batch):
+        batch_size = batch.size()[0]
+        num_samples = batch.size()[1]
+
+        batch_input_ids = torch.stack(
+            [random.choice(self.node_id_to_token_ids_dict[node_id.item()])["input_ids"][0] for node_id in
+             batch.view(-1)])
+        batch_attention_masks = torch.stack(
+            [random.choice(self.node_id_to_token_ids_dict[node_id.item()])["attention_mask"][0] for node_id in
+             batch.view(-1)])
+        batch_input_ids = batch_input_ids.view(batch_size, num_samples, self.seq_max_length)
+        batch_attention_masks = batch_attention_masks.view(batch_size, num_samples, self.seq_max_length)
+
+        return batch_input_ids, batch_attention_masks

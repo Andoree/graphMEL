@@ -51,7 +51,7 @@ def extract_umls_edges(mrrel_df: pd.DataFrame, cui2node_id: Dict[str, int], igno
                 raise AssertionError(f"Either CUI {cui_1} or {cui_2} are not found in CUI2node_is mapping")
             else:
                 not_mapped_edges_counter += 1
-    if not ignore_not_mapped_edges:
+    if ignore_not_mapped_edges:
         logging.info(f"{not_mapped_edges_counter} edges are not mapped to any node")
     logging.info(f"Finished generating edges."
                  f"There are {len(edges)} non-oriented edges")

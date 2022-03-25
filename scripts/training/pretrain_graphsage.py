@@ -8,16 +8,16 @@ from tqdm import tqdm
 
 from graphmel.scripts.training.dataset import tokenize_node_terms, NeighborSampler, convert_edges_tuples_to_edge_index
 from graphmel.scripts.training.model import GraphSAGEOverBert
-from graphmel.scripts.utils.io import load_node_id2terms_list, load_tuples, update_log_file, save_dict
+from graphmel.scripts.training.training import train_model
+from graphmel.scripts.utils.io import load_node_id2terms_list, load_tuples, save_dict
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 # from torch_geometric.data import NeighborSampler as RawNeighborSampler
 from transformers import AutoTokenizer
 from transformers import AutoModel
 
 
-def model_step(model, input_ids, attention_mask, adjs, device):
+def graphsage_step(model, input_ids, attention_mask, adjs, device):
     input_ids = input_ids.to(device)
     attention_mask = attention_mask.to(device)
 
@@ -31,7 +31,7 @@ def model_step(model, input_ids, attention_mask, adjs, device):
     return model_output, loss
 
 
-def train_epoch(model, train_loader, optimizer, device):
+def graphsage_train_epoch(model, train_loader, optimizer, device):
     model.train()
     total_loss = 0
     num_steps = 0
@@ -40,7 +40,7 @@ def train_epoch(model, train_loader, optimizer, device):
         # `adjs` holds a list of `(edge_index, e_id, size)` tuples.
         adjs = [adj.to(device) for adj in adjs]
         optimizer.zero_grad()
-        model_output, loss = model_step(model, input_ids, attention_mask, adjs, device)
+        model_output, loss = graphsage_step(model, input_ids, attention_mask, adjs, device)
         loss.backward()
         optimizer.step()
 
@@ -50,64 +50,20 @@ def train_epoch(model, train_loader, optimizer, device):
     return total_loss / len(train_loader), num_steps
 
 
-def eval_epoch(model, val_loader, device):
+def graphsage_val_epoch(model, val_loader, device):
     model.eval()
     total_loss = 0
     with torch.no_grad():
         for (batch_size, n_id, adjs, input_ids, attention_mask) in tqdm(val_loader, miniters=len(val_loader) // 100):
             # `adjs` holds a list of `(edge_index, e_id, size)` tuples.
             adjs = [adj.to(device) for adj in adjs]
-            model_output, loss = model_step(model, input_ids, attention_mask, adjs, device)
+            model_output, loss = graphsage_step(model, input_ids, attention_mask, adjs, device)
             total_loss += float(loss) * model_output.size(0)
 
     return total_loss / len(val_loader)
 
 
-def train_model(model, chkpnt_path: str, train_loader, val_loader, learning_rate: float, num_epochs: int,
-                output_dir: str, save_chkpnt_epoch_interval: int, device: torch.device):
-    if chkpnt_path is not None:
-        logging.info(f"Successfully loaded checkpoint from: {chkpnt_path}")
-        checkpoint = torch.load(chkpnt_path)
-        optimizer = checkpoint["optimizer"]
-        start_epoch = checkpoint["epoch"]
-        model.load_state_dict(checkpoint["model_state"])
-    else:
-        start_epoch = 0
-        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-    log_file_path = os.path.join(output_dir, "training_log.txt")
-
-    train_loss_history = []
-    val_loss_history = []
-    logging.info("Starting training process....")
-    global_num_steps = 0
-    for i in range(start_epoch, start_epoch + num_epochs):
-        epoch_train_loss, num_steps = train_epoch(model=model, train_loader=train_loader, optimizer=optimizer,
-                                                  device=device)
-        global_num_steps += num_steps
-        epoch_val_loss_1 = eval_epoch(model=model, val_loader=val_loader, device=device)
-        epoch_val_loss_2 = eval_epoch(model=model, val_loader=val_loader, device=device)
-        # assert epoch_val_loss_1 == epoch_val_loss_2
-        log_dict = {"epoch": i, "train loss": epoch_train_loss, "val loss 1": epoch_val_loss_1,
-                    "val loss 2": epoch_val_loss_2}
-        logging.info(', '.join((f"{k}: {v}" for k, v in log_dict.items())))
-        # TODO: Потом убрать двойную проверку как удостоверюсь, что валидация детерминирована
-        train_loss_history.append(epoch_train_loss)
-        val_loss_history.append(epoch_val_loss_1)
-        if i % save_chkpnt_epoch_interval == 0:
-            checkpoint = {
-                'epoch': i + 1,
-                'model_state': model.state_dict(),
-                'optimizer': optimizer,
-            }
-
-            chkpnt_path = os.path.join(output_dir, f"checkpoint_e_{i}_steps_{global_num_steps}.pth")
-            torch.save(checkpoint, chkpnt_path)
-        # torch.save(model.state_dict(), chkpnt_path)
-        update_log_file(path=log_file_path, dict_to_log=log_dict)
-
-
 # TODO: Добавить логирование кривых обучения по эпохам
-# TODO: Откусить испанский (или русский) для того, чтобы произвести на нём отладку
 # TODO: Рисовать кривые обучения, надо же как-то затюнить параметры
 def main(args):
     output_dir = args.output_dir
@@ -179,9 +135,7 @@ def main(args):
                               num_layers=args.graphsage_num_layers, multigpu_flag=multigpu_flag,
                               graphsage_dropout=args.graphsage_dropout).to(device)
 
-    # model = nn.DataParallel(model)
-    # model = model.to(device)
-    train_model(model=model, chkpnt_path=args.model_checkpoint_path, train_loader=train_loader, val_loader=val_loader,
+    train_model(model=model, train_epoch_fn=graphsage_train_epoch, val_epoch_fn=graphsage_val_epoch, chkpnt_path=args.model_checkpoint_path, train_loader=train_loader, val_loader=val_loader,
                 learning_rate=args.learning_rate, num_epochs=args.num_epochs, output_dir=output_dir,
                 save_chkpnt_epoch_interval=args.save_every_N_epoch, device=device)
 
