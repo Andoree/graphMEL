@@ -75,7 +75,7 @@ def convert_edges_tuples_to_edge_index(edges_tuples: List[Tuple[int, int]]) -> t
 
 
 class Node2vecDataset(Dataset):
-    def __init__(self, edge_index, node_id_to_token_ids_dict: Dict[int: [List[List[int]]]], walk_length: int,
+    def __init__(self, edge_index, node_id_to_token_ids_dict: Dict[int, List[List[int]]], walk_length: int,
                  walks_per_node: int, p: float, q: float, num_negative_samples: int, context_size: int,
                  num_nodes=None, ):
         assert walk_length >= context_size

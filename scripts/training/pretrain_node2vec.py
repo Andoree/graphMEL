@@ -143,6 +143,8 @@ if __name__ == '__main__':
     parser.add_argument('--val_node2terms_path', type=str)
     parser.add_argument('--val_edges_path', type=str)
     # parser.add_argument('--train_proportion', type=float)
+    parser.add_argument('--save_every_N_epoch', type=int, default=1)
+    parser.add_argument('--model_checkpoint_path', required=False, default=None)
     parser.add_argument('--text_encoder', type=str)
     parser.add_argument('--text_encoder_seq_length', type=int)
     parser.add_argument('--dataloader_num_workers', type=int)
