@@ -1,3 +1,4 @@
+import logging
 import random
 from typing import Dict, List, Tuple
 
@@ -66,11 +67,12 @@ class NeighborSampler(RawNeighborSampler):
 
 
 def convert_edges_tuples_to_edge_index(edges_tuples: List[Tuple[int, int]]) -> torch.Tensor:
+    logging.info("Converting edge tuples to edge index")
     edge_index = torch.zeros(size=[2, len(edges_tuples)], dtype=torch.long)
     for idx, (id_1, id_2) in enumerate(edges_tuples):
         edge_index[0][idx] = id_1
         edge_index[1][idx] = id_2
-
+    logging.info(f"Edge index is created. The size is {edge_index.size()}")
     return edge_index
 
 

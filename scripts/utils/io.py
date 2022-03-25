@@ -53,7 +53,7 @@ def load_node_id2terms_list(dict_path: str, node_terms_sep: str = '\t', terms_se
             node_id = int(attrs[0])
             terms_split = attrs[1].split(terms_sep)
             node_id2_terms[node_id] = terms_split
-    logging.info("Loaded node_id to terms map")
+    logging.info(f"Loaded node_id to terms map, there are {len(node_id2_terms.keys())} entries")
     return node_id2_terms
 
 
@@ -66,7 +66,7 @@ def load_tuples(path: str, sep: str = '\t') -> List[Tuple[int, int]]:
             node_id_1 = int(attrs[0])
             node_id_2 = int(attrs[1])
             tuples.append((node_id_1, node_id_2))
-    logging.info("Finished loading tuples")
+    logging.info(f"Finished loading tuples, there are {len(tuples)} tuples")
     return tuples
 
 
