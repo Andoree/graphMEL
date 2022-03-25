@@ -52,8 +52,8 @@ def node2vec_val_epoch(model, val_loader, device):
 
 def main(args):
     output_dir = args.output_dir
-    output_subdir = f"nns-c-wpn-p-q-wl_{args.node2vec_num_negative_samples}-{args.node2vec_walks_per_node}-" \
-                    f"{args.node2vec_p}-{args.node2vec_q}-{args.node2vec_walk_length}_b{args.batch_size}_" \
+    output_subdir = f"nns-c-wpn-p-q-wl_{args.node2vec_train_num_negative_samples}-{args.node2vec_train_walks_per_node}-" \
+                    f"{args.node2vec_train_p}-{args.node2vec_train_q}-{args.node2vec_train_walk_length}_b{args.batch_size}_" \
                     f"lr{args.learning_rate}"
     output_dir = os.path.join(output_dir, output_subdir)
     if not os.path.exists(output_dir) and output_dir != '':
@@ -104,16 +104,19 @@ def main(args):
         print(f"val_edge_index size: {val_edge_index.size()}")
     logging.info(f"There are {train_num_nodes} nodes in train and {val_num_nodes} nodes in validation")
     train_dataset = Node2vecDataset(edge_index=train_edge_index, node_id_to_token_ids_dict=train_node_id2token_ids_dict,
-                                    walk_length=args.node2vec_walk_length, walks_per_node=args.node2vec_walks_per_node,
-                                    p=args.node2vec_p, q=args.node2vec_q,
-                                    num_negative_samples=args.node2vec_num_negative_samples,
-                                    context_size=args.node2vec_context_size,
+                                    walk_length=args.node2vec_train_walk_length,
+                                    walks_per_node=args.node2vec_train_walks_per_node,
+                                    p=args.node2vec_train_p, q=args.node2vec_train_q,
+                                    num_negative_samples=args.node2vec_train_num_negative_samples,
+                                    context_size=args.node2vec_train_context_size,
                                     num_nodes=train_num_nodes, seq_max_length=args.text_encoder_seq_length)
+
     val_dataset = Node2vecDataset(edge_index=val_edge_index, node_id_to_token_ids_dict=val_node_id2token_ids_dict,
-                                  walk_length=10, walks_per_node=1,
-                                  p=1, q=1,
-                                  num_negative_samples=1,
-                                  context_size=10,
+                                  walk_length=args.node2vec_val_walk_length,
+                                  walks_per_node=args.node2vec_val_walks_per_node,
+                                  p=args.node2vec_val_p, q=args.node2vec_val_q,
+                                  num_negative_samples=args.node2vec_val_num_negative_samples,
+                                  context_size=args.node2vec_val_context_size,
                                   num_nodes=val_num_nodes, seq_max_length=args.text_encoder_seq_length)
     train_loader = DataLoader(train_dataset, collate_fn=train_dataset.sample, batch_size=args.batch_size,
                               num_workers=args.dataloader_num_workers, shuffle=True)
@@ -148,12 +151,18 @@ if __name__ == '__main__':
     parser.add_argument('--text_encoder', type=str)
     parser.add_argument('--text_encoder_seq_length', type=int)
     parser.add_argument('--dataloader_num_workers', type=int)
-    parser.add_argument('--node2vec_num_negative_samples', type=int, required=False)
-    parser.add_argument('--node2vec_context_size', type=int, required=False)
-    parser.add_argument('--node2vec_walks_per_node', type=int, required=False)
-    parser.add_argument('--node2vec_p', type=float, required=False)
-    parser.add_argument('--node2vec_q', type=float, required=False)
-    parser.add_argument('--node2vec_walk_length', type=int)
+    parser.add_argument('--node2vec_train_num_negative_samples', type=int, required=False)
+    parser.add_argument('--node2vec_train_context_size', type=int, required=False)
+    parser.add_argument('--node2vec_train_walks_per_node', type=int, required=False)
+    parser.add_argument('--node2vec_train_p', type=float, required=False)
+    parser.add_argument('--node2vec_train_q', type=float, required=False)
+    parser.add_argument('--node2vec_train_walk_length', type=int)
+    parser.add_argument('--node2vec_val_num_negative_samples', type=int, required=False, default=1)
+    parser.add_argument('--node2vec_val_context_size', type=int, required=False, default=10)
+    parser.add_argument('--node2vec_val_walks_per_node', type=int, required=False, default=1)
+    parser.add_argument('--node2vec_val_p', type=float, required=False, default=1.)
+    parser.add_argument('--node2vec_val_q', type=float, required=False, default=1.)
+    parser.add_argument('--node2vec_val_walk_length', type=int, required=False, default=10)
     parser.add_argument('--batch_size', type=int)
     parser.add_argument('--learning_rate', type=float)
     parser.add_argument('--num_epochs', type=int)
