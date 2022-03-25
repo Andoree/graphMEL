@@ -126,7 +126,7 @@ def main(args):
         multigpu_flag = True
 
     model = BertOverNode2Vec(bert_encoder=bert_encoder, seq_max_length=args.text_encoder_seq_length,
-                             multigpu_flag=multigpu_flag)
+                             multigpu_flag=multigpu_flag).to(device)
 
     train_model(model=model, train_epoch_fn=node2vec_train_epoch, val_epoch_fn=node2vec_val_epoch,
                 chkpnt_path=args.model_checkpoint_path, train_loader=train_loader, val_loader=val_loader,
