@@ -47,3 +47,10 @@ def train_model(model, train_epoch_fn, val_epoch_fn, chkpnt_path: str, train_loa
             torch.save(checkpoint, chkpnt_path)
 
         update_log_file(path=log_file_path, dict_to_log=log_dict)
+    checkpoint = {
+        'epoch': i + 1,
+        'model_state': model.state_dict(),
+        'optimizer': optimizer,
+    }
+    chkpnt_path = os.path.join(output_dir, f"checkpoint_e_{i}_steps_{global_num_steps}.pth")
+    torch.save(checkpoint, chkpnt_path)
