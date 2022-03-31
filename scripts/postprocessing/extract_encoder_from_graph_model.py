@@ -10,12 +10,13 @@ from graphmel.scripts.utils.io import load_dict, save_encoder_from_checkpoint
 
 
 def main(args):
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     model_description_path = os.path.join(args.graph_model_dir, "model_description.tsv")
     model_parameters_dict = load_dict(path=model_description_path, )
-
+    
     tokenizer = AutoTokenizer.from_pretrained(model_parameters_dict["text_encoder"])
-    bert_encoder = AutoModel.from_pretrained(model_parameters_dict["text_encoder"])
-
+    bert_encoder = AutoModel.from_pretrained(model_parameters_dict["text_encoder"]).to(device)
+    print(dir(model_parameters_dict["text_encoder"]))
     multigpu_flag = False
     if args.graph_network_architecture == "graphsage":
         num_layers = int(model_parameters_dict["graphsage_num_layers"])
@@ -30,9 +31,10 @@ def main(args):
         raise NotImplementedError(f"Graph architecture {args.graph_network_architecture} is not supported")
 
     checkpoint = torch.load(args.model_checkpoint_path)
-    model.load_state_dict(checkpoint["model_state"])
+    # print('aaaaa', checkpoint["model_state"])
+    bert_encoder.load_state_dict(checkpoint["model_state"])
 
-    save_encoder_from_checkpoint(graph_over_bert_model=model, bert_tokenizer=tokenizer, save_path=args.output_dir)
+    save_encoder_from_checkpoint(bert_encoder=bert_encoder, bert_tokenizer=tokenizer, save_path=args.output_dir)
 
 
 if __name__ == '__main__':
