@@ -68,7 +68,6 @@ class BertOverNode2Vec(torch.nn.Module):
     def forward(self, batch=None):
         raise NotImplementedError("Forward in BertOverNode2Vec")
 
-
     def bert_encode_rw(self, rw_input_ids, rw_attention_mask):
         # rw_input_ids (batch_size, context_size, seq_length)
 

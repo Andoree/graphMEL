@@ -1,5 +1,6 @@
 import codecs
 import logging
+import os.path
 from typing import Dict, List, Tuple
 
 import pandas as pd
@@ -70,6 +71,11 @@ def load_tuples(path: str, sep: str = '\t') -> List[Tuple[int, int]]:
     return tuples
 
 
+def load_dict(path: str, sep: str = '\t') -> Dict[str, str]:
+    df = pd.read_csv(path, header=None, names=("key", "value"), sep=sep, encoding="utf-8")
+    return dict(zip(df.key, df.value))
+
+
 def read_mrconso(fpath):
     columns = ['CUI', 'LAT', 'TS', 'LUI', 'STT', 'SUI', 'ISPREF', 'AUI', 'SAUI', 'SCUI', 'SDUI', 'SAB', 'TTY', 'CODE',
                'STR', 'SRL', 'SUPPRESS', 'CVF', 'NOCOL']
@@ -96,3 +102,13 @@ def update_log_file(path: str, dict_to_log: Dict):
     with codecs.open(path, 'a+', encoding="utf-8") as out_file:
         s = ', '.join((f"{k} : {v}" for k, v in dict_to_log.items()))
         out_file.write(f"{s}\n")
+
+
+def save_encoder_from_checkpoint(graph_over_bert_model, bert_tokenizer, save_path: str):
+    output_dir = os.path.dirname(save_path)
+    if not os.path.exists(output_dir) and output_dir != '':
+        os.makedirs(output_dir)
+    logging.info(f"Saving textual encoder and tokenizer to {save_path}")
+    graph_over_bert_model.bert_encoder.save_pretrained(save_path)
+    bert_tokenizer.save_pretrained(save_path)
+    logging.info(f"Successfully saved textual encoder and tokenizer to {save_path}")
