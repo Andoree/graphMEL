@@ -150,12 +150,7 @@ class Node2vecDataset(Dataset):
         tokenizer_outputs = [random.choice(self.node_id_to_token_ids_dict[node_id.item()]) for node_id in batch.view(-1)]
         batch_input_ids = torch.stack([tok_output["input_ids"][0] for tok_output in tokenizer_outputs])
         batch_attention_masks = torch.stack([tok_output["attention_mask"][0] for tok_output in tokenizer_outputs])
-        # batch_input_ids = torch.stack(
-        #     [random.choice(self.node_id_to_token_ids_dict[node_id.item()])["input_ids"][0] for node_id in
-        #      batch.view(-1)])
-        # batch_attention_masks = torch.stack(
-        #     [random.choice(self.node_id_to_token_ids_dict[node_id.item()])["attention_mask"][0] for node_id in
-        #      batch.view(-1)])
+
         batch_input_ids = batch_input_ids.view(batch_size, num_samples, self.seq_max_length)
         batch_attention_masks = batch_attention_masks.view(batch_size, num_samples, self.seq_max_length)
 
