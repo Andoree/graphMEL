@@ -6,19 +6,27 @@ import pandas as pd
 
 from graphmel.scripts.utils.io import save_tuples, save_dict, save_node_id2terms_list
 from graphmel.scripts.utils.io import read_mrconso, read_mrrel
-from graphmel.scripts.utils.umls2graph import get_concept_list_groupby_cui, extract_umls_edges
+from graphmel.scripts.utils.umls2graph import get_concept_list_groupby_cui, extract_umls_oriented_edges_with_relations
 
 
 def create_graph_files(mrconso_df: pd.DataFrame, mrrel_df: pd.DataFrame, output_node_id2terms_list_path: str,
-                       output_node_id2cui_path: str, output_edges_path: str, ignore_not_mapped_edges: bool):
+                       output_node_id2cui_path: str, output_edges_path: str, output_rel2rel_id_path: str,
+                       output_rela2rela_id_path: str, ignore_not_mapped_edges: bool):
     node_id2terms_list, node_id2cui, cui2node_id = get_concept_list_groupby_cui(mrconso_df=mrconso_df)
-    # cui2node_id = {cui: node_id for node_id, cui in node_id2cui.items()}
-    # assert len(node_id2cui.keys()) == len(cui2node_id.keys())
     logging.info("Generating edges....")
-    edges = extract_umls_edges(mrrel_df, cui2node_id, ignore_not_mapped_edges=ignore_not_mapped_edges)
+
+    rel2rel_id = {rel: rel_id for rel_id, rel in enumerate(mrrel_df.REL.values)}
+    rela2rela_id = {rela: rela_id for rela_id, rela in enumerate(mrrel_df.RELA.values)}
+    rel2rel_id["LOOP"] = max(rel2rel_id.values()) + 1
+    rela2rela_id["LOOP"] = max(rela2rela_id.values()) + 1
+    edges = extract_umls_oriented_edges_with_relations(mrrel_df, cui2node_id, rel2rel_id, rela2rela_id,
+                                                       ignore_not_mapped_edges=ignore_not_mapped_edges)
+
     logging.info("Saving the result....")
     save_node_id2terms_list(save_path=output_node_id2terms_list_path, mapping=node_id2terms_list, )
     save_dict(save_path=output_node_id2cui_path, dictionary=node_id2cui)
+    save_dict(save_path=output_rel2rel_id_path, dictionary=rel2rel_id)
+    save_dict(save_path=output_rela2rela_id_path, dictionary=rela2rela_id)
     save_tuples(save_path=output_edges_path, tuples=edges)
 
 
@@ -28,20 +36,14 @@ def main():
     parser.add_argument('--mrrel')
     parser.add_argument('--split_val', action="store_true")
     parser.add_argument('--train_proportion', type=float)
-    parser.add_argument('--output_node_id2synonyms_path', )
-    parser.add_argument('--output_node_id2cui_path', )
-    parser.add_argument('--output_edges_path', )
+    parser.add_argument('--output_dir', type=str)
     args = parser.parse_args()
 
-    output_node_id2terms_list_path = args.output_node_id2synonyms_path
-    output_node_id2cui_path = args.output_node_id2cui_path
     split_val = args.split_val
-    output_edges_path = args.output_edges_path
-    output_paths = (output_node_id2terms_list_path, output_node_id2cui_path, output_edges_path)
-    for path in output_paths:
-        output_dir = os.path.dirname(path)
-        if not os.path.exists(output_dir) and output_dir != '':
-            os.makedirs(output_dir)
+    output_dir = args.output_dir
+    if not os.path.exists(output_dir) and output_dir != '':
+        os.makedirs(output_dir)
+
     logging.info("Loading MRCONSO....")
     mrconso_df = read_mrconso(args.mrconso)
     mrconso_df["STR"].fillna('', inplace=True)
@@ -59,36 +61,45 @@ def main():
         val_mrconso_df = shuffled_mrconso[num_train_rows:]
         del shuffled_mrconso
 
-        output_node_id2terms_list_dirname = os.path.dirname(output_node_id2terms_list_path)
-        output_node_id2terms_list_filename = os.path.basename(output_node_id2terms_list_path)
-        output_node_id2cui_dirname = os.path.dirname(output_node_id2cui_path)
-        output_node_id2cui_filename = os.path.basename(output_node_id2cui_path)
-        output_edges_dirname = os.path.dirname(output_edges_path)
-        output_edges_filename = os.path.basename(output_edges_path)
-        train_output_node_id2terms_list_path = os.path.join(output_node_id2terms_list_dirname,
-                                                            f"train_{output_node_id2terms_list_filename}")
-        val_output_node_id2terms_list_path = os.path.join(output_node_id2terms_list_dirname,
-                                                          f"val_{output_node_id2terms_list_filename}")
-        train_output_node_id2cui_path = os.path.join(output_node_id2cui_dirname, f"train_{output_node_id2cui_filename}")
-        val_output_node_id2cui_path = os.path.join(output_node_id2cui_dirname, f"val_{output_node_id2cui_filename}")
-        train_output_edges_path = os.path.join(output_edges_dirname, f"train_{output_edges_filename}")
-        val_output_edges_path = os.path.join(output_edges_dirname, f"val_{output_edges_filename}")
+        train_output_node_id2terms_list_path = os.path.join(output_dir, "train_node_id2terms_list")
+        val_output_node_id2terms_list_path = os.path.join(output_dir, "val_node_id2terms_list")
+        train_output_node_id2cui_path = os.path.join(output_dir, "train_id2cui")
+        val_output_node_id2cui_path = os.path.join(output_dir, "val_id2cui")
+        train_output_edges_path = os.path.join(output_dir, "train_edges")
+        val_output_edges_path = os.path.join(output_dir, "val_edges")
+
+        train_output_rel2rel_id_path = os.path.join(output_dir, "train_rel2rel_id")
+        val_output_rel2rel_id_path = os.path.join(output_dir, "val_rel2rel_id")
+        train_output_rela2rela_id_path = os.path.join(output_dir, "train_rela2rela_id")
+        val_output_rela2rela_id_path = os.path.join(output_dir, "val_rela2rela_id")
+
         logging.info("Creating train graph files")
         create_graph_files(mrconso_df=train_mrconso_df, mrrel_df=mrrel_df,
                            output_node_id2terms_list_path=train_output_node_id2terms_list_path,
                            output_node_id2cui_path=train_output_node_id2cui_path,
-                           output_edges_path=train_output_edges_path, ignore_not_mapped_edges=True)
+                           output_edges_path=train_output_edges_path, ignore_not_mapped_edges=True,
+                           output_rel2rel_id_path=train_output_rel2rel_id_path,
+                           output_rela2rela_id_path=train_output_rela2rela_id_path)
         logging.info("Creating val graph files")
         create_graph_files(mrconso_df=val_mrconso_df, mrrel_df=mrrel_df,
                            output_node_id2terms_list_path=val_output_node_id2terms_list_path,
                            output_node_id2cui_path=val_output_node_id2cui_path,
-                           output_edges_path=val_output_edges_path, ignore_not_mapped_edges=True)
+                           output_edges_path=val_output_edges_path, ignore_not_mapped_edges=True,
+                           output_rel2rel_id_path=val_output_rel2rel_id_path,
+                           output_rela2rela_id_path=val_output_rela2rela_id_path)
     else:
         logging.info("Creating graph files")
+        output_node_id2terms_list_path = os.path.join(output_dir, "train_node_id2terms_list")
+        output_node_id2cui_path = os.path.join(output_dir, "train_id2cui")
+        output_edges_path = os.path.join(output_dir, "train_edges")
+        output_rel2rel_id_path = os.path.join(output_dir, f"train_rel2rel_id")
+        output_rela2rela_id_path = os.path.join(output_dir, f"train_rela2rela_id")
         create_graph_files(mrconso_df=mrconso_df, mrrel_df=mrrel_df,
                            output_node_id2terms_list_path=output_node_id2terms_list_path,
                            output_node_id2cui_path=output_node_id2cui_path,
-                           output_edges_path=output_edges_path, ignore_not_mapped_edges=True)
+                           output_edges_path=output_edges_path, ignore_not_mapped_edges=True,
+                           output_rel2rel_id_path=output_rel2rel_id_path,
+                           output_rela2rela_id_path=output_rela2rela_id_path)
 
 
 if __name__ == '__main__':
