@@ -71,7 +71,7 @@ class BertOverNode2Vec(torch.nn.Module):
     def bert_encode_rw(self, rw_input_ids, rw_attention_mask):
         # rw_input_ids (batch_size, context_size, seq_length)
 
-        pos_batch_size = rw_input_ids.size()[0]
+        batch_size = rw_input_ids.size()[0]
         context_size = rw_input_ids.size()[1]
 
         start_token_ids, rest_token_ids = rw_input_ids[:, 0], rw_input_ids[:, 1:].contiguous()
@@ -83,9 +83,9 @@ class BertOverNode2Vec(torch.nn.Module):
                                                     attention_mask=rest_att_mask.view(-1, self.seq_max_length),
                                                     return_dict=True)['last_hidden_state']
 
-        h_start = torch.stack([elem[0, :] for elem in start_last_hidden_states]).view(pos_batch_size, 1,
+        h_start = torch.stack([elem[0, :] for elem in start_last_hidden_states]).view(batch_size, 1,
                                                                                       self.bert_hidden_dim)
-        h_rest = torch.stack([elem[0, :] for elem in rest_last_hidden_states]).view(pos_batch_size, -1,
+        h_rest = torch.stack([elem[0, :] for elem in rest_last_hidden_states]).view(batch_size, -1,
                                                                                     self.bert_hidden_dim)
 
         assert h_rest.size(1) == context_size - 1
