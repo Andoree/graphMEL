@@ -58,7 +58,7 @@ def load_node_id2terms_list(dict_path: str, node_terms_sep: str = '\t', terms_se
     return node_id2_terms
 
 
-def load_tuples(path: str, sep: str = '\t') -> List[Tuple[int, int]]:
+def load_edges_tuples(path: str, sep: str = '\t') -> List[Tuple]:
     logging.info(f"Starting loading tuples from: {path}")
     tuples = []
     with codecs.open(path, 'r', encoding="utf-8") as inp_file:
@@ -66,7 +66,9 @@ def load_tuples(path: str, sep: str = '\t') -> List[Tuple[int, int]]:
             attrs = line.strip().split(sep)
             node_id_1 = int(attrs[0])
             node_id_2 = int(attrs[1])
-            tuples.append((node_id_1, node_id_2))
+            rel_id = int(attrs[2]) if len(attrs) > 2 else None
+            rela_id = int(attrs[3]) if len(attrs) > 2 else None
+            tuples.append((node_id_1, node_id_2, rel_id, rela_id))
     logging.info(f"Finished loading tuples, there are {len(tuples)} tuples")
     return tuples
 

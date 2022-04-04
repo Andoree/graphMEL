@@ -6,10 +6,11 @@ from argparse import ArgumentParser
 import numpy as np
 from tqdm import tqdm
 
-from graphmel.scripts.training.dataset import tokenize_node_terms, NeighborSampler, convert_edges_tuples_to_edge_index
+from graphmel.scripts.training.dataset import tokenize_node_terms, NeighborSampler, convert_edges_tuples_to_edge_index, \
+    load_data_and_bert_model
 from graphmel.scripts.training.model import GraphSAGEOverBert
 from graphmel.scripts.training.training import train_model
-from graphmel.scripts.utils.io import load_node_id2terms_list, load_tuples, save_dict
+from graphmel.scripts.utils.io import load_node_id2terms_list, load_edges_tuples, save_dict
 import torch
 import torch.nn.functional as F
 # from torch_geometric.data import NeighborSampler as RawNeighborSampler
@@ -63,8 +64,6 @@ def graphsage_val_epoch(model, val_loader, device):
     return total_loss / len(val_loader)
 
 
-# TODO: Добавить логирование кривых обучения по эпохам
-# TODO: Рисовать кривые обучения, надо же как-то затюнить параметры
 def main(args):
     output_dir = args.output_dir
     output_subdir = f"gs_{args.graphsage_num_layers}-{args.graphsage_num_channels}_" \
@@ -76,47 +75,15 @@ def main(args):
     model_descr_path = os.path.join(output_dir, "model_description.tsv")
     save_dict(save_path=model_descr_path, dictionary=vars(args), )
 
-    train_node_id2terms_dict = load_node_id2terms_list(dict_path=args.train_node2terms_path, )
-    train_edges_tuples = load_tuples(args.train_edges_path)
-    val_node_id2terms_dict = load_node_id2terms_list(dict_path=args.val_node2terms_path, )
-    val_edges_tuples = load_tuples(args.val_edges_path)
+    bert_encoder, train_node_id2token_ids_dict, train_edge_index, val_node_id2token_ids_dict, val_edge_index = \
+        load_data_and_bert_model(train_node2terms_path=args.train_node2terms_path,
+                                 train_edges_path=args.train_edges_path,
+                                 val_node2terms_path=args.val_node2terms_path,
+                                 val_edges_path=args.val_edges_path, text_encoder_name=args.text_encoder,
+                                 text_encoder_seq_length=args.text_encoder_seq_length, drop_relations_info=True)
+    train_num_nodes = len(set(train_node_id2token_ids_dict.keys()))
+    val_num_nodes = len(set(val_node_id2token_ids_dict.keys()))
 
-    tokenizer = AutoTokenizer.from_pretrained(args.text_encoder)
-    bert_encoder = AutoModel.from_pretrained(args.text_encoder)
-
-    train_node_id2token_ids_dict = tokenize_node_terms(train_node_id2terms_dict, tokenizer,
-                                                       max_length=args.text_encoder_seq_length)
-    train_num_nodes = len(set(train_node_id2terms_dict.keys()))
-    train_edge_index = convert_edges_tuples_to_edge_index(edges_tuples=train_edges_tuples)
-
-    val_node_id2token_ids_dict = tokenize_node_terms(val_node_id2terms_dict, tokenizer,
-                                                     max_length=args.text_encoder_seq_length)
-    val_num_nodes = len(set(val_node_id2terms_dict.keys()))
-    val_edge_index = convert_edges_tuples_to_edge_index(edges_tuples=val_edges_tuples)
-    if args.debug:
-        print("train_node_id2terms_dict:")
-        for i, (k, v) in enumerate(train_node_id2terms_dict.items()):
-            if i < 3:
-                print(f"{k} ||| {v}")
-        print(f"train_edges_tuples: {len(train_edges_tuples)}, {train_edges_tuples[:3]}")
-        print("train_node_id2token_ids_dict:")
-        for i, (k, v) in enumerate(train_node_id2token_ids_dict.items()):
-            if i < 3:
-                print(f"{k} ||| {v}")
-        print(f"train_num_nodes: {train_num_nodes}")
-        print(f"train_edge_index size: {train_edge_index.size()}")
-        print('--' * 10)
-        print("val_node_id2terms_dict:")
-        for i, (k, v) in enumerate(val_node_id2terms_dict.items()):
-            if i < 3:
-                print(f"{k} ||| {v}")
-        print(f"val_edges_tuples: {len(val_edges_tuples)}, {val_edges_tuples[:3]}")
-        print("val_node_id2token_ids_dict:")
-        for i, (k, v) in enumerate(val_node_id2token_ids_dict.items()):
-            if i < 3:
-                print(f"{k} ||| {v}")
-        print(f"val_num_nodes: {val_num_nodes}")
-        print(f"val_edge_index size: {val_edge_index.size()}")
     logging.info(f"There are {train_num_nodes} nodes in train and {val_num_nodes} nodes in validation")
     train_loader = NeighborSampler(node_id_to_token_ids_dict=train_node_id2token_ids_dict, edge_index=train_edge_index,
                                    sizes=args.graph_num_neighbors, random_walk_length=args.random_walk_length,
@@ -135,7 +102,8 @@ def main(args):
                               num_layers=args.graphsage_num_layers, multigpu_flag=multigpu_flag,
                               graphsage_dropout=args.graphsage_dropout).to(device)
 
-    train_model(model=model, train_epoch_fn=graphsage_train_epoch, val_epoch_fn=graphsage_val_epoch, chkpnt_path=args.model_checkpoint_path, train_loader=train_loader, val_loader=val_loader,
+    train_model(model=model, train_epoch_fn=graphsage_train_epoch, val_epoch_fn=graphsage_val_epoch,
+                chkpnt_path=args.model_checkpoint_path, train_loader=train_loader, val_loader=val_loader,
                 learning_rate=args.learning_rate, num_epochs=args.num_epochs, output_dir=output_dir,
                 save_chkpnt_epoch_interval=args.save_every_N_epoch, device=device)
 
@@ -160,7 +128,6 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int)
     parser.add_argument('--learning_rate', type=float)
     parser.add_argument('--num_epochs', type=int)
-    parser.add_argument('--debug', action='store_true')
     parser.add_argument('--random_state', type=int)
     parser.add_argument('--gpus', type=int, default=1)
     parser.add_argument('--output_dir', type=str)

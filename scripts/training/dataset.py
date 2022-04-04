@@ -8,6 +8,9 @@ from torch_cluster import random_walk
 import torch
 from torch_sparse import SparseTensor
 from torch_geometric.utils.num_nodes import maybe_num_nodes
+from transformers import AutoTokenizer, AutoModel
+
+from graphmel.scripts.utils.io import load_node_id2terms_list, load_edges_tuples
 
 
 def tokenize_node_terms(node_id_to_terms_dict, tokenizer, max_length: int) -> Dict[int, List[List[int]]]:
@@ -147,7 +150,8 @@ class Node2vecDataset(Dataset):
         batch_size = batch.size()[0]
         num_samples = batch.size()[1]
 
-        tokenizer_outputs = [random.choice(self.node_id_to_token_ids_dict[node_id.item()]) for node_id in batch.view(-1)]
+        tokenizer_outputs = [random.choice(self.node_id_to_token_ids_dict[node_id.item()]) for node_id in
+                             batch.view(-1)]
         batch_input_ids = torch.stack([tok_output["input_ids"][0] for tok_output in tokenizer_outputs])
         batch_attention_masks = torch.stack([tok_output["attention_mask"][0] for tok_output in tokenizer_outputs])
 
@@ -155,3 +159,28 @@ class Node2vecDataset(Dataset):
         batch_attention_masks = batch_attention_masks.view(batch_size, num_samples, self.seq_max_length)
 
         return batch_input_ids, batch_attention_masks
+
+
+def load_data_and_bert_model(train_node2terms_path: str, train_edges_path: str, val_node2terms_path: str,
+                             val_edges_path: str, text_encoder_name: str, text_encoder_seq_length: int,
+                             drop_relations_info):
+    train_node_id2terms_dict = load_node_id2terms_list(dict_path=train_node2terms_path, )
+    train_edges_tuples = load_edges_tuples(train_edges_path)
+    if drop_relations_info:
+        train_edges_tuples = [(t[0], t[1]) for t in train_edges_tuples]
+    val_node_id2terms_dict = load_node_id2terms_list(dict_path=val_node2terms_path, )
+    val_edges_tuples = load_edges_tuples(val_edges_path)
+    if drop_relations_info:
+        val_edges_tuples = [(t[0], t[1]) for t in val_edges_tuples]
+    tokenizer = AutoTokenizer.from_pretrained(text_encoder_name)
+    bert_encoder = AutoModel.from_pretrained(text_encoder_name)
+    train_node_id2token_ids_dict = tokenize_node_terms(train_node_id2terms_dict, tokenizer,
+                                                       max_length=text_encoder_seq_length)
+    # train_num_nodes = len(set(train_node_id2terms_dict.keys()))
+    train_edge_index = convert_edges_tuples_to_edge_index(edges_tuples=train_edges_tuples)
+    val_node_id2token_ids_dict = tokenize_node_terms(val_node_id2terms_dict, tokenizer,
+                                                     max_length=text_encoder_seq_length)
+    # val_num_nodes = len(set(val_node_id2terms_dict.keys()))
+    val_edge_index = convert_edges_tuples_to_edge_index(edges_tuples=val_edges_tuples)
+
+    return bert_encoder, train_node_id2token_ids_dict, train_edge_index, val_node_id2token_ids_dict, val_edge_index
