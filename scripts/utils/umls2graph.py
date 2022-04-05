@@ -76,14 +76,14 @@ def extract_umls_oriented_edges_with_relations(mrrel_df: pd.DataFrame, cui2node_
         rela = row["RELA"]
         # Separator validation
         for att in (cui_1, cui_2, rel, rela):
-            assert "~~~" not in str(att)
+            assert "~~" not in str(att)
         if cui2node_id.get(cui_1) is not None and cui2node_id.get(cui_2) is not None:
-            cuis_relation_str = f"{cui_1}~~{cui_2}~~~{rel}~~~{rela}"
+            cuis_relation_str = f"{cui_1}~~{cui_2}~~{rel}~~{rela}"
             if cuis_relation_str not in cuis_relation_str_set:
                 cui_1_node_id = cui2node_id[cui_1]
                 cui_2_node_id = cui2node_id[cui_2]
                 rel_id = rel2rel_id[rel]
-                rela_id = rela2rela_id[rel]
+                rela_id = rela2rela_id[rela]
                 edges.append((cui_1_node_id, cui_2_node_id, rel_id, rela_id))
             cuis_relation_str_set.add(cuis_relation_str)
         else:
