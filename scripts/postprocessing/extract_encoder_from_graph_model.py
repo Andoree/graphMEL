@@ -5,7 +5,7 @@ from argparse import ArgumentParser
 import torch
 from transformers import AutoTokenizer, AutoModel
 
-from graphmel.scripts.utils.io import load_dict, save_encoder_from_checkpoint
+from graphmel.scripts.utils.io import load_dict, save_encoder_from_checkpoint, save_dict
 
 
 def save_bert_encoder_from_graph_model(pretrained_graph_model_dir: str, bert_initialization_model: str,
@@ -25,6 +25,7 @@ def save_bert_encoder_from_graph_model(pretrained_graph_model_dir: str, bert_ini
     bert_encoder.load_state_dict(checkpoint["model_state"])
 
     save_encoder_from_checkpoint(bert_encoder=bert_encoder, bert_tokenizer=tokenizer, save_path=output_dir)
+    save_dict(save_path=os.path.join(output_dir, "model_description.tsv"), dictionary=model_parameters_dict)
 
 
 def main(args):
