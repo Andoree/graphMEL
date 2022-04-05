@@ -15,11 +15,14 @@ def create_graph_files(mrconso_df: pd.DataFrame, mrrel_df: pd.DataFrame, output_
     node_id2terms_list, node_id2cui, cui2node_id = get_concept_list_groupby_cui(mrconso_df=mrconso_df)
     logging.info("Generating edges....")
 
-    rel2rel_id = {rel: rel_id for rel_id, rel in enumerate(mrrel_df.REL.values)}
-    rela2rela_id = {rela: rela_id for rela_id, rela in enumerate(mrrel_df.RELA.values)}
+    rel2rel_id = {rel: rel_id for rel_id, rel in enumerate(mrrel_df.REL.unique())}
+    rela2rela_id = {rela: rela_id for rela_id, rela in enumerate(mrrel_df.RELA.unique())}
     rel2rel_id["LOOP"] = max(rel2rel_id.values()) + 1
     rela2rela_id["LOOP"] = max(rela2rela_id.values()) + 1
-    edges = extract_umls_oriented_edges_with_relations(mrrel_df, cui2node_id, rel2rel_id, rela2rela_id,
+    print("REL2REL_ID", rel2rel_id)
+    print("RELA2RELA_ID", rela2rela_id)
+    edges = extract_umls_oriented_edges_with_relations(mrrel_df=mrrel_df, cui2node_id=cui2node_id,
+                                                       rel2rel_id=rel2rel_id, rela2rela_id=rela2rela_id,
                                                        ignore_not_mapped_edges=ignore_not_mapped_edges)
 
     logging.info("Saving the result....")
@@ -52,6 +55,11 @@ def main():
 
     logging.info("Generating node index....")
     if split_val:
+        train_dir = os.path.join(output_dir, "train/")
+        val_dir = os.path.join(output_dir, "val/")
+        for d in (train_dir, val_dir):
+            if not os.path.exists(d):
+                os.makedirs(d)
         train_proportion = args.train_proportion
         num_rows = mrconso_df.shape[0]
         shuffled_mrconso = mrconso_df.sample(frac=1.0, random_state=42)
@@ -61,17 +69,17 @@ def main():
         val_mrconso_df = shuffled_mrconso[num_train_rows:]
         del shuffled_mrconso
 
-        train_output_node_id2terms_list_path = os.path.join(output_dir, "train_node_id2terms_list")
-        val_output_node_id2terms_list_path = os.path.join(output_dir, "val_node_id2terms_list")
-        train_output_node_id2cui_path = os.path.join(output_dir, "train_id2cui")
-        val_output_node_id2cui_path = os.path.join(output_dir, "val_id2cui")
-        train_output_edges_path = os.path.join(output_dir, "train_edges")
-        val_output_edges_path = os.path.join(output_dir, "val_edges")
+        train_output_node_id2terms_list_path = os.path.join(train_dir, "node_id2terms_list")
+        val_output_node_id2terms_list_path = os.path.join(val_dir, "node_id2terms_list")
+        train_output_node_id2cui_path = os.path.join(train_dir, "id2cui")
+        val_output_node_id2cui_path = os.path.join(val_dir, "id2cui")
+        train_output_edges_path = os.path.join(train_dir, "edges")
+        val_output_edges_path = os.path.join(val_dir, "edges")
 
-        train_output_rel2rel_id_path = os.path.join(output_dir, "train_rel2rel_id")
-        val_output_rel2rel_id_path = os.path.join(output_dir, "val_rel2rel_id")
-        train_output_rela2rela_id_path = os.path.join(output_dir, "train_rela2rela_id")
-        val_output_rela2rela_id_path = os.path.join(output_dir, "val_rela2rela_id")
+        train_output_rel2rel_id_path = os.path.join(train_dir, "rel2rel_id")
+        val_output_rel2rel_id_path = os.path.join(val_dir, "rel2rel_id")
+        train_output_rela2rela_id_path = os.path.join(train_dir, "rela2rela_id")
+        val_output_rela2rela_id_path = os.path.join(val_dir, "rela2rela_id")
 
         logging.info("Creating train graph files")
         create_graph_files(mrconso_df=train_mrconso_df, mrrel_df=mrrel_df,
@@ -89,11 +97,11 @@ def main():
                            output_rela2rela_id_path=val_output_rela2rela_id_path)
     else:
         logging.info("Creating graph files")
-        output_node_id2terms_list_path = os.path.join(output_dir, "train_node_id2terms_list")
-        output_node_id2cui_path = os.path.join(output_dir, "train_id2cui")
-        output_edges_path = os.path.join(output_dir, "train_edges")
-        output_rel2rel_id_path = os.path.join(output_dir, f"train_rel2rel_id")
-        output_rela2rela_id_path = os.path.join(output_dir, f"train_rela2rela_id")
+        output_node_id2terms_list_path = os.path.join(output_dir, "node_id2terms_list")
+        output_node_id2cui_path = os.path.join(output_dir, "id2cui")
+        output_edges_path = os.path.join(output_dir, "edges")
+        output_rel2rel_id_path = os.path.join(output_dir, f"rel2rel_id")
+        output_rela2rela_id_path = os.path.join(output_dir, f"rela2rela_id")
         create_graph_files(mrconso_df=mrconso_df, mrrel_df=mrrel_df,
                            output_node_id2terms_list_path=output_node_id2terms_list_path,
                            output_node_id2cui_path=output_node_id2cui_path,
