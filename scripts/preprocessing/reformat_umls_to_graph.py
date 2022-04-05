@@ -14,7 +14,8 @@ def create_graph_files(mrconso_df: pd.DataFrame, mrrel_df: pd.DataFrame, output_
                        output_rela2rela_id_path: str, ignore_not_mapped_edges: bool):
     node_id2terms_list, node_id2cui, cui2node_id = get_concept_list_groupby_cui(mrconso_df=mrconso_df)
     logging.info("Generating edges....")
-
+    mrrel_df.REL.fillna("NAN", inplace=True)
+    mrrel_df.RELA.fillna("NAN", inplace=True)
     rel2rel_id = {rel: rel_id for rel_id, rel in enumerate(mrrel_df.REL.unique())}
     rela2rela_id = {rela: rela_id for rela_id, rela in enumerate(mrrel_df.RELA.unique())}
     rel2rel_id["LOOP"] = max(rel2rel_id.values()) + 1
