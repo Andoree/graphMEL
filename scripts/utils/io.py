@@ -112,5 +112,6 @@ def save_encoder_from_checkpoint(bert_encoder, bert_tokenizer, save_path: str):
         os.makedirs(output_dir)
     logging.info(f"Saving textual encoder and tokenizer to {save_path}")
     bert_encoder.cpu().save_pretrained(save_path)
+    bert_encoder.config.save_pretrained(save_path)
     bert_tokenizer.save_pretrained(save_path)
     logging.info(f"Successfully saved textual encoder and tokenizer to {save_path}")
