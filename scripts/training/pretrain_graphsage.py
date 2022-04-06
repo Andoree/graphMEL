@@ -67,7 +67,7 @@ def graphsage_val_epoch(model, val_loader, device):
 def main(args):
     output_dir = args.output_dir
     output_subdir = f"gs_{args.graphsage_num_layers}-{args.graphsage_num_channels}_" \
-                    f"{'.'.join((str(x) for x in args.graph_num_neighbors))}_{args.graphsage_dropout}_" \
+                    f"{'.'.join((str(x) for x in args.train_graph_num_neighbors))}_{args.graphsage_dropout}_" \
                     f"lr_{args.learning_rate}_b_{args.batch_size}_rwl_{args.random_walk_length}"
     output_dir = os.path.join(output_dir, output_subdir)
     if not os.path.exists(output_dir) and output_dir != '':
@@ -86,12 +86,12 @@ def main(args):
 
     logging.info(f"There are {train_num_nodes} nodes in train and {val_num_nodes} nodes in validation")
     train_loader = NeighborSampler(node_id_to_token_ids_dict=train_node_id2token_ids_dict, edge_index=train_edge_index,
-                                   sizes=args.graph_num_neighbors, random_walk_length=args.random_walk_length,
-                                   batch_size=args.batch_size,
+                                   sizes=args.train_graph_num_neighbors, random_walk_length=args.random_walk_length,
+                                   batch_size=args.batch_size, num_workers=args.dataloader_num_workers,
                                    shuffle=True, num_nodes=train_num_nodes, seq_max_length=args.text_encoder_seq_length)
     val_loader = NeighborSampler(node_id_to_token_ids_dict=val_node_id2token_ids_dict, edge_index=val_edge_index,
-                                 sizes=args.graph_num_neighbors, random_walk_length=args.random_walk_length,
-                                 batch_size=args.batch_size,
+                                 sizes=args.val_graph_num_neighbors, random_walk_length=args.random_walk_length,
+                                 batch_size=args.batch_size, num_workers=args.dataloader_num_workers,
                                  shuffle=False, num_nodes=val_num_nodes, seq_max_length=args.text_encoder_seq_length)
 
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -118,11 +118,13 @@ if __name__ == '__main__':
     parser.add_argument('--val_edges_path', type=str)
     parser.add_argument('--text_encoder', type=str)
     parser.add_argument('--text_encoder_seq_length', type=int)
+    parser.add_argument('--dataloader_num_workers', type=int)
     parser.add_argument('--model_checkpoint_path', required=False, default=None)
     parser.add_argument('--save_every_N_epoch', type=int, default=1)
     parser.add_argument('--graphsage_num_layers', type=int)
     parser.add_argument('--graphsage_num_channels', type=int)
-    parser.add_argument('--graph_num_neighbors', type=int, nargs='+', )
+    parser.add_argument('--train_graph_num_neighbors', type=int, nargs='+', )
+    parser.add_argument('--val_graph_num_neighbors', type=int, nargs='+', default=(7, 7))
     parser.add_argument('--graphsage_dropout', type=float, )
     parser.add_argument('--random_walk_length', type=int)
     parser.add_argument('--batch_size', type=int)
