@@ -71,13 +71,37 @@ class NeighborSampler(RawNeighborSampler):
 
 def convert_edges_tuples_to_edge_index(edges_tuples: List[Tuple[int, int]]) -> torch.Tensor:
     logging.info("Converting edge tuples to edge index")
-    edge_index = torch.zeros(size=[2, len(edges_tuples)], dtype=torch.long)
-    for idx, (id_1, id_2) in enumerate(edges_tuples):
-        edge_index[0][idx] = id_1
-        edge_index[1][idx] = id_2
+    # edge_index = torch.zeros(size=[2, len(edges_tuples)], dtype=torch.long)
+    edge_strs_set = set()
+    for idx, (node_id_1, node_id_2) in enumerate(edges_tuples):
+        if node_id_2 < node_id_1:
+            node_id_1, node_id_2 = node_id_2, node_id_1
+        edge_str = f"{node_id_1}~{node_id_2}"
+        edge_strs_set.add(edge_str)
+    edge_index = torch.zeros(size=[2, len(edge_strs_set) * 2], dtype=torch.long)
+    for idx, edge_str in enumerate(edge_strs_set):
+        ids = edge_str.split('~')
+        node_id_1 = int(ids[0])
+        node_id_2 = int(ids[1])
+
+        edge_index[0][idx] = node_id_1
+        edge_index[1][idx] = node_id_2
+        edge_index[0][len(edge_strs_set) + idx] = node_id_1
+        edge_index[1][len(edge_strs_set) + idx] = node_id_2
+
+    # for idx, (id_1, id_2) in enumerate(edges_tuples):
+    #     edge_index[0][idx] = id_1
+    #     edge_index[1][idx] = id_2
     logging.info(f"Edge index is created. The size is {edge_index.size()}, there are {edge_index.max()} nodes")
 
     return edge_index
+
+
+def create_one_hop_adjacency_lists(num_nodes: int, edge_index):
+    adjacency_lists = [set() for _ in range(num_nodes)]
+    for (node_id_1, node_id_2) in edge_index:
+        adjacency_lists[node_id_1].add(node_id_2)
+    return adjacency_lists
 
 
 class Node2vecDataset(Dataset):
@@ -101,6 +125,7 @@ class Node2vecDataset(Dataset):
         self.q = q
         self.num_negative_samples = num_negative_samples
         self.seq_max_length = seq_max_length
+        self.adjacency_lists = create_one_hop_adjacency_lists(num_nodes=num_nodes, edge_index=edge_index)
 
     def __getitem__(self, idx):
         return idx
@@ -112,7 +137,7 @@ class Node2vecDataset(Dataset):
         if not isinstance(batch, torch.Tensor):
             batch = torch.tensor(batch)
         pos_batch = self.pos_sample(batch)
-        neg_batch = self.neg_sample(batch)
+        neg_batch = self.neg_sample(batch, pos_batch)
 
         pos_batch_input_ids, pos_batch_attention_masks = self.node_ids2tokenizer_output(pos_batch)
         neg_batch_input_ids, neg_batch_attention_masks = self.node_ids2tokenizer_output(neg_batch)
@@ -133,11 +158,36 @@ class Node2vecDataset(Dataset):
             walks.append(rw[:, j:j + self.context_size])
         return torch.cat(walks, dim=0)
 
-    def neg_sample(self, batch):
+    def neg_sample(self, batch, pos_batch: torch.Tensor):
         batch = batch.repeat(self.walks_per_node * self.num_negative_samples)
+        # num_nodes = self.adj.sparse_size(0)
+        neg_rw_tensors_list = []
+        for anchor_node_id, positive_node_ids in zip(batch, pos_batch):
+            assert len(batch.size()) == 1 and len(pos_batch.size()) == 2
+            pos_node_ids_set = set((int(x) for x in positive_node_ids.unique()))
+            anchor_node_neighborhood_node_ids = self.adjacency_lists[anchor_node_id]
+            reroll_neg_batch = True
+            while reroll_neg_batch:
+                rw = torch.randint(self.adj.sparse_size(0), (self.walk_length,))
+                neg_rw_node_ids_set = set((int(x) for x in rw.unique()))
+                neg_rw_pos_batch_intersection = neg_rw_node_ids_set.intersection(pos_node_ids_set)
+                if len(neg_rw_pos_batch_intersection) > 0:
+                    continue
+                neg_rw_anchor_node_neighborhood_intersection = neg_rw_node_ids_set.intersection(
+                    anchor_node_neighborhood_node_ids)
+                if len(neg_rw_anchor_node_neighborhood_intersection) > 0:
+                    continue
+                reroll_neg_batch = False
+                for positive_node_id in pos_node_ids_set:
+                    positive_node_neighborhood_node_ids = self.adjacency_lists[positive_node_id]
+                    neg_rw_positive_node_neighborhood_intersection = neg_rw_node_ids_set.intersection(
+                        positive_node_neighborhood_node_ids)
+                    if len(neg_rw_positive_node_neighborhood_intersection) > 0:
+                        reroll_neg_batch = True
+                        break
+            neg_rw_tensors_list.append(rw)
+        rw = torch.stack(neg_rw_tensors_list)
 
-        rw = torch.randint(self.adj.sparse_size(0),
-                           (batch.size(0), self.walk_length))
         rw = torch.cat([batch.view(-1, 1), rw], dim=-1)
 
         walks = []
