@@ -99,7 +99,7 @@ def convert_edges_tuples_to_edge_index(edges_tuples: List[Tuple[int, int]]) -> t
 
 def create_one_hop_adjacency_lists(num_nodes: int, edge_index):
     adjacency_lists = [set() for _ in range(num_nodes)]
-    for (node_id_1, node_id_2) in edge_index:
+    for (node_id_1, node_id_2) in zip(edge_index[0], edge_index[1]):
         adjacency_lists[node_id_1].add(node_id_2)
     return adjacency_lists
 
