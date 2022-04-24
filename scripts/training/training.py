@@ -27,15 +27,13 @@ def train_model(model, train_epoch_fn, val_epoch_fn, chkpnt_path: str, train_loa
         epoch_train_loss, num_steps = train_epoch_fn(model=model, train_loader=train_loader, optimizer=optimizer,
                                                             device=device)
         global_num_steps += num_steps
-        epoch_val_loss_1 = val_epoch_fn(model=model, val_loader=val_loader, device=device)
-        epoch_val_loss_2 = val_epoch_fn(model=model, val_loader=val_loader, device=device)
+        epoch_val_loss = val_epoch_fn(model=model, val_loader=val_loader, device=device)
         # assert epoch_val_loss_1 == epoch_val_loss_2
-        log_dict = {"epoch": i, "train loss": epoch_train_loss, "val loss 1": epoch_val_loss_1,
-                    "val loss 2": epoch_val_loss_2}
+        log_dict = {"epoch": i, "train loss": epoch_train_loss, "val loss": epoch_val_loss,}
         logging.info(', '.join((f"{k}: {v}" for k, v in log_dict.items())))
 
         train_loss_history.append(epoch_train_loss)
-        val_loss_history.append(epoch_val_loss_1)
+        val_loss_history.append(epoch_val_loss)
         if i % save_chkpnt_epoch_interval == 0:
             checkpoint = {
                 'epoch': i + 1,
@@ -43,7 +41,7 @@ def train_model(model, train_epoch_fn, val_epoch_fn, chkpnt_path: str, train_loa
                 'optimizer': optimizer,
             }
 
-            chkpnt_path = os.path.join(output_dir, f"checkpoint_e_{i}_steps_{global_num_steps}.pth")
+            chkpnt_path = os.path.join(output_dir, f"checkpoint_e_{i+1}_steps_{global_num_steps}.pth")
             torch.save(checkpoint, chkpnt_path)
 
         update_log_file(path=log_file_path, dict_to_log=log_dict)
@@ -52,5 +50,5 @@ def train_model(model, train_epoch_fn, val_epoch_fn, chkpnt_path: str, train_loa
         'model_state': model.bert_encoder.module.state_dict(),
         'optimizer': optimizer,
     }
-    chkpnt_path = os.path.join(output_dir, f"checkpoint_e_{i}_steps_{global_num_steps}.pth")
+    chkpnt_path = os.path.join(output_dir, f"checkpoint_e_{i+1}_steps_{global_num_steps}.pth")
     torch.save(checkpoint, chkpnt_path)
