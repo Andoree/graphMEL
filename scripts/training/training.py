@@ -7,7 +7,7 @@ from graphmel.scripts.utils.io import update_log_file
 
 
 def train_model(model, train_epoch_fn, val_epoch_fn, chkpnt_path: str, train_loader, val_loader, learning_rate: float, num_epochs: int,
-                output_dir: str, save_chkpnt_epoch_interval: int, device: torch.device):
+                output_dir: str, save_chkpnt_epoch_interval: int, device: torch.device, **kwargs):
     if chkpnt_path is not None:
         logging.info(f"Successfully loaded checkpoint from: {chkpnt_path}")
         checkpoint = torch.load(chkpnt_path)
@@ -25,9 +25,9 @@ def train_model(model, train_epoch_fn, val_epoch_fn, chkpnt_path: str, train_loa
     global_num_steps = 0
     for i in range(start_epoch, start_epoch + num_epochs):
         epoch_train_loss, num_steps = train_epoch_fn(model=model, train_loader=train_loader, optimizer=optimizer,
-                                                            device=device)
+                                                            device=device, **kwargs)
         global_num_steps += num_steps
-        epoch_val_loss = val_epoch_fn(model=model, val_loader=val_loader, device=device)
+        epoch_val_loss = val_epoch_fn(model=model, val_loader=val_loader, device=device, **kwargs)
         # assert epoch_val_loss_1 == epoch_val_loss_2
         log_dict = {"epoch": i, "train loss": epoch_train_loss, "val loss": epoch_val_loss,}
         logging.info(', '.join((f"{k}: {v}" for k, v in log_dict.items())))

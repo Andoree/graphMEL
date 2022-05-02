@@ -6,16 +6,14 @@ from argparse import ArgumentParser
 import numpy as np
 from tqdm import tqdm
 
-from graphmel.scripts.training.dataset import tokenize_node_terms, NeighborSampler, convert_edges_tuples_to_edge_index, \
-    load_data_and_bert_model
+from graphmel.scripts.training.data.dataset import NeighborSampler, \
+    load_data_and_bert_model, convert_edges_tuples_to_edge_index
 from graphmel.scripts.training.model import GraphSAGEOverBert
 from graphmel.scripts.training.training import train_model
-from graphmel.scripts.utils.io import load_node_id2terms_list, load_edges_tuples, save_dict
+from graphmel.scripts.utils.io import save_dict
 import torch
 import torch.nn.functional as F
 # from torch_geometric.data import NeighborSampler as RawNeighborSampler
-from transformers import AutoTokenizer
-from transformers import AutoModel
 
 
 def graphsage_step(model, input_ids, attention_mask, adjs, device):
@@ -75,7 +73,7 @@ def main(args):
     model_descr_path = os.path.join(output_dir, "model_description.tsv")
     save_dict(save_path=model_descr_path, dictionary=vars(args), )
 
-    bert_encoder, train_node_id2token_ids_dict, train_edge_index, val_node_id2token_ids_dict, val_edge_index = \
+    bert_encoder, train_node_id2token_ids_dict, train_edges_tuples, val_node_id2token_ids_dict, val_edges_tuples = \
         load_data_and_bert_model(train_node2terms_path=args.train_node2terms_path,
                                  train_edges_path=args.train_edges_path,
                                  val_node2terms_path=args.val_node2terms_path,
@@ -83,6 +81,12 @@ def main(args):
                                  text_encoder_seq_length=args.text_encoder_seq_length, drop_relations_info=True)
     train_num_nodes = len(set(train_node_id2token_ids_dict.keys()))
     val_num_nodes = len(set(val_node_id2token_ids_dict.keys()))
+
+    # train_edge_index = convert_edges_tuples_to_oriented_edge_index_with_relations(edges_tuples=train_edges_tuples)
+    # val_edge_index = convert_edges_tuples_to_oriented_edge_index_with_relations(edges_tuples=val_edges_tuples)
+    train_edge_index = convert_edges_tuples_to_edge_index(edges_tuples=train_edges_tuples)
+    val_edge_index = convert_edges_tuples_to_edge_index(edges_tuples=val_edges_tuples)
+
 
     logging.info(f"There are {train_num_nodes} nodes in train and {val_num_nodes} nodes in validation")
     train_loader = NeighborSampler(node_id_to_token_ids_dict=train_node_id2token_ids_dict, edge_index=train_edge_index,

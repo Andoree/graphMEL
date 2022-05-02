@@ -89,9 +89,6 @@ def convert_edges_tuples_to_edge_index(edges_tuples: List[Tuple[int, int]]) -> t
         edge_index[0][len(edge_strs_set) + idx] = node_id_1
         edge_index[1][len(edge_strs_set) + idx] = node_id_2
 
-    # for idx, (id_1, id_2) in enumerate(edges_tuples):
-    #     edge_index[0][idx] = id_1
-    #     edge_index[1][idx] = id_2
     logging.info(f"Edge index is created. The size is {edge_index.size()}, there are {edge_index.max()} nodes")
 
     return edge_index
@@ -213,7 +210,7 @@ class Node2vecDataset(Dataset):
 
 def load_data_and_bert_model(train_node2terms_path: str, train_edges_path: str, val_node2terms_path: str,
                              val_edges_path: str, text_encoder_name: str, text_encoder_seq_length: int,
-                             drop_relations_info):
+                             drop_relations_info: bool):
     train_node_id2terms_dict = load_node_id2terms_list(dict_path=train_node2terms_path, )
     train_edges_tuples = load_edges_tuples(train_edges_path)
     if drop_relations_info:
@@ -222,15 +219,42 @@ def load_data_and_bert_model(train_node2terms_path: str, train_edges_path: str, 
     val_edges_tuples = load_edges_tuples(val_edges_path)
     if drop_relations_info:
         val_edges_tuples = [(t[0], t[1]) for t in val_edges_tuples]
-    tokenizer = AutoTokenizer.from_pretrained(text_encoder_name)
-    bert_encoder = AutoModel.from_pretrained(text_encoder_name)
+
+    tokenizer = AutoTokenizer.from_pretrained(text_encoder_name, )
+    bert_encoder = AutoModel.from_pretrained(text_encoder_name, )
     train_node_id2token_ids_dict = tokenize_node_terms(train_node_id2terms_dict, tokenizer,
                                                        max_length=text_encoder_seq_length)
-    # train_num_nodes = len(set(train_node_id2terms_dict.keys()))
-    train_edge_index = convert_edges_tuples_to_edge_index(edges_tuples=train_edges_tuples)
     val_node_id2token_ids_dict = tokenize_node_terms(val_node_id2terms_dict, tokenizer,
                                                      max_length=text_encoder_seq_length)
-    # val_num_nodes = len(set(val_node_id2terms_dict.keys()))
-    val_edge_index = convert_edges_tuples_to_edge_index(edges_tuples=val_edges_tuples)
 
-    return bert_encoder, train_node_id2token_ids_dict, train_edge_index, val_node_id2token_ids_dict, val_edge_index
+    return bert_encoder, train_node_id2token_ids_dict, train_edges_tuples, val_node_id2token_ids_dict, val_edges_tuples
+
+
+def convert_edges_tuples_to_oriented_edge_index_with_relations(edges_tuples: List[Tuple[int, int]],
+                                                               use_rel_or_rela: str) \
+        -> Tuple[torch.Tensor, torch.Tensor]:
+    logging.info("Converting edge tuples to edge index")
+    edge_strs_set = set()
+    for idx, (node_id_1, node_id_2, rel_id, rela_id) in enumerate(edges_tuples):
+        if use_rel_or_rela == "rel":
+            pass
+        elif use_rel_or_rela == "rela":
+            rel_id = rela_id
+        else:
+            raise ValueError(f"Invalid 'use_rel_or_rela' parameter value: {use_rel_or_rela}")
+        edge_str = f"{node_id_1}~{node_id_2}~{rel_id}"
+        edge_strs_set.add(edge_str)
+    edge_index = torch.zeros(size=[2, len(edge_strs_set)], dtype=torch.long)
+    edge_rel_ids = torch.zeros(len(edge_strs_set), dtype=torch.long)
+    for idx, edge_str in enumerate(edge_strs_set):
+        edge_attributes = edge_str.split('~')
+        node_id_1 = int(edge_attributes[0])
+        node_id_2 = int(edge_attributes[1])
+        rel_id = int(edge_attributes[2])
+
+        edge_index[0][idx] = node_id_1
+        edge_index[1][idx] = node_id_2
+        edge_rel_ids[idx] = rel_id
+    logging.info(f"Edge index is created. The size is {edge_index.size()}, there are {edge_index.max()} nodes")
+
+    return edge_index, edge_rel_ids
