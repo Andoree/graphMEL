@@ -42,16 +42,12 @@ def rgcn_step(model, batch, reg_lambda, loss_fn, device):
               neg_src_input_ids=neg_src_input_ids, neg_src_attention_mask=neg_src_att_masks, neg_src_adjs=neg_src_adjs,
               neg_trg_input_ids=neg_trg_input_ids, neg_trg_attention_mask=neg_trg_att_masks, neg_trg_adjs=neg_trg_adjs,
               rel_ids=rel_ids, inv_rel_ids=inv_rel_ids, batch_size=batch_size)
-    #print("device", device)
     pos_labels = torch.ones((rel_ids.size()[0], 1), dtype=torch.float, device=device)
     neg_labels = torch.zeros((rel_ids.size()[0], 1), dtype=torch.float, device=device)
     true_labels = torch.cat([pos_labels, neg_labels], dim=0).view(-1).to(device)
-    #print("pos_labels", pos_labels)
-    #print("neg_labels", neg_labels)
-    #print("true_labels", true_labels)
     pred_scores = torch.cat([pos_scores, neg_scores], dim=0).view(-1)
-    #print("pred_scores", pred_scores)
     pos_reg, neg_reg = pos_reg.to(device), neg_reg.to(device)
+
     loss = loss_fn(pred_scores, true_labels) + reg_lambda * (pos_reg + neg_reg)
 
     return loss
@@ -62,7 +58,8 @@ def rgcn_train_epoch(model: RGCNLinkPredictorOverBert, train_loader: DataLoader,
     model.train()
     total_loss = 0
     num_steps = 0
-    for batch in tqdm(train_loader, miniters=len(train_loader) // 10000, total=len(train_loader)):
+    pbar = tqdm(train_loader, miniters=len(train_loader) // 10000, total=len(train_loader))
+    for batch in pbar:
         optimizer.zero_grad()
         loss = rgcn_step(model=model, batch=batch, reg_lambda=reg_lambda,
                          loss_fn=loss_fn, device=device)
@@ -70,6 +67,7 @@ def rgcn_train_epoch(model: RGCNLinkPredictorOverBert, train_loader: DataLoader,
         optimizer.step()
         num_steps += 1
         total_loss += float(loss)
+        pbar.set_description(f"Loss: {loss}", refresh=True)
     return total_loss / len(train_loader), num_steps
 
 
@@ -77,12 +75,13 @@ def rgcn_val_epoch(model: RGCNLinkPredictorOverBert, val_loader: DataLoader,
                    loss_fn, reg_lambda: float, device):
     model.eval()
     total_loss = 0
+    pbar = tqdm(val_loader, miniters=len(val_loader) // 10000, total=len(val_loader))
     with torch.no_grad():
-        for batch in tqdm(val_loader, miniters=len(val_loader) // 10000, total=len(val_loader)):
+        for batch in pbar:
             loss = rgcn_step(model=model, batch=batch, reg_lambda=reg_lambda,
                              loss_fn=loss_fn, device=device)
-            loss.backward()
             total_loss += float(loss)
+            pbar.set_description(f"Loss: {loss}", refresh=True)
     return total_loss / len(val_loader)
 
 
