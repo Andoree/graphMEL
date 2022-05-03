@@ -87,9 +87,10 @@ def rgcn_val_epoch(model: RGCNLinkPredictorOverBert, val_loader: DataLoader,
 
 def main(args):
     output_dir = args.output_dir
+    conv_type = "fast_rgcn_conv" if args.rgcn_use_fast_conv else "rgcn_conv"
     output_subdir = f"nhc-nl-nba-nbl_{'.'.join((str(x) for x in args.rgcn_num_hidden_channels))}-{args.rgcn_num_layers}-" \
                     f"{args.rgcn_num_bases}-{args.rgcn_num_blocks}_{args.use_rel_or_rela}_reg-{args.distmult_l2_reg_lambda}_" \
-                    f"lr_{args.learning_rate}_b_{args.batch_size}"
+                    f"lr_{args.learning_rate}_b_{args.batch_size}_{conv_type}"
     output_dir = os.path.join(output_dir, output_subdir)
     if not os.path.exists(output_dir) and output_dir != '':
         os.makedirs(output_dir)
@@ -166,7 +167,7 @@ def main(args):
     model = RGCNLinkPredictorOverBert(bert_encoder=bert_encoder, num_hidden_channels=args.rgcn_num_hidden_channels,
                                       num_layers=args.rgcn_num_layers, num_relations=num_relations,
                                       num_bases=args.rgcn_num_bases, num_blocks=args.rgcn_num_blocks,
-                                      multigpu_flag=multigpu_flag).to(device)
+                                      use_fast_conv=args.rgcn_use_fast_conv, multigpu_flag=multigpu_flag).to(device)
     loss_fn = nn.BCEWithLogitsLoss()
     train_model(model=model, train_epoch_fn=rgcn_train_epoch, val_epoch_fn=rgcn_val_epoch,
                 chkpnt_path=args.model_checkpoint_path, train_loader=train_loader, val_loader=val_loader,
@@ -191,6 +192,7 @@ if __name__ == '__main__':
     parser.add_argument('--rgcn_num_layers', type=int)
     parser.add_argument('--rgcn_num_bases', type=int)
     parser.add_argument('--rgcn_num_blocks', type=int, )
+    parser.add_argument('--rgcn_use_fast_conv', action="store_true")
     parser.add_argument('--node_neighborhood_sizes', type=int, nargs='+')
     parser.add_argument('--use_rel_or_rela', type=str, choices=['rel', 'rela', ])
     parser.add_argument('--distmult_l2_reg_lambda', type=float, )

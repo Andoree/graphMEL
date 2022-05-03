@@ -4,7 +4,7 @@ from typing import List
 import torch
 from torch import nn as nn
 from torch.nn import functional as F
-from torch_geometric.nn import SAGEConv, RGCNConv
+from torch_geometric.nn import SAGEConv, RGCNConv, FastRGCNConv
 
 from graphmel.scripts.training.layers.distmult import DistMult
 
@@ -114,7 +114,7 @@ class BertOverNode2Vec(torch.nn.Module):
 
 class RGCNLinkPredictorOverBert(nn.Module):
     def __init__(self, bert_encoder, num_hidden_channels: List[int], num_layers: int, num_relations: int,
-                 num_bases: int, num_blocks: int, multigpu_flag):
+                 num_bases: int, num_blocks: int, use_fast_conv: bool, multigpu_flag):
         super(RGCNLinkPredictorOverBert, self).__init__()
         assert len(num_hidden_channels) == num_layers
         self.num_layers = num_layers
@@ -123,11 +123,12 @@ class RGCNLinkPredictorOverBert(nn.Module):
             self.bert_encoder = nn.DataParallel(bert_encoder)
         else:
             self.bert_encoder = bert_encoder
-        self.rgcn_conv_1 = RGCNConv(in_channels=self.bert_hidden_dim, out_channels=num_hidden_channels[0],
+        RGCNConvClass = FastRGCNConv if use_fast_conv else RGCNConv
+        self.rgcn_conv_1 = RGCNConvClass(in_channels=self.bert_hidden_dim, out_channels=num_hidden_channels[0],
                                     num_relations=num_relations, num_bases=num_bases, num_blocks=num_blocks, )
         self.rgcn_conv_2 = None
         if num_layers == 2:
-            self.rgcn_conv_2 = RGCNConv(in_channels=num_hidden_channels[0], out_channels=num_hidden_channels[1],
+            self.rgcn_conv_2 = RGCNConvClass(in_channels=num_hidden_channels[0], out_channels=num_hidden_channels[1],
                                         num_relations=num_relations, num_bases=num_bases, num_blocks=num_blocks, )
         self.distmult = DistMult(num_rel=num_relations, rel_emb_size=num_hidden_channels[len(num_hidden_channels) - 1])
 
