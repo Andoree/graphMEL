@@ -10,12 +10,13 @@ from graphmel.scripts.training.data.data_utils import node_ids2tokenizer_output
 
 
 class RelationalNeighborSampler(RawNeighborSampler):
-    def __init__(self, dataset, edge_index, node_neighborhood_sizes, rel_ids, num_nodes: int, node_id_to_token_ids_dict,
+    def __init__(self, edge_index, node_neighborhood_sizes, rel_ids, num_nodes: int, node_id_to_token_ids_dict,
                  seq_max_length: int,
                  rel_id2inverse_rel_id: Dict[int, int], *args, **kwargs):
-        super(RelationalNeighborSampler, self).__init__(dataset=dataset, edge_index=edge_index,
+        super(RelationalNeighborSampler, self).__init__(edge_index=edge_index,
                                                         sizes=node_neighborhood_sizes, *args,
                                                         **kwargs)
+        self.node_idx = None
         self.edge_index = edge_index
         self.random_walk_length = node_neighborhood_sizes
         self.rel_ids = rel_ids
@@ -44,12 +45,11 @@ class RelationalNeighborSampler(RawNeighborSampler):
 
     # TODO: В статье есть петля? W_o
     def sample(self, edge_ids):
-
         batch_size = len(edge_ids)
         rel_ids = self.rel_ids[edge_ids]
         pos_batch = {
-            "source_node_id": self.edge_index[0][edge_ids],
-            "target_node_id": self.edge_index[1][edge_ids],
+            "source_node_id": self.edge_index[0, edge_ids],
+            "target_node_id": self.edge_index[1, edge_ids],
             "rel_id": rel_ids,
         }
         # Creating negative samples by corrupting either head or tail of each edge

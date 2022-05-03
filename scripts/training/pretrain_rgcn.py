@@ -149,20 +149,21 @@ def main(args):
     train_num_edges = train_edge_index.size()[1]
     val_num_edges = val_edge_index.size()[1]
 
-    train_edges_dataset = SimpleDataset(num_elements=train_num_edges)
-    val_edges_dataset = SimpleDataset(num_elements=val_num_edges)
-    train_loader = RelationalNeighborSampler(dataset=train_edges_dataset, edge_index=train_edge_index,
+    train_edge_idx = torch.LongTensor(range(train_num_edges))
+    val_edge_idx = torch.LongTensor(range(val_num_edges))
+
+    train_loader = RelationalNeighborSampler(edge_index=train_edge_index,
                                              node_id_to_token_ids_dict=train_node_id2token_ids_dict,
                                              rel_ids=train_edge_rel_ids, batch_size=args.batch_size,
                                              node_neighborhood_sizes=args.node_neighborhood_sizes,
-                                             rel_id2inverse_rel_id=rel_id2inverse_rel_id,
+                                             rel_id2inverse_rel_id=rel_id2inverse_rel_id, node_idx=train_edge_idx,
                                              num_nodes=train_num_nodes, seq_max_length=args.text_encoder_seq_length,
                                              num_workers=args.dataloader_num_workers, shuffle=True)
-    val_loader = RelationalNeighborSampler(dataset=val_edges_dataset, edge_index=val_edge_index,
+    val_loader = RelationalNeighborSampler(edge_index=val_edge_index,
                                            node_id_to_token_ids_dict=val_node_id2token_ids_dict,
                                            rel_ids=val_edge_rel_ids, batch_size=args.batch_size,
                                            node_neighborhood_sizes=args.node_neighborhood_sizes,
-                                           rel_id2inverse_rel_id=rel_id2inverse_rel_id,
+                                           rel_id2inverse_rel_id=rel_id2inverse_rel_id, node_idx=val_edge_idx,
                                            num_nodes=val_num_nodes, seq_max_length=args.text_encoder_seq_length,
                                            num_workers=args.dataloader_num_workers, shuffle=False, drop_last=False)
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
