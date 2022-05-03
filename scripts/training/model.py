@@ -148,44 +148,44 @@ class RGCNLinkPredictorOverBert(nn.Module):
                 neg_src_input_ids, neg_src_attention_mask,neg_src_adjs, neg_src_rel_ids,
                 neg_trg_input_ids, neg_trg_attention_mask, neg_trg_adjs, neg_trg_rel_ids,
                 rel_ids, inv_rel_ids, batch_size):
-        print("pos_src_input_ids", pos_src_input_ids.size())
-        print("pos_src_attention_mask", pos_src_attention_mask.size())
-        print("pos_trg_input_ids", pos_trg_input_ids.size())
-        print("pos_trg_attention_mask", pos_trg_attention_mask.size())
-        print("neg_src_input_ids", neg_src_input_ids.size())
-        print("neg_src_attention_mask", neg_src_attention_mask.size())
-        print("neg_trg_input_ids", neg_trg_input_ids.size())
-        print("neg_trg_attention_mask", neg_trg_attention_mask.size())
-        print("rel_ids", rel_ids.size())
-        print("inv_rel_ids", inv_rel_ids.size())
+        #print("pos_src_input_ids", pos_src_input_ids.size())
+        #print("pos_src_attention_mask", pos_src_attention_mask.size())
+        #print("pos_trg_input_ids", pos_trg_input_ids.size())
+        #print("pos_trg_attention_mask", pos_trg_attention_mask.size())
+        #print("neg_src_input_ids", neg_src_input_ids.size())
+        #print("neg_src_attention_mask", neg_src_attention_mask.size())
+        #print("neg_trg_input_ids", neg_trg_input_ids.size())
+        #print("neg_trg_attention_mask", neg_trg_attention_mask.size())
+        #print("rel_ids", rel_ids.size())
+        #print("inv_rel_ids", inv_rel_ids.size())
 
         pos_src_cls_embeddings = self.encode_nodes(input_ids=pos_src_input_ids, attention_mask=pos_src_attention_mask)
-        print("pos_src_cls_embeddings", pos_src_cls_embeddings.size())
+        #print("pos_src_cls_embeddings", pos_src_cls_embeddings.size())
         pos_trg_cls_embeddings = self.encode_nodes(input_ids=pos_trg_input_ids, attention_mask=pos_trg_attention_mask)
-        print("pos_trg_cls_embeddings", pos_trg_cls_embeddings.size())
+        #print("pos_trg_cls_embeddings", pos_trg_cls_embeddings.size())
         neg_src_cls_embeddings = self.encode_nodes(input_ids=neg_src_input_ids, attention_mask=neg_src_attention_mask)
-        print("neg_src_cls_embeddings", neg_src_cls_embeddings.size())
+        #print("neg_src_cls_embeddings", neg_src_cls_embeddings.size())
         neg_trg_cls_embeddings = self.encode_nodes(input_ids=neg_trg_input_ids, attention_mask=neg_trg_attention_mask)
-        print("neg_trg_cls_embeddings", neg_trg_cls_embeddings.size())
+        #print("neg_trg_cls_embeddings", neg_trg_cls_embeddings.size())
         # pos_edge_nodes_embeddings = (pos_src_cls_embeddings, pos_trg_cls_embeddings)
         # neg_edge_nodes_embeddings = (neg_src_cls_embeddings, neg_trg_cls_embeddings)
 
         pos_x_uninverted = self.apply_convs(x=(pos_src_cls_embeddings, pos_trg_cls_embeddings),
                                             edge_index=pos_src_adjs, rel_type=pos_src_rel_ids)[:batch_size]
-        print("pos_x_uninverted", pos_x_uninverted.size())
+        #print("pos_x_uninverted", pos_x_uninverted.size())
         pos_x_inv = self.apply_convs(x=(pos_trg_cls_embeddings, pos_src_cls_embeddings),
                                      edge_index=pos_trg_adjs, rel_type=pos_trg_rel_ids)[:batch_size]
-        print("pos_x_inv", pos_x_inv.size())
+        #print("pos_x_inv", pos_x_inv.size())
         neg_x_uninverted = self.apply_convs(x=(neg_src_cls_embeddings, neg_trg_cls_embeddings),
                                             edge_index=neg_src_adjs, rel_type=neg_src_rel_ids)[:batch_size]
-        print("neg_x_uninverted", neg_x_uninverted.size())
+        #print("neg_x_uninverted", neg_x_uninverted.size())
         neg_x_inv = self.apply_convs(x=(neg_trg_cls_embeddings, neg_src_cls_embeddings),
                                      edge_index=neg_trg_adjs, rel_type=neg_trg_rel_ids)[:batch_size]
-        print("neg_x_inv", neg_x_inv.size())
+        #print("neg_x_inv", neg_x_inv.size())
 
         pos_scores, pos_reg = self.distmult(src_node_embs=pos_x_uninverted, trg_node_embs=pos_x_inv, rel_ids=rel_ids)
-        print("pos_scores", pos_scores.size())
+        #print("pos_scores", pos_scores.size())
         neg_scores, neg_reg = self.distmult(src_node_embs=neg_x_uninverted, trg_node_embs=neg_x_inv, rel_ids=rel_ids)
-        print("neg_scores", neg_scores.size())
+        #print("neg_scores", neg_scores.size())
         return pos_scores, pos_reg, neg_scores, neg_reg
 

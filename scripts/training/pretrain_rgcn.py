@@ -42,15 +42,15 @@ def rgcn_step(model, batch, reg_lambda, loss_fn, device):
               neg_src_input_ids=neg_src_input_ids, neg_src_attention_mask=neg_src_att_masks, neg_src_adjs=neg_src_adjs,
               neg_trg_input_ids=neg_trg_input_ids, neg_trg_attention_mask=neg_trg_att_masks, neg_trg_adjs=neg_trg_adjs,
               rel_ids=rel_ids, inv_rel_ids=inv_rel_ids, batch_size=batch_size)
-    print("device", device)
+    #print("device", device)
     pos_labels = torch.ones((rel_ids.size()[0], 1), dtype=torch.float, device=device)
     neg_labels = torch.zeros((rel_ids.size()[0], 1), dtype=torch.float, device=device)
     true_labels = torch.cat([pos_labels, neg_labels], dim=0).view(-1).to(device)
-    print("pos_labels", pos_labels)
-    print("neg_labels", neg_labels)
-    print("true_labels", true_labels)
+    #print("pos_labels", pos_labels)
+    #print("neg_labels", neg_labels)
+    #print("true_labels", true_labels)
     pred_scores = torch.cat([pos_scores, neg_scores], dim=0).view(-1)
-    print("pred_scores", pred_scores)
+    #print("pred_scores", pred_scores)
     pos_reg, neg_reg = pos_reg.to(device), neg_reg.to(device)
     loss = loss_fn(pred_scores, true_labels) + reg_lambda * (pos_reg + neg_reg)
 
