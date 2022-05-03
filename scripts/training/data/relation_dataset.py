@@ -15,6 +15,7 @@ class RelationalNeighborSampler(RawNeighborSampler):
                  rel_id2inverse_rel_id: Dict[int, int], *args, **kwargs):
         super(RelationalNeighborSampler, self).__init__(edge_index=edge_index, sizes=node_neighborhood_sizes, *args,
                                                         **kwargs)
+        self.batch_size = kwargs["batch_size"]
         self.edge_index = edge_index
         self.random_walk_length = node_neighborhood_sizes
         self.rel_ids = rel_ids

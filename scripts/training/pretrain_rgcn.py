@@ -58,7 +58,7 @@ def rgcn_train_epoch(model: RGCNLinkPredictorOverBert, train_loader: DataLoader,
     model.train()
     total_loss = 0
     num_steps = 0
-    pbar = tqdm(train_loader, miniters=len(train_loader) // 10000, total=len(train_loader))
+    pbar = tqdm(train_loader, miniters=len(train_loader) // 10000, total=len(train_loader) // train_loader.batch_size)
     for batch in pbar:
         optimizer.zero_grad()
         loss = rgcn_step(model=model, batch=batch, reg_lambda=reg_lambda,
@@ -75,7 +75,7 @@ def rgcn_val_epoch(model: RGCNLinkPredictorOverBert, val_loader: DataLoader,
                    loss_fn, reg_lambda: float, device):
     model.eval()
     total_loss = 0
-    pbar = tqdm(val_loader, miniters=len(val_loader) // 10000, total=len(val_loader))
+    pbar = tqdm(val_loader, miniters=len(val_loader) // 10000, total=len(val_loader) // val_loader.batch_size)
     with torch.no_grad():
         for batch in pbar:
             loss = rgcn_step(model=model, batch=batch, reg_lambda=reg_lambda,
@@ -146,7 +146,7 @@ def main(args):
 
     train_loader = RelationalNeighborSampler(edge_index=train_edge_index,
                                              node_id_to_token_ids_dict=train_node_id2token_ids_dict,
-                                             rel_ids=train_edge_rel_ids,batch_size=args.batch_size,
+                                             rel_ids=train_edge_rel_ids, batch_size=args.batch_size,
                                              node_neighborhood_sizes=args.node_neighborhood_sizes,
                                              rel_id2inverse_rel_id=rel_id2inverse_rel_id,
                                              num_nodes=train_num_nodes, seq_max_length=args.text_encoder_seq_length,
