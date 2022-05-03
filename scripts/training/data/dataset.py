@@ -258,3 +258,14 @@ def convert_edges_tuples_to_oriented_edge_index_with_relations(edges_tuples: Lis
     logging.info(f"Edge index is created. The size is {edge_index.size()}, there are {edge_index.max()} nodes")
 
     return edge_index, edge_rel_ids
+
+
+class SimpleDataset(Dataset):
+    def __init__(self, num_elements):
+        self.num_elements = num_elements
+
+    def __getitem__(self, idx):
+        return idx
+
+    def __len__(self):
+        return self.num_elements

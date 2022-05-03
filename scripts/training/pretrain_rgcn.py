@@ -12,7 +12,7 @@ from tqdm import tqdm
 from graphmel.scripts.training.data.data_utils import create_rel_id2inverse_rel_id_map
 from graphmel.scripts.training.data.relation_dataset import RelationalNeighborSampler
 from graphmel.scripts.training.data.dataset import convert_edges_tuples_to_oriented_edge_index_with_relations, \
-    load_data_and_bert_model
+    load_data_and_bert_model, SimpleDataset
 from graphmel.scripts.training.model import RGCNLinkPredictorOverBert
 from graphmel.scripts.training.training import train_model
 from graphmel.scripts.utils.io import save_dict, load_dict
@@ -58,8 +58,9 @@ def rgcn_train_epoch(model: RGCNLinkPredictorOverBert, train_loader: DataLoader,
     model.train()
     total_loss = 0
     num_steps = 0
-    pbar = tqdm(train_loader, miniters=len(train_loader) // 10000, total=len(train_loader) // train_loader.batch_size)
-    for batch in pbar:
+    # pbar = tqdm(train_loader, miniters=len(train_loader) // 10000, total=len(train_loader) // train_loader.batch_size)
+    for batch in tqdm(train_loader, miniters=len(train_loader) // 10000,
+                      total=len(train_loader) // train_loader.batch_size):
         optimizer.zero_grad()
         loss = rgcn_step(model=model, batch=batch, reg_lambda=reg_lambda,
                          loss_fn=loss_fn, device=device)
@@ -67,7 +68,7 @@ def rgcn_train_epoch(model: RGCNLinkPredictorOverBert, train_loader: DataLoader,
         optimizer.step()
         num_steps += 1
         total_loss += float(loss)
-        pbar.set_description(f"Loss: {loss}", refresh=True)
+        # pbar.set_description(f"Loss: {loss}", refresh=True)
     return total_loss / len(train_loader), num_steps
 
 
@@ -75,13 +76,14 @@ def rgcn_val_epoch(model: RGCNLinkPredictorOverBert, val_loader: DataLoader,
                    loss_fn, reg_lambda: float, device):
     model.eval()
     total_loss = 0
-    pbar = tqdm(val_loader, miniters=len(val_loader) // 10000, total=len(val_loader) // val_loader.batch_size)
+    # pbar = tqdm(val_loader, miniters=len(val_loader) // 10000, total=len(val_loader) // val_loader.batch_size)
     with torch.no_grad():
-        for batch in pbar:
+        for batch in tqdm(val_loader, miniters=len(val_loader) // 10000,
+                          total=len(val_loader) // val_loader.batch_size):
             loss = rgcn_step(model=model, batch=batch, reg_lambda=reg_lambda,
                              loss_fn=loss_fn, device=device)
             total_loss += float(loss)
-            pbar.set_description(f"Loss: {loss}", refresh=True)
+            # pbar.set_description(f"Loss: {loss}", refresh=True)
     return total_loss / len(val_loader)
 
 
@@ -144,15 +146,19 @@ def main(args):
     val_edge_index, val_edge_rel_ids = \
         convert_edges_tuples_to_oriented_edge_index_with_relations(val_edges_tuples, args.use_rel_or_rela)
     assert val_edge_index.size()[1] == len(val_edge_rel_ids)
+    train_num_edges = train_edge_index.size()[1]
+    val_num_edges = val_edge_index.size()[1]
 
-    train_loader = RelationalNeighborSampler(edge_index=train_edge_index,
+    train_edges_dataset = SimpleDataset(num_elements=train_num_edges)
+    val_edges_dataset = SimpleDataset(num_elements=val_num_edges)
+    train_loader = RelationalNeighborSampler(dataset=train_edges_dataset, edge_index=train_edge_index,
                                              node_id_to_token_ids_dict=train_node_id2token_ids_dict,
                                              rel_ids=train_edge_rel_ids, batch_size=args.batch_size,
                                              node_neighborhood_sizes=args.node_neighborhood_sizes,
                                              rel_id2inverse_rel_id=rel_id2inverse_rel_id,
                                              num_nodes=train_num_nodes, seq_max_length=args.text_encoder_seq_length,
                                              num_workers=args.dataloader_num_workers, shuffle=True)
-    val_loader = RelationalNeighborSampler(edge_index=val_edge_index,
+    val_loader = RelationalNeighborSampler(dataset=val_edges_dataset, edge_index=val_edge_index,
                                            node_id_to_token_ids_dict=val_node_id2token_ids_dict,
                                            rel_ids=val_edge_rel_ids, batch_size=args.batch_size,
                                            node_neighborhood_sizes=args.node_neighborhood_sizes,

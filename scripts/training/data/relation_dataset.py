@@ -10,12 +10,12 @@ from graphmel.scripts.training.data.data_utils import node_ids2tokenizer_output
 
 
 class RelationalNeighborSampler(RawNeighborSampler):
-    def __init__(self, edge_index, node_neighborhood_sizes, rel_ids, num_nodes: int, node_id_to_token_ids_dict,
+    def __init__(self, dataset, edge_index, node_neighborhood_sizes, rel_ids, num_nodes: int, node_id_to_token_ids_dict,
                  seq_max_length: int,
                  rel_id2inverse_rel_id: Dict[int, int], *args, **kwargs):
-        super(RelationalNeighborSampler, self).__init__(edge_index=edge_index, sizes=node_neighborhood_sizes, *args,
+        super(RelationalNeighborSampler, self).__init__(dataset=dataset, edge_index=edge_index,
+                                                        sizes=node_neighborhood_sizes, *args,
                                                         **kwargs)
-        self.batch_size = kwargs["batch_size"]
         self.edge_index = edge_index
         self.random_walk_length = node_neighborhood_sizes
         self.rel_ids = rel_ids
@@ -40,7 +40,7 @@ class RelationalNeighborSampler(RawNeighborSampler):
         logging.info(f"Dataset is created, there are {len(self.unique_edges_strings)} unique edges strings")
 
     def __len__(self):
-        return self.num_edges
+        return self.num_edges // self.batch_size
 
     # TODO: В статье есть петля? W_o
     def sample(self, edge_ids):
