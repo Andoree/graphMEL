@@ -59,8 +59,7 @@ def rgcn_train_epoch(model: RGCNLinkPredictorOverBert, train_loader: DataLoader,
     total_loss = 0
     num_steps = 0
     # pbar = tqdm(train_loader, miniters=len(train_loader) // 10000, total=len(train_loader) // train_loader.batch_size)
-    for batch in tqdm(train_loader, miniters=len(train_loader) // 10000,
-                      total=len(train_loader) // train_loader.batch_size):
+    for batch in tqdm(train_loader, miniters=len(train_loader) // 10000, total=len(train_loader)):
         optimizer.zero_grad()
         loss = rgcn_step(model=model, batch=batch, reg_lambda=reg_lambda,
                          loss_fn=loss_fn, device=device)
@@ -78,8 +77,7 @@ def rgcn_val_epoch(model: RGCNLinkPredictorOverBert, val_loader: DataLoader,
     total_loss = 0
     # pbar = tqdm(val_loader, miniters=len(val_loader) // 10000, total=len(val_loader) // val_loader.batch_size)
     with torch.no_grad():
-        for batch in tqdm(val_loader, miniters=len(val_loader) // 10000,
-                          total=len(val_loader) // val_loader.batch_size):
+        for batch in tqdm(val_loader, miniters=len(val_loader) // 10000, total=len(val_loader)):
             loss = rgcn_step(model=model, batch=batch, reg_lambda=reg_lambda,
                              loss_fn=loss_fn, device=device)
             total_loss += float(loss)
