@@ -23,7 +23,7 @@ def rgcn_step(model, batch, reg_lambda, loss_fn, device):
     (pos_trg_batch_size, pos_trg_adjs, pos_trg_input_ids, pos_trg_att_masks, pos_trg_rel_ids) = batch["pos_trg_input"]
     (neg_src_batch_size, neg_src_adjs, neg_src_input_ids, neg_src_att_masks, neg_src_rel_ids) = batch["neg_src_input"]
     (neg_trg_batch_size, neg_trg_adjs, neg_trg_input_ids, neg_trg_att_masks, neg_trg_rel_ids) = batch["neg_trg_input"]
-    rel_ids, inv_rel_ids, batch_size = batch["rel_id"].to(device), batch["inv_rel_id"].to(device), batch["batch_size"]
+    rel_ids,  batch_size = batch["rel_id"].to(device), batch["batch_size"]
 
     pos_src_adjs, pos_src_input_ids, pos_src_att_masks, pos_src_rel_ids = \
         pos_src_adjs.to(device), pos_src_input_ids.to(device), pos_src_att_masks.to(device), pos_src_rel_ids.to(device)
@@ -34,6 +34,7 @@ def rgcn_step(model, batch, reg_lambda, loss_fn, device):
     neg_trg_adjs, neg_trg_input_ids, neg_trg_att_masks, neg_trg_rel_ids = \
         neg_trg_adjs.to(device), neg_trg_input_ids.to(device), neg_trg_att_masks.to(device), neg_trg_rel_ids.to(device)
 
+
     pos_scores, pos_reg, neg_scores, neg_reg = \
         model(pos_src_input_ids=pos_src_input_ids, pos_src_attention_mask=pos_src_att_masks, pos_src_adjs=pos_src_adjs,
               pos_src_rel_ids=pos_src_rel_ids, pos_trg_rel_ids=pos_trg_rel_ids, neg_src_rel_ids=neg_src_rel_ids,
@@ -41,7 +42,7 @@ def rgcn_step(model, batch, reg_lambda, loss_fn, device):
               pos_trg_input_ids=pos_trg_input_ids, pos_trg_attention_mask=pos_trg_att_masks, pos_trg_adjs=pos_trg_adjs,
               neg_src_input_ids=neg_src_input_ids, neg_src_attention_mask=neg_src_att_masks, neg_src_adjs=neg_src_adjs,
               neg_trg_input_ids=neg_trg_input_ids, neg_trg_attention_mask=neg_trg_att_masks, neg_trg_adjs=neg_trg_adjs,
-              rel_ids=rel_ids, inv_rel_ids=inv_rel_ids, batch_size=batch_size)
+              rel_ids=rel_ids, batch_size=batch_size)
     pos_labels = torch.ones((rel_ids.size()[0], 1), dtype=torch.float, device=device)
     neg_labels = torch.zeros((rel_ids.size()[0], 1), dtype=torch.float, device=device)
     true_labels = torch.cat([pos_labels, neg_labels], dim=0).view(-1).to(device)
@@ -114,6 +115,7 @@ def main(args):
                                  val_node2terms_path=val_node2terms_path,
                                  val_edges_path=val_edges_path, text_encoder_name=args.text_encoder,
                                  text_encoder_seq_length=args.text_encoder_seq_length, drop_relations_info=False)
+
     train_num_nodes = len(set(train_node_id2token_ids_dict.keys()))
     val_num_nodes = len(set(val_node_id2token_ids_dict.keys()))
 
@@ -128,9 +130,12 @@ def main(args):
     for key in train_rela2id.keys():
         assert train_rela2id[key] == val_rela2id[key]
     if args.use_rel_or_rela == "rel":
-        num_relations = len(train_rel2id.keys()) * 2 - 1
+        # TODO: Потом если надо поменять
+        # num_relations = len(train_rel2id.keys()) * 2 - 1
+        num_relations = len(train_rel2id.keys())
     elif args.use_rel_or_rela == "rela":
-        num_relations = len(train_rela2id.keys()) * 2 - 1
+        # num_relations = len(train_rela2id.keys()) * 2 - 1
+        num_relations = len(train_rela2id.keys())
         train_rel2id = train_rela2id
     else:
         raise ValueError(f"Invalid 'use_rel_or_rela' parameter: {args.use_rel_or_rela}")

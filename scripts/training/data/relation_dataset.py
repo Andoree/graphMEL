@@ -58,7 +58,12 @@ class RelationalNeighborSampler(RawNeighborSampler):
         pos_trg_node_ids = pos_batch["target_node_id"]
         neg_src_node_ids = neg_batch["source_node_id"]
         neg_trg_node_ids = neg_batch["target_node_id"]
-
+        # TODO: Стереть принты и в сэмплере, и в RGCN
+        # print("pos_src_node_ids", pos_src_node_ids)
+        # print("pos_trg_node_ids", pos_trg_node_ids)
+        # print("neg_src_node_ids", neg_src_node_ids)
+        # print("neg_trg_node_ids", neg_trg_node_ids)
+        # print('-')
         (pos_src_batch_size, pos_src_n_id, pos_src_adjs) = super(RelationalNeighborSampler, self).sample(
             pos_src_node_ids)
         (pos_trg_batch_size, pos_trg_n_id, pos_trg_adjs) = super(RelationalNeighborSampler, self).sample(
@@ -67,6 +72,21 @@ class RelationalNeighborSampler(RawNeighborSampler):
             neg_src_node_ids)
         (neg_trg_batch_size, neg_trg_n_id, neg_trg_adjs) = super(RelationalNeighborSampler, self).sample(
             neg_trg_node_ids)
+        # print("pos_src_batch_size", pos_src_batch_size)
+        # print("pos_trg_batch_size", pos_trg_batch_size)
+        # print("neg_src_batch_size", neg_src_batch_size)
+        # print("neg_trg_batch_size", neg_trg_batch_size)
+        # print('--')
+        # print("pos_src_n_id", pos_src_n_id)
+        # print("pos_trg_n_id", pos_trg_n_id)
+        # print("neg_src_n_id", neg_src_n_id)
+        # print("neg_trg_n_id", neg_trg_n_id)
+        # print('--')
+        # print("pos_src_adjs", pos_src_adjs)
+        # print("pos_trg_adjs", pos_trg_adjs)
+        # print("neg_src_adjs", neg_src_adjs)
+        # print("neg_trg_adjs", neg_trg_adjs)
+        # print('--')
         # Getting BERT input for heads and tails of positive and negative edges
         pos_src_input_ids, pos_src_attention_masks = node_ids2tokenizer_output(batch=pos_src_n_id,
                                                                                seq_max_length=self.seq_max_length,
@@ -85,12 +105,31 @@ class RelationalNeighborSampler(RawNeighborSampler):
         assert neg_src_input_ids.size() == neg_src_attention_masks.size()
         assert neg_trg_input_ids.size() == neg_trg_attention_masks.size()
 
-        pos_src_rel_ids = pos_src_adjs.e_id
-        pos_trg_rel_ids = torch.LongTensor([self.rel_id2inverse_rel_id[int(idx)] for idx in pos_trg_adjs.e_id])
-        neg_src_rel_ids = neg_src_adjs.e_id
-        neg_trg_rel_ids = torch.LongTensor([self.rel_id2inverse_rel_id[int(idx)] for idx in neg_trg_adjs.e_id])
+        # print("pos_src_input_ids", pos_src_input_ids.size())
+        # print("pos_trg_input_ids", pos_trg_input_ids.size())
+        # print("neg_src_input_ids", neg_src_input_ids.size())
+        # print("neg_trg_input_ids", neg_trg_input_ids.size())
+        # print('--')
+        #
+        # print("pos_src_adjs.e_id", pos_src_adjs.e_id)
+        # print("pos_trg_adjs.e_id", pos_trg_adjs.e_id)
+        # print("neg_src_adjs.e_id", neg_src_adjs.e_id)
+        # print("neg_trg_adjs.e_id", neg_trg_adjs.e_id)
+        # print('-----' * 4)
 
-        inv_rel_ids = torch.LongTensor([self.rel_id2inverse_rel_id[int(idx)] for idx in self.rel_ids[edge_ids]])
+        pos_src_rel_ids = pos_src_adjs.e_id
+        pos_trg_rel_ids = pos_trg_adjs.e_id
+        neg_src_rel_ids = neg_src_adjs.e_id
+        neg_trg_rel_ids = neg_trg_adjs.e_id
+        # pos_trg_rel_ids = torch.LongTensor([self.rel_id2inverse_rel_id[int(idx)] for idx in pos_trg_adjs.e_id])
+        # neg_trg_rel_ids = torch.LongTensor([self.rel_id2inverse_rel_id[int(idx)] for idx in neg_trg_adjs.e_id])
+        # print("pos_src_rel_ids", pos_src_rel_ids)
+        # print("pos_trg_rel_ids", pos_trg_rel_ids)
+        # print("neg_src_rel_ids", neg_src_rel_ids)
+        # print("neg_trg_rel_ids", neg_trg_rel_ids)
+        # print('--')
+
+        # inv_rel_ids = torch.LongTensor([self.rel_id2inverse_rel_id[int(idx)] for idx in self.rel_ids[edge_ids]])
         pos_src_input = (
             pos_src_batch_size, pos_src_adjs.edge_index, pos_src_input_ids, pos_src_attention_masks, pos_src_rel_ids)
         pos_trg_input = (
@@ -103,7 +142,7 @@ class RelationalNeighborSampler(RawNeighborSampler):
         batch_dict = {
             "pos_src_input": pos_src_input, "pos_trg_input": pos_trg_input,
             "neg_src_input": neg_src_input, "neg_trg_input": neg_trg_input,
-            "rel_id": rel_ids, "inv_rel_id": inv_rel_ids, "batch_size": batch_size
+            "rel_id": rel_ids, "batch_size": batch_size
         }
 
         return batch_dict
