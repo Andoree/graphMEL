@@ -1,6 +1,7 @@
+import codecs
 import logging
 import random
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Set
 
 from torch.utils.data import Dataset
 from torch_geometric.loader import NeighborSampler as RawNeighborSampler
@@ -8,7 +9,7 @@ from torch_cluster import random_walk
 import torch
 from torch_sparse import SparseTensor
 from torch_geometric.utils.num_nodes import maybe_num_nodes
-from transformers import AutoTokenizer, AutoModel
+from transformers import AutoTokenizer, AutoModel, BertTokenizerFast
 
 from graphmel.scripts.utils.io import load_node_id2terms_list, load_edges_tuples
 
@@ -19,7 +20,7 @@ def tokenize_node_terms(node_id_to_terms_dict, tokenizer, max_length: int) -> Di
         node_tokenized_terms = []
         for term in terms_list:
             tokenizer_output = tokenizer.encode_plus(term, max_length=max_length,
-                                                     padding="max_length", truncation=True,
+                                                     padding="max_length", truncation=True, add_special_tokens=True,
                                                      return_tensors="pt", )
             node_tokenized_terms.append(tokenizer_output)
         node_id_to_token_ids_dict[node_id] = node_tokenized_terms
@@ -69,25 +70,26 @@ class NeighborSampler(RawNeighborSampler):
         return batch_size, n_id, adjs, batch_input_ids, batch_attention_masks
 
 
-def convert_edges_tuples_to_edge_index(edges_tuples: List[Tuple[int, int]]) -> torch.Tensor:
+def convert_edges_tuples_to_edge_index(edges_tuples: List[Tuple[int, int]], remove_selfloops=False) -> torch.Tensor:
     logging.info("Converting edge tuples to edge index")
     # edge_index = torch.zeros(size=[2, len(edges_tuples)], dtype=torch.long)
     edge_strs_set = set()
     for idx, (node_id_1, node_id_2) in enumerate(edges_tuples):
         if node_id_2 < node_id_1:
             node_id_1, node_id_2 = node_id_2, node_id_1
-        edge_str = f"{node_id_1}~{node_id_2}"
-        edge_strs_set.add(edge_str)
+        if not (remove_selfloops and node_id_1 == node_id_2):
+            edge_str = f"{node_id_1}~{node_id_2}"
+            edge_strs_set.add(edge_str)
     edge_index = torch.zeros(size=[2, len(edge_strs_set) * 2], dtype=torch.long)
     for idx, edge_str in enumerate(edge_strs_set):
         ids = edge_str.split('~')
         node_id_1 = int(ids[0])
         node_id_2 = int(ids[1])
-
-        edge_index[0][idx] = node_id_1
-        edge_index[1][idx] = node_id_2
-        edge_index[0][len(edge_strs_set) + idx] = node_id_1
-        edge_index[1][len(edge_strs_set) + idx] = node_id_2
+        if not (remove_selfloops and node_id_1 == node_id_2):
+            edge_index[0][idx] = node_id_1
+            edge_index[1][idx] = node_id_2
+            edge_index[0][len(edge_strs_set) + idx] = node_id_2
+            edge_index[1][len(edge_strs_set) + idx] = node_id_1
 
     logging.info(f"Edge index is created. The size is {edge_index.size()}, there are {edge_index.max()} nodes")
 
@@ -210,7 +212,7 @@ class Node2vecDataset(Dataset):
 
 def load_data_and_bert_model(train_node2terms_path: str, train_edges_path: str, val_node2terms_path: str,
                              val_edges_path: str, text_encoder_name: str, text_encoder_seq_length: int,
-                             drop_relations_info: bool):
+                             drop_relations_info: bool, use_fast: bool = True, do_lower_case=True):
     train_node_id2terms_dict = load_node_id2terms_list(dict_path=train_node2terms_path, )
     train_edges_tuples = load_edges_tuples(train_edges_path)
     if drop_relations_info:
@@ -220,14 +222,14 @@ def load_data_and_bert_model(train_node2terms_path: str, train_edges_path: str, 
     if drop_relations_info:
         val_edges_tuples = [(t[0], t[1]) for t in val_edges_tuples]
 
-    tokenizer = AutoTokenizer.from_pretrained(text_encoder_name, )
+    tokenizer = AutoTokenizer.from_pretrained(text_encoder_name, do_lower_case=do_lower_case, use_fast=use_fast)
     bert_encoder = AutoModel.from_pretrained(text_encoder_name, )
     train_node_id2token_ids_dict = tokenize_node_terms(train_node_id2terms_dict, tokenizer,
                                                        max_length=text_encoder_seq_length)
     val_node_id2token_ids_dict = tokenize_node_terms(val_node_id2terms_dict, tokenizer,
                                                      max_length=text_encoder_seq_length)
 
-    return bert_encoder, train_node_id2token_ids_dict, train_edges_tuples, val_node_id2token_ids_dict, val_edges_tuples
+    return bert_encoder, tokenizer, train_node_id2token_ids_dict, train_edges_tuples, val_node_id2token_ids_dict, val_edges_tuples
 
 
 def convert_edges_tuples_to_oriented_edge_index_with_relations(edges_tuples: List[Tuple[int, int]],
@@ -269,3 +271,46 @@ class SimpleDataset(Dataset):
 
     def __len__(self):
         return self.num_elements
+
+
+def load_positive_pairs(triplet_file_path: str) -> Tuple[List[str], List[str], List[int]]:
+    term_1_list: List[str] = []
+    term_2_list: List[str] = []
+    concept_ids: List[int] = []
+    with codecs.open(triplet_file_path, 'r', encoding="utf-8") as inp_file:
+        for line in inp_file:
+            attrs = line.strip().split('||')
+            concept_id = int(attrs[0])
+            term_1 = attrs[1]
+            term_2 = attrs[2]
+
+            concept_ids.append(concept_id)
+            term_1_list.append(term_1)
+            term_2_list.append(term_2)
+    return term_1_list, term_2_list, concept_ids
+
+
+def map_terms2term_id(term_1_list: List[str], term_2_list: List[str]) -> Tuple[List[int], List[int], Dict[str, int]]:
+    unique_terms: Set[str] = set()
+    unique_terms.update(term_1_list)
+    unique_terms.update(term_2_list)
+    term2id = {term: term_id for term_id, term in enumerate(sorted(unique_terms))}
+
+    term_1_ids = [term2id[term] for term in term_1_list]
+    term_2_ids = [term2id[term] for term in term_2_list]
+
+    return term_1_ids, term_2_ids, term2id
+
+
+def create_term_id2tokenizer_output(term2id: Dict[str, int], max_length: int, tokenizer: BertTokenizerFast):
+    term_id2tok_out = {}
+    for term, term_id in term2id.items():
+        tok_out = tokenizer.encode_plus(
+            term,
+            max_length=max_length,
+            padding="max_length",
+            truncation=True,
+            add_special_tokens=True,
+            return_tensors="pt")
+        term_id2tok_out[term_id] = tok_out
+    return term_id2tok_out

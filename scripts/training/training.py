@@ -37,7 +37,8 @@ def train_model(model, train_epoch_fn, val_epoch_fn, chkpnt_path: str, train_loa
         if i % save_chkpnt_epoch_interval == 0:
             checkpoint = {
                 'epoch': i + 1,
-                'model_state': model.bert_encoder.module.state_dict(),
+                # TODO
+                'model_state': model.bert_encoder.state_dict(), # model.bert_encoder.module.state_dict(),
                 'optimizer': optimizer,
             }
 

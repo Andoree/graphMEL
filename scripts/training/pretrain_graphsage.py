@@ -13,6 +13,8 @@ from graphmel.scripts.training.training import train_model
 from graphmel.scripts.utils.io import save_dict
 import torch
 import torch.nn.functional as F
+
+
 # from torch_geometric.data import NeighborSampler as RawNeighborSampler
 
 
@@ -66,14 +68,14 @@ def main(args):
     output_dir = args.output_dir
     output_subdir = f"gs_{args.graphsage_num_layers}-{args.graphsage_num_channels}_" \
                     f"{'.'.join((str(x) for x in args.train_graph_num_neighbors))}_{args.graphsage_dropout}_" \
-                    f"lr_{args.learning_rate}_b_{args.batch_size}_rwl_{args.random_walk_length}"
+                    f"lr_{args.learning_rate}_b_{args.batch_size}_rwl_{args.num_neighbors}"
     output_dir = os.path.join(output_dir, output_subdir)
     if not os.path.exists(output_dir) and output_dir != '':
         os.makedirs(output_dir)
     model_descr_path = os.path.join(output_dir, "model_description.tsv")
     save_dict(save_path=model_descr_path, dictionary=vars(args), )
 
-    bert_encoder, train_node_id2token_ids_dict, train_edges_tuples, val_node_id2token_ids_dict, val_edges_tuples = \
+    bert_encoder, tokenizer, train_node_id2token_ids_dict, train_edges_tuples, val_node_id2token_ids_dict, val_edges_tuples = \
         load_data_and_bert_model(train_node2terms_path=args.train_node2terms_path,
                                  train_edges_path=args.train_edges_path,
                                  val_node2terms_path=args.val_node2terms_path,
@@ -87,18 +89,18 @@ def main(args):
     train_edge_index = convert_edges_tuples_to_edge_index(edges_tuples=train_edges_tuples)
     val_edge_index = convert_edges_tuples_to_edge_index(edges_tuples=val_edges_tuples)
 
-
     logging.info(f"There are {train_num_nodes} nodes in train and {val_num_nodes} nodes in validation")
     train_loader = NeighborSampler(node_id_to_token_ids_dict=train_node_id2token_ids_dict, edge_index=train_edge_index,
-                                   sizes=args.train_graph_num_neighbors, random_walk_length=args.random_walk_length,
+                                   sizes=args.train_graph_num_neighbors, random_walk_length=args.num_neighbors,
                                    batch_size=args.batch_size, num_workers=args.dataloader_num_workers,
                                    shuffle=True, num_nodes=train_num_nodes, seq_max_length=args.text_encoder_seq_length)
     val_loader = NeighborSampler(node_id_to_token_ids_dict=val_node_id2token_ids_dict, edge_index=val_edge_index,
-                                 sizes=args.val_graph_num_neighbors, random_walk_length=args.random_walk_length,
+                                 sizes=args.val_graph_num_neighbors, random_walk_length=args.num_neighbors,
                                  batch_size=args.batch_size, num_workers=args.dataloader_num_workers,
                                  shuffle=False, num_nodes=val_num_nodes, seq_max_length=args.text_encoder_seq_length)
 
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    # device = torch.device('cpu')
     multigpu_flag = False
     if args.gpus > 1:
         multigpu_flag = True
@@ -130,7 +132,7 @@ if __name__ == '__main__':
     parser.add_argument('--train_graph_num_neighbors', type=int, nargs='+', )
     parser.add_argument('--val_graph_num_neighbors', type=int, nargs='+', default=(7, 7))
     parser.add_argument('--graphsage_dropout', type=float, )
-    parser.add_argument('--random_walk_length', type=int)
+    parser.add_argument('--num_neighbors', type=int)
     parser.add_argument('--batch_size', type=int)
     parser.add_argument('--learning_rate', type=float)
     parser.add_argument('--num_epochs', type=int)

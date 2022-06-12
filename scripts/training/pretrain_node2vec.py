@@ -57,7 +57,7 @@ def main(args):
     model_descr_path = os.path.join(output_dir, "model_description.tsv")
     save_dict(save_path=model_descr_path, dictionary=vars(args), )
 
-    bert_encoder, train_node_id2token_ids_dict, train_edges_tuples, val_node_id2token_ids_dict, val_edges_tuples = \
+    bert_encoder, tokenizer, train_node_id2token_ids_dict, train_edges_tuples, val_node_id2token_ids_dict, val_edges_tuples = \
         load_data_and_bert_model(train_node2terms_path=args.train_node2terms_path,
                                  train_edges_path=args.train_edges_path,
                                  val_node2terms_path=args.val_node2terms_path,
