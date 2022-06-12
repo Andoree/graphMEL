@@ -115,3 +115,9 @@ def save_encoder_from_checkpoint(bert_encoder, bert_tokenizer, save_path: str):
     bert_encoder.config.save_pretrained(save_path)
     bert_tokenizer.save_pretrained(save_path)
     logging.info(f"Successfully saved textual encoder and tokenizer to {save_path}")
+
+
+def write_strings(fpath: str, strings_list: List[str]):
+    with codecs.open(fpath, 'w+', encoding="utf-8") as out_file:
+        for s in strings_list:
+            out_file.write(f"{s.strip()}\n")

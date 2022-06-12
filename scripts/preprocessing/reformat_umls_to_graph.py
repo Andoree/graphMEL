@@ -11,10 +11,11 @@ from graphmel.scripts.utils.umls2graph import get_concept_list_groupby_cui, extr
 
 
 def create_graph_files(mrconso_df: pd.DataFrame, mrrel_df: pd.DataFrame, rel2id: Dict[str, int],
-                       rela2id: Dict[str, int], output_node_id2terms_list_path: str,
+                       cui2node_id: Dict[str, int], rela2id: Dict[str, int], output_node_id2terms_list_path: str,
                        output_node_id2cui_path: str, output_edges_path: str, output_rel2rel_id_path: str,
                        output_rela2rela_id_path, ignore_not_mapped_edges: bool):
-    node_id2terms_list, node_id2cui, cui2node_id = get_concept_list_groupby_cui(mrconso_df=mrconso_df)
+    node_id2cui: Dict[int, str] = {node_id: cui for cui, node_id in cui2node_id.items()}
+    node_id2terms_list = get_concept_list_groupby_cui(mrconso_df=mrconso_df, cui2node_id=cui2node_id)
     logging.info("Generating edges....")
 
     edges = extract_umls_oriented_edges_with_relations(mrrel_df=mrrel_df, cui2node_id=cui2node_id,
@@ -27,6 +28,13 @@ def create_graph_files(mrconso_df: pd.DataFrame, mrrel_df: pd.DataFrame, rel2id:
     save_dict(save_path=output_rel2rel_id_path, dictionary=rel2id)
     save_dict(save_path=output_rela2rela_id_path, dictionary=rela2id)
     save_tuples(save_path=output_edges_path, tuples=edges)
+
+
+def create_cui2node_id_mapping(mrconso_df: pd.DataFrame) -> Dict[str, int]:
+    unique_cuis_set = set(mrconso_df["CUI"].unique())
+    cui2node_id: Dict[str, int] = {cui: node_id for node_id, cui in enumerate(unique_cuis_set)}
+
+    return cui2node_id
 
 
 def create_relations2id_dicts(mrrel_df: pd.DataFrame):
@@ -89,10 +97,13 @@ def main():
         train_output_rel2rel_id_path = os.path.join(train_dir, "rel2id")
         val_output_rel2rel_id_path = os.path.join(val_dir, "rel2id")
         train_output_rela2rela_id_path = os.path.join(train_dir, "rela2id")
-        val_output_rela2rela_id_path = os.path.join(val_dir, "rela2rid")
+        val_output_rela2rela_id_path = os.path.join(val_dir, "rela2id")
 
+        train_cui2node_id = create_cui2node_id_mapping(mrconso_df=train_mrconso_df)
+        val_cui2node_id = create_cui2node_id_mapping(mrconso_df=val_mrconso_df)
         logging.info("Creating train graph files")
         create_graph_files(mrconso_df=train_mrconso_df, mrrel_df=mrrel_df, rel2id=rel2id, rela2id=rela2id,
+                           cui2node_id=train_cui2node_id,
                            output_node_id2terms_list_path=train_output_node_id2terms_list_path,
                            output_node_id2cui_path=train_output_node_id2cui_path,
                            output_edges_path=train_output_edges_path,
@@ -100,6 +111,7 @@ def main():
                            output_rela2rela_id_path=train_output_rela2rela_id_path, ignore_not_mapped_edges=True, )
         logging.info("Creating val graph files")
         create_graph_files(mrconso_df=val_mrconso_df, mrrel_df=mrrel_df, rel2id=rel2id, rela2id=rela2id,
+                           cui2node_id=val_cui2node_id,
                            output_node_id2terms_list_path=val_output_node_id2terms_list_path,
                            output_node_id2cui_path=val_output_node_id2cui_path,
                            output_edges_path=val_output_edges_path, output_rel2rel_id_path=val_output_rel2rel_id_path,
@@ -112,7 +124,9 @@ def main():
         output_edges_path = os.path.join(output_dir, "edges")
         output_rel2rel_id_path = os.path.join(output_dir, f"rel2id")
         output_rela2rela_id_path = os.path.join(output_dir, f"rela2id")
+        cui2node_id = create_cui2node_id_mapping(mrconso_df=mrconso_df)
         create_graph_files(mrconso_df=mrconso_df, mrrel_df=mrrel_df, rel2id=rel2id, rela2id=rela2id,
+                           cui2node_id=cui2node_id,
                            output_node_id2terms_list_path=output_node_id2terms_list_path,
                            output_node_id2cui_path=output_node_id2cui_path,
                            output_edges_path=output_edges_path, output_rel2rel_id_path=output_rel2rel_id_path,
