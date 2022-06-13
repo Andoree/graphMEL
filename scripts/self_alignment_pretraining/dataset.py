@@ -24,16 +24,16 @@ class PositivePairNeighborSampler(RawNeighborSampler):
         self.seq_max_length = seq_max_length
 
     def __len__(self):
-        return len(self.triplet_first_term_id_list) // self.batch_size
+        return len(self.pos_pairs_term_1_id_list) // self.batch_size
 
 
     def sample(self, batch):
-        term_1_ids = [self.triplet_first_term_id_list[idx] for idx in batch]
+        term_1_ids = [self.pos_pairs_term_1_id_list[idx] for idx in batch]
         term_1_tok_out = [self.term_id2tokenizer_output[idx] for idx in term_1_ids]
         term_1_input_ids = torch.stack([t_out["input_ids"][0] for t_out in term_1_tok_out])
         term_1_att_masks = torch.stack([t_out["attention_mask"][0] for t_out in term_1_tok_out])
 
-        term_2_ids = [self.triplet_second_term_id_list[idx] for idx in batch]
+        term_2_ids = [self.pos_pairs_term_2_id_list[idx] for idx in batch]
         term_2_tok_out = [self.term_id2tokenizer_output[idx] for idx in term_2_ids]
         term_2_input_ids = torch.stack([t_out["input_ids"][0] for t_out in term_2_tok_out])
         term_2_att_masks = torch.stack([t_out["attention_mask"][0] for t_out in term_2_tok_out])
