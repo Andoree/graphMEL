@@ -157,7 +157,7 @@ def main(args):
     output_dir = args.output_dir
     output_subdir = f"gs_{args.num_graphsage_layers}-{args.num_graphsage_channels}_" \
                     f"{'.'.join((str(x) for x in args.graphsage_num_neighbors))}_{args.graphsage_dropout_p}_" \
-                    f"lr_{args.learning_rate}_b_{args.batch_size}_rwl_{args.num_neighbors}"
+                    f"lr_{args.learning_rate}_b_{args.batch_size}"
     output_dir = os.path.join(output_dir, output_subdir)
     if not os.path.exists(output_dir) and output_dir != '':
         os.makedirs(output_dir)
