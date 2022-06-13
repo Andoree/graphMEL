@@ -188,10 +188,11 @@ def main(args):
                                  val_node2terms_path=node2terms_path,
                                  val_edges_path=edges_path, text_encoder_name=args.text_encoder,
                                  text_encoder_seq_length=args.max_length, drop_relations_info=True)
+    del _
     edge_index = convert_edges_tuples_to_edge_index(edges_tuples=edges_tuples, remove_selfloops=args.remove_selfloops)
     num_nodes = len(set(node_id2token_ids_dict.keys()))
     num_edges = edge_index.size()[1]
-
+    del edges_tuples
     train_positive_pairs_path = os.path.join(args.train_dir, f"train_pos_pairs")
     train_pos_pairs_term_1_list, train_pos_pairs_term_2_list, train_pos_pairs_concept_ids = \
         load_positive_pairs(train_positive_pairs_path)
@@ -199,7 +200,8 @@ def main(args):
         term_1_list=train_pos_pairs_term_1_list, term_2_list=train_pos_pairs_term_2_list)
     train_term_id2tok_out = create_term_id2tokenizer_output(term2id=train_term2id, max_length=args.max_length,
                                                             tokenizer=bert_tokenizer)
-
+    del train_pos_pairs_term_1_list
+    del train_pos_pairs_term_2_list
     logging.info(f"There are {num_nodes} nodes and {num_edges} edges in graph.")
     train_pos_pair_sampler = PositivePairNeighborSampler(pos_pairs_term_1_id_list=train_pos_pairs_term_1_id_list,
                                                          pos_pairs_term_2_id_list=train_pos_pairs_term_2_id_list,
@@ -218,6 +220,8 @@ def main(args):
             load_positive_pairs(val_positive_pairs_path)
         val_pos_pairs_term_1_id_list, val_pos_pairs_term_2_id_list, val_term2id = map_terms2term_id(
             term_1_list=val_pos_pairs_term_1_list, term_2_list=val_pos_pairs_term_2_list)
+        del val_pos_pairs_term_1_list
+        del val_pos_pairs_term_2_list
         val_term_id2tok_out = create_term_id2tokenizer_output(term2id=val_term2id, max_length=args.max_length,
                                                               tokenizer=bert_tokenizer)
         val_pos_pair_sampler = PositivePairNeighborSampler(pos_pairs_term_1_id_list=val_pos_pairs_term_1_id_list,
