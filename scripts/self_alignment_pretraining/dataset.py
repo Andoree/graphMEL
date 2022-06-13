@@ -42,7 +42,7 @@ class PositivePairNeighborSampler(RawNeighborSampler):
         assert term_2_input_ids.size()[1] == term_2_att_masks.size()[1] == self.seq_max_length
 
         triplet_concept_ids = torch.LongTensor([self.pos_pairs_concept_ids_list[idx] for idx in batch])
-        assert len(triplet_concept_ids) == self.seq_max_length
+        assert len(triplet_concept_ids) == len(term_1_input_ids)
 
         row, col, _ = self.adj_t.coo()
 
