@@ -12,7 +12,7 @@ from pytorch_metric_learning import miners, losses, distances
 
 
 class GraphSAGESapMetricLearning(nn.Module):
-    def __init__(self, bert_encoder, use_cuda, pairwise, loss, num_graphsage_layers, num_graphsage_channels,
+    def __init__(self, bert_encoder, use_cuda,  loss, num_graphsage_layers, num_graphsage_channels,
                  graphsage_dropout_p, multigpu_flag, use_miner=True, miner_margin=0.2, type_of_triplets="all",
                  agg_mode="cls"):
 
@@ -22,7 +22,7 @@ class GraphSAGESapMetricLearning(nn.Module):
             ))
         super(GraphSAGESapMetricLearning, self).__init__()
         self.bert_encoder = bert_encoder
-        self.pairwise = pairwise
+        # self.pairwise = pairwise
         # self.learning_rate = learning_rate
         # self.weight_decay = weight_decay
         self.use_cuda = use_cuda

@@ -18,9 +18,8 @@ from graphmel.scripts.training.data.dataset import load_positive_pairs, map_term
     create_term_id2tokenizer_output, load_data_and_bert_model, convert_edges_tuples_to_edge_index
 from graphmel.scripts.utils.io import save_dict
 
-import wandb
-
-wandb.init(project="sapbert")
+# import wandb
+# wandb.init(project="sapbert")
 
 
 def parse_args():
@@ -60,20 +59,20 @@ def parse_args():
     parser.add_argument('--weight_decay',
                         help='weight decay',
                         default=0.01, type=float)
-    parser.add_argument('--train_batch_size',
+    parser.add_argument('--batch_size',
                         help='train batch size',
                         default=240, type=int)
     parser.add_argument('--num_epochs',
                         help='epoch to train',
                         default=3, type=int)
-    parser.add_argument('--save_checkpoint_all', action="store_true")
-    parser.add_argument('--checkpoint_step', type=int, default=10000000)
+    # parser.add_argument('--save_checkpoint_all', action="store_true")
+    # parser.add_argument('--checkpoint_step', type=int, default=10000000)
     parser.add_argument('--amp', action="store_true",
                         help="automatic mixed precision training")
     parser.add_argument('--parallel', action="store_true")
     # parser.add_argument('--cased', action="store_true")
-    parser.add_argument('--pairwise', action="store_true",
-                        help="if loading pairwise formatted datasets")
+    # parser.add_argument('--pairwise', action="store_true",
+    #                     help="if loading pairwise formatted datasets")
     parser.add_argument('--random_seed',
                         help='',
                         default=1996, type=int)
@@ -84,7 +83,6 @@ def parse_args():
     parser.add_argument('--miner_margin', default=0.2, type=float)
     parser.add_argument('--type_of_triplets', default="all", type=str)
     parser.add_argument('--agg_mode', default="cls", type=str, help="{cls|mean|mean_all_tok}")
-    # TODO: Ещё параметры
 
     parser.add_argument('--text_encoder', type=str)
     parser.add_argument('--dataloader_num_workers', type=int)
@@ -134,7 +132,7 @@ def train_graphsage_sapbert(model: GraphSAGESapMetricLearning, train_loader: Pos
             optimizer.step()
         num_steps += 1
         total_loss += float(loss)
-        wandb.log({"Train loss": loss.item()})
+        # wandb.log({"Train loss": loss.item()})
     total_loss /= (num_steps + 1e-9)
     return total_loss, num_steps
 
@@ -149,7 +147,7 @@ def val_graphsage_sapbert(model: GraphSAGESapMetricLearning, val_loader: Positiv
             loss = graphsage_sapbert_step(model=model, batch=batch, amp=amp, device=device)
             num_steps += 1
             total_loss += float(loss)
-            wandb.log({"Val loss": loss.item()})
+            # wandb.log({"Val loss": loss.item()})
     total_loss /= (num_steps + 1e-9)
     return total_loss, num_steps
 
@@ -233,7 +231,7 @@ def main(args):
     model = GraphSAGESapMetricLearning(bert_encoder=bert_encoder, num_graphsage_channels=args.num_graphsage_channels,
                                        num_graphsage_layers=args.num_graphsage_layers,
                                        graphsage_dropout_p=args.graphsage_dropout_p,
-                                       use_cuda=args.use_cuda, pairwise=args.pairwise,
+                                       use_cuda=args.use_cuda,
                                        loss=args.loss, use_miner=args.use_miner, miner_margin=args.miner_margin,
                                        type_of_triplets=args.type_of_triplets, agg_mode=args.agg_mode,
                                        multigpu_flag=args.parallel).to(device)
