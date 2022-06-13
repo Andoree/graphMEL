@@ -68,12 +68,15 @@ class GraphSAGESapMetricLearning(nn.Module):
         # last_hidden_states = self.bert_encoder(**query_toks1, return_dict=True).last_hidden_state
         x = self.bert_encoder(input_ids, attention_mask=attention_mask,
                               return_dict=True)['last_hidden_state'][:, 0]
+        print("encode tokens x", x.size())
         for i, (edge_index, _, size) in enumerate(adjs):
+            print("i, x", i, x.size())
             x_target = x[:size[1]]  # Target nodes are always placed first.
             x = self.convs[i]((x, x_target), edge_index)
-            if i != self.num_layers - 1:
+            if i != self.num_graphsage_layers - 1:
                 x = x.relu()
-                x = F.dropout(x, p=self.graphsage_dropout, training=self.training)
+                x = F.dropout(x, p=self.graphsage_dropout_p, training=self.training)
+        print("x", x.size())
         return x
 
     @autocast()
@@ -89,11 +92,12 @@ class GraphSAGESapMetricLearning(nn.Module):
                                           adjs=adjs)[:batch_size]
         query_embed2 = self.encode_tokens(input_ids=term_2_input_ids, attention_mask=term_2_att_masks,
                                           adjs=adjs)[:batch_size]
-
+        print("query_embed1", query_embed1.size())
+        print("query_embed2", query_embed2.size())
         query_embed = torch.cat([query_embed1, query_embed2], dim=0)
-
+        print("query_embed", query_embed.size())
         labels = torch.cat([concept_ids, concept_ids], dim=0)
-
+        print("labels", labels.size())
         if self.use_miner:
             hard_pairs = self.miner(query_embed, labels)
             return self.loss(query_embed, labels, hard_pairs)

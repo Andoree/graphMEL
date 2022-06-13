@@ -68,10 +68,10 @@ class PositivePairNeighborSampler(RawNeighborSampler):
                == term_2_neighbor_att_masks.size()
         assert term_2_neighbor_input_ids.size() == term_2_neighbor_att_masks.size()
 
-        term_1_input_ids = torch.cat((term_1_input_ids, term_1_neighbor_input_ids), dim=1)
-        term_1_att_masks = torch.cat((term_1_att_masks, term_1_neighbor_att_masks), dim=1)
-        term_2_input_ids = torch.cat((term_2_input_ids, term_2_neighbor_input_ids), dim=1)
-        term_2_att_masks = torch.cat((term_2_att_masks, term_2_neighbor_att_masks), dim=1)
+        term_1_input_ids = torch.cat((term_1_input_ids, term_1_neighbor_input_ids), dim=0)
+        term_1_att_masks = torch.cat((term_1_att_masks, term_1_neighbor_att_masks), dim=0)
+        term_2_input_ids = torch.cat((term_2_input_ids, term_2_neighbor_input_ids), dim=0)
+        term_2_att_masks = torch.cat((term_2_att_masks, term_2_neighbor_att_masks), dim=0)
         term_1_input = (term_1_input_ids, term_1_att_masks)
         term_2_input = (term_2_input_ids, term_2_att_masks,)
 
