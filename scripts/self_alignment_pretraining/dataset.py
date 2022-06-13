@@ -32,29 +32,38 @@ class PositivePairNeighborSampler(RawNeighborSampler):
         term_1_tok_out = [self.term_id2tokenizer_output[idx] for idx in term_1_ids]
         term_1_input_ids = torch.stack([t_out["input_ids"][0] for t_out in term_1_tok_out])
         term_1_att_masks = torch.stack([t_out["attention_mask"][0] for t_out in term_1_tok_out])
-
+        print("term_1_input_ids", term_1_input_ids.size())
+        print("term_1_att_masks", term_1_att_masks.size())
         term_2_ids = [self.pos_pairs_term_2_id_list[idx] for idx in batch]
         term_2_tok_out = [self.term_id2tokenizer_output[idx] for idx in term_2_ids]
         term_2_input_ids = torch.stack([t_out["input_ids"][0] for t_out in term_2_tok_out])
         term_2_att_masks = torch.stack([t_out["attention_mask"][0] for t_out in term_2_tok_out])
+        print("term_2_input_ids", term_2_input_ids.size())
+        print("term_2_att_masks", term_2_att_masks.size())
 
         assert term_1_input_ids.size()[1] == term_1_att_masks.size()[1] == self.seq_max_length
         assert term_2_input_ids.size()[1] == term_2_att_masks.size()[1] == self.seq_max_length
 
         triplet_concept_ids = torch.LongTensor([self.pos_pairs_concept_ids_list[idx] for idx in batch])
+        print("triplet_concept_ids", triplet_concept_ids.size())
         assert len(triplet_concept_ids) == len(term_1_input_ids)
 
-        row, col, _ = self.adj_t.coo()
+        # row, col, _ = self.adj_t.coo()
 
         (batch_size, n_id, adjs) = super(PositivePairNeighborSampler, self).sample(triplet_concept_ids)
         neighbor_node_ids = n_id[batch_size:]
-
+        print("n_id", n_id.size())
+        print("neighbor_node_ids", neighbor_node_ids.size())
         term_1_neighbor_input_ids, term_1_neighbor_att_masks = node_ids2tokenizer_output(
             batch=neighbor_node_ids, node_id_to_token_ids_dict=self.node_id_to_token_ids_dict,
             seq_max_length=self.seq_max_length)
         term_2_neighbor_input_ids, term_2_neighbor_att_masks = node_ids2tokenizer_output(
             batch=neighbor_node_ids, node_id_to_token_ids_dict=self.node_id_to_token_ids_dict,
             seq_max_length=self.seq_max_length)
+        print("term_1_neighbor_input_ids", term_1_neighbor_input_ids.size())
+        print("term_1_neighbor_att_masks", term_1_neighbor_att_masks.size())
+        print("term_2_neighbor_input_ids", term_2_neighbor_input_ids.size())
+        print("term_2_neighbor_att_masks", term_2_neighbor_att_masks.size())
         assert term_1_neighbor_input_ids.size() == term_1_neighbor_att_masks.size() \
                == term_2_neighbor_att_masks.size()
         assert term_2_neighbor_input_ids.size() == term_2_neighbor_att_masks.size()
@@ -65,6 +74,11 @@ class PositivePairNeighborSampler(RawNeighborSampler):
         term_2_att_masks = torch.cat((term_2_att_masks, term_2_neighbor_att_masks), dim=1)
         term_1_input = (term_1_input_ids, term_1_att_masks)
         term_2_input = (term_2_input_ids, term_2_att_masks,)
+
+        print("term_1_input_ids", term_1_input_ids.size())
+        print("term_1_att_masks", term_1_att_masks.size())
+        print("term_2_input_ids", term_2_input_ids.size())
+        print("term_2_att_masks", term_2_att_masks.size())
 
         batch_dict = {
             "term_1_input": term_1_input, "term_2_input": term_2_input, "adjs": adjs, "batch_size": batch_size,
