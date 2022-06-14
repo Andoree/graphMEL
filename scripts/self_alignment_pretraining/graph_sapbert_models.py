@@ -41,10 +41,10 @@ class GraphSAGESapMetricLearning(nn.Module):
         self.graphsage_dropout_p = graphsage_dropout_p
         for i in range(num_graphsage_layers):
             in_channels = self.bert_hidden_dim if i == 0 else num_graphsage_channels
-            if multigpu_flag:
-                sage_conv = nn.DataParallel(SAGEConv(in_channels, num_graphsage_channels))
-            else:
-                sage_conv = SAGEConv(in_channels, num_graphsage_channels)
+            #if multigpu_flag:
+            #    sage_conv = nn.DataParallel(SAGEConv(in_channels, num_graphsage_channels))
+            #else:
+            sage_conv = SAGEConv(in_channels, num_graphsage_channels)
             self.convs.append(sage_conv)
 
         if self.use_miner:

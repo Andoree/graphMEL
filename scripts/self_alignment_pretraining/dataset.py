@@ -29,7 +29,7 @@ class PositivePairNeighborSampler(RawNeighborSampler):
 
     def sample(self, batch):
         # logging.info("A")
-        logging.info(f"num_nodes {self.num_nodes}")
+        # logging.info(f"num_nodes {self.num_nodes}")
         term_1_ids = [self.pos_pairs_term_1_id_list[idx] for idx in batch]
         term_1_tok_out = [self.term_id2tokenizer_output[idx] for idx in term_1_ids]
         term_1_input_ids = torch.stack([t_out["input_ids"][0] for t_out in term_1_tok_out])
