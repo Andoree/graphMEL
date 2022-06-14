@@ -53,7 +53,8 @@ def generate_positive_pairs_from_synonyms(concept_id2synonyms_list: Dict[str, Li
     return pos_pairs
 
 
-def generate_positive_pairs(mrconso_df: pd.DataFrame, mrrel_df: pd.DataFrame) -> List[str]:
+def generate_positive_pairs(mrconso_df: pd.DataFrame, mrrel_df: pd.DataFrame,
+                            cui2node_id: Dict[str, int]) -> List[str]:
     """
     :param mrconso_df: MRCONSO.RRF's Dataframe
     :param mrrel_df: MRREL's Dataframe
@@ -87,7 +88,7 @@ def generate_positive_pairs(mrconso_df: pd.DataFrame, mrrel_df: pd.DataFrame) ->
 
     cui2synonyms_list = create_cui2synonyms_list_mapping(cui_synonym_pair_strings=cui_term_pairs_list)
 
-    cui2node_id = {cui: node_id for node_id, cui in enumerate(sorted(cui2synonyms_list.keys()))}
+    # cui2node_id = {cui: node_id for node_id, cui in enumerate(sorted(cui2synonyms_list.keys()))}
     node_id2synonyms_list = {cui2node_id[cui]: synonyms_list for cui, synonyms_list in cui2synonyms_list.items()}
     pos_pairs = generate_positive_pairs_from_synonyms(concept_id2synonyms_list=node_id2synonyms_list, )
 
@@ -135,7 +136,7 @@ def main(args):
                        output_node_id2cui_path=output_node_id2cui_path,
                        output_edges_path=output_edges_path, output_rel2rel_id_path=output_rel2rel_id_path,
                        output_rela2rela_id_path=output_rela2rela_id_path, ignore_not_mapped_edges=True, )
-    pos_pairs = generate_positive_pairs(mrconso_df=mrconso_df, mrrel_df=mrrel_df)
+    pos_pairs = generate_positive_pairs(mrconso_df=mrconso_df, mrrel_df=mrrel_df, cui2node_id=cui2node_id)
     if args.split_val:
         output_train_pos_pairs_path = os.path.join(output_dir, f"train_pos_pairs")
         output_val_pos_pairs_path = os.path.join(output_dir, f"val_pos_pairs")
