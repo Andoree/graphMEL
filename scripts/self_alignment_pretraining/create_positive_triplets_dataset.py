@@ -87,7 +87,7 @@ def generate_positive_pairs(mrconso_df: pd.DataFrame, mrrel_df: pd.DataFrame,
     logging.info(f"There are {len(cui_term_pairs_list)} <CUI, synonym> concepts with tradenames after duplicates drop")
 
     cui2synonyms_list = create_cui2synonyms_list_mapping(cui_synonym_pair_strings=cui_term_pairs_list)
-
+    cui2synonyms_list = {cui: syns for cui, syns in cui2synonyms_list.items() if cui2node_id.get(cui) is not None}
     # cui2node_id = {cui: node_id for node_id, cui in enumerate(sorted(cui2synonyms_list.keys()))}
     node_id2synonyms_list = {cui2node_id[cui]: synonyms_list for cui, synonyms_list in cui2synonyms_list.items()}
     pos_pairs = generate_positive_pairs_from_synonyms(concept_id2synonyms_list=node_id2synonyms_list, )
