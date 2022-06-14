@@ -1,6 +1,6 @@
 import random
 from typing import List, Dict
-
+import logging
 from torch.utils.data import Dataset
 from torch_geometric.loader import NeighborSampler as RawNeighborSampler
 from torch_cluster import random_walk
@@ -28,6 +28,8 @@ class PositivePairNeighborSampler(RawNeighborSampler):
 
 
     def sample(self, batch):
+        logging.info("A")
+        logging.info(f"num_nodes {self.num_nodes}")
         term_1_ids = [self.pos_pairs_term_1_id_list[idx] for idx in batch]
         term_1_tok_out = [self.term_id2tokenizer_output[idx] for idx in term_1_ids]
         term_1_input_ids = torch.stack([t_out["input_ids"][0] for t_out in term_1_tok_out])
@@ -49,7 +51,7 @@ class PositivePairNeighborSampler(RawNeighborSampler):
         assert len(triplet_concept_ids) == len(term_1_input_ids)
 
         # row, col, _ = self.adj_t.coo()
-
+        logging.info("AA")
         (batch_size, n_id, adjs) = super(PositivePairNeighborSampler, self).sample(triplet_concept_ids)
         neighbor_node_ids = n_id[batch_size:]
         print("n_id", n_id.size())
@@ -60,6 +62,7 @@ class PositivePairNeighborSampler(RawNeighborSampler):
         term_2_neighbor_input_ids, term_2_neighbor_att_masks = node_ids2tokenizer_output(
             batch=neighbor_node_ids, node_id_to_token_ids_dict=self.node_id_to_token_ids_dict,
             seq_max_length=self.seq_max_length)
+        logging.info("AAA")
         print("term_1_neighbor_input_ids", term_1_neighbor_input_ids.size())
         print("term_1_neighbor_att_masks", term_1_neighbor_att_masks.size())
         print("term_2_neighbor_input_ids", term_2_neighbor_input_ids.size())
@@ -84,5 +87,5 @@ class PositivePairNeighborSampler(RawNeighborSampler):
             "term_1_input": term_1_input, "term_2_input": term_2_input, "adjs": adjs, "batch_size": batch_size,
             "concept_ids": triplet_concept_ids
         }
-
+        logging.info("AAAA")
         return batch_dict

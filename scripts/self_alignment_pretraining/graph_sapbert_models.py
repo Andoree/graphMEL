@@ -87,19 +87,24 @@ class GraphSAGESapMetricLearning(nn.Module):
 
         output : (N, topk)
         """
-
+        logging.info("B")
         query_embed1 = self.encode_tokens(input_ids=term_1_input_ids, attention_mask=term_1_att_masks,
                                           adjs=adjs)[:batch_size]
+        logging.info("BB")
         query_embed2 = self.encode_tokens(input_ids=term_2_input_ids, attention_mask=term_2_att_masks,
                                           adjs=adjs)[:batch_size]
+        logging.info("BBB")
         print("query_embed1", query_embed1.size())
         print("query_embed2", query_embed2.size())
         query_embed = torch.cat([query_embed1, query_embed2], dim=0)
         print("query_embed", query_embed.size())
         labels = torch.cat([concept_ids, concept_ids], dim=0)
         print("labels", labels.size())
+        logging.info("BBBB")
         if self.use_miner:
+            logging.info("C")
             hard_pairs = self.miner(query_embed, labels)
+            logging.info("CC")
             return self.loss(query_embed, labels, hard_pairs)
         else:
             return self.loss(query_embed, labels)
