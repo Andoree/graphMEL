@@ -33,7 +33,7 @@ class GraphSAGESapMetricLearning(nn.Module):
         self.num_graphsage_layers = num_graphsage_layers
         self.convs = nn.ModuleList()
         self.bert_hidden_dim = bert_encoder.config.hidden_size
-        # TODO: Попробовать всё-таки ещё раз и свёртку угнать в DataParallel?
+
         if multigpu_flag:
             self.bert_encoder = nn.DataParallel(bert_encoder)
         else:
@@ -41,7 +41,11 @@ class GraphSAGESapMetricLearning(nn.Module):
         self.graphsage_dropout_p = graphsage_dropout_p
         for i in range(num_graphsage_layers):
             in_channels = self.bert_hidden_dim if i == 0 else num_graphsage_channels
-            self.convs.append(SAGEConv(in_channels, num_graphsage_channels))
+            if multigpu_flag:
+                sage_conv = nn.DataParallel(SAGEConv(in_channels, num_graphsage_channels))
+            else:
+                sage_conv = SAGEConv(in_channels, num_graphsage_channels)
+            self.convs.append(sage_conv)
 
         if self.use_miner:
             self.miner = miners.TripletMarginMiner(margin=miner_margin, type_of_triplets=type_of_triplets)
@@ -68,15 +72,15 @@ class GraphSAGESapMetricLearning(nn.Module):
         # last_hidden_states = self.bert_encoder(**query_toks1, return_dict=True).last_hidden_state
         x = self.bert_encoder(input_ids, attention_mask=attention_mask,
                               return_dict=True)['last_hidden_state'][:, 0]
-        print("encode tokens x", x.size())
+        # print("encode tokens x", x.size())
         for i, (edge_index, _, size) in enumerate(adjs):
-            print("i, x", i, x.size())
+            # print("i, x", i, x.size())
             x_target = x[:size[1]]  # Target nodes are always placed first.
             x = self.convs[i]((x, x_target), edge_index)
             if i != self.num_graphsage_layers - 1:
                 x = x.relu()
                 x = F.dropout(x, p=self.graphsage_dropout_p, training=self.training)
-        print("x", x.size())
+        # print("x", x.size())
         return x
 
     @autocast()
@@ -87,36 +91,27 @@ class GraphSAGESapMetricLearning(nn.Module):
 
         output : (N, topk)
         """
-        logging.info("B")
+        # logging.info("B")
         query_embed1 = self.encode_tokens(input_ids=term_1_input_ids, attention_mask=term_1_att_masks,
                                           adjs=adjs)[:batch_size]
-        logging.info("BB")
+        # logging.info("BB")
         query_embed2 = self.encode_tokens(input_ids=term_2_input_ids, attention_mask=term_2_att_masks,
                                           adjs=adjs)[:batch_size]
-        logging.info("BBB")
-        print("query_embed1", query_embed1.size())
-        print("query_embed2", query_embed2.size())
+        # logging.info("BBB")
+        # print("query_embed1", query_embed1.size())
+        # print("query_embed2", query_embed2.size())
         query_embed = torch.cat([query_embed1, query_embed2], dim=0)
-        print("query_embed", query_embed.size())
+        # print("query_embed", query_embed.size())
         labels = torch.cat([concept_ids, concept_ids], dim=0)
-        print("labels", labels.size())
-        logging.info("BBBB")
+        # print("labels", labels.size())
+        # logging.info("BBBB")
         if self.use_miner:
-            logging.info("C")
+            # logging.info("C")
             hard_pairs = self.miner(query_embed, labels)
-            logging.info("CC")
+            # logging.info("CC")
             return self.loss(query_embed, labels, hard_pairs)
         else:
             return self.loss(query_embed, labels)
-
-    def reshape_candidates_for_encoder(self, candidates):
-        """
-        reshape candidates for encoder input shape
-        [batch_size, topk, max_length] => [batch_size*topk, max_length]
-        """
-        _, _, max_length = candidates.shape
-        candidates = candidates.contiguous().view(-1, max_length)
-        return candidates
 
     def get_loss(self, outputs, targets):
         if self.use_cuda:
@@ -124,17 +119,4 @@ class GraphSAGESapMetricLearning(nn.Module):
         loss, in_topk = self.criterion(outputs, targets)
         return loss, in_topk
 
-    def get_embeddings(self, mentions, batch_size=1024):
-        """
-        Compute all embeddings from mention tokens.
-        """
-        embedding_table = []
-        with torch.no_grad():
-            for start in tqdm(range(0, len(mentions), batch_size)):
-                end = min(start + batch_size, len(mentions))
-                batch = mentions[start:end]
-                batch_embedding = self.vectorizer(batch)
-                batch_embedding = batch_embedding.cpu()
-                embedding_table.append(batch_embedding)
-        embedding_table = torch.cat(embedding_table, dim=0)
-        return embedding_table
+

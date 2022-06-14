@@ -60,7 +60,7 @@ def generate_positive_pairs(mrconso_df: pd.DataFrame, mrrel_df: pd.DataFrame,
     :param mrrel_df: MRREL's Dataframe
     :return: List of positive (synonym) pairs: <concept_id, term_1, term_2>. '||' is the separator.
     """
-    # Loading MRCONSO.RRF
+
     cui_term_pairs_list: List[str] = []
     for idx, row in tqdm(mrconso_df.iterrows()):
         cui, lang, synonym = row["CUI"], row["LAT"], row["STR"]
