@@ -99,13 +99,16 @@ def graphsage_sapbert_step(model: GraphSAGESapMetricLearning, batch, amp, device
     term_2_input_ids, term_2_att_masks = batch["term_2_input"]
     term_2_input_ids, term_2_att_masks = term_2_input_ids.to(device), term_2_att_masks.to(device)
     adjs = batch["adjs"]
-    print("adjs", type(adjs), adjs)
-    print('--')
-    for adj in adjs:
-        print("adj", type(adj), adj)
+    # print("adjs", type(adjs), adjs)
+    # print('--')
+    # for adj in adjs:
+    #     print("adj", type(adj), adj)
     # adjs = [adjs,]
     # adjs = [adj.to(device) for adj in adjs]
-    adjs = [adjs.to(device),]
+    if not isinstance(adjs, list):
+        adjs = [adjs.to(device), ]
+    else:
+        adjs = [adj.to(device) for adj in adjs]
     batch_size = batch["batch_size"]
     concept_ids = batch["concept_ids"].to(device)
 
