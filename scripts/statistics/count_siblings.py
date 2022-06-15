@@ -1,6 +1,7 @@
 import codecs
 import itertools
 import os.path
+import random
 from argparse import ArgumentParser
 from typing import List, Tuple, Set, Dict
 
@@ -77,11 +78,14 @@ def main():
 
     df_mrrel = read_mrrel(args.mrrel)
     triplet_strings_set = get_concept_relation_triplet_strings(mrrel_df=df_mrrel)
+    examples = random.sample(triplet_strings_set, 5)
+    for e in examples:
+        print(e)
     adjacency_lists_dict = create_child_parent_adjacency_lists(triplet_strings_set=triplet_strings_set)
     num_childs = count_childs(adjacency_lists_dict=adjacency_lists_dict)
     interchild_parents = count_interchild_parent_relations(adjacency_lists_dict=adjacency_lists_dict)
     with codecs.open(output_path, 'w+', encoding="utf-8") as out_file:
-        out_file.write(f"Num childs: {num_childs}\nInterchild parents: {interchild_parents}\n")
+        out_file.write(f"Num triplets: {len(triplet_strings_set)}\nNum childs: {num_childs}\nInterchild parents: {interchild_parents}\n")
 
 
 if __name__ == '__main__':
