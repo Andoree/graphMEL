@@ -51,14 +51,14 @@ def count_interchild_parent_relations(adjacency_lists_dict: Dict[str, Set[str]])
                                        miniters=len(adjacency_lists_dict.keys()) // 100):
         num_siblings = len(child_cuis_list)
         if num_siblings > 1:
-            assert len(itertools.combinations(child_cuis_list, 2)) == int(num_siblings * (num_siblings - 1) / 2)
+            assert len(list(itertools.combinations(child_cuis_list, 2))) == int(num_siblings * (num_siblings - 1) / 2)
             for (sibling_cui_1, sibling_cui_2) in itertools.combinations(child_cuis_list, 2):
                 if sibling_cui_2 in adjacency_lists_dict[sibling_cui_1]:
                     num_relations += 1
                 if sibling_cui_1 in adjacency_lists_dict[sibling_cui_2]:
                     num_relations += 1
-                assert not (sibling_cui_2 in adjacency_lists_dict[sibling_cui_1]
-                            and sibling_cui_1 in adjacency_lists_dict[sibling_cui_2])
+                # assert not (sibling_cui_2 in adjacency_lists_dict[sibling_cui_1]
+                #             and sibling_cui_1 in adjacency_lists_dict[sibling_cui_2])
     return num_relations
 
 
