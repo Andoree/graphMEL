@@ -24,7 +24,7 @@ python ../../scripts/self_alignment_pretraining/train_rgcn_sapbert.py --train_di
 --learning_rate=2e-5 \
 --weight_decay=0.01  \
 --batch_size=512 \
---num_epochs=5 \
+--num_epochs=2 \
 --amp \
 --parallel \
 --random_seed=42 \
@@ -52,7 +52,7 @@ python ../../scripts/self_alignment_pretraining/train_rgcn_sapbert.py --train_di
 --learning_rate=2e-5 \
 --weight_decay=0.01  \
 --batch_size=256 \
---num_epochs=5 \
+--num_epochs=2 \
 --amp \
 --parallel \
 --random_seed=42 \
@@ -80,7 +80,7 @@ python ../../scripts/self_alignment_pretraining/train_rgcn_sapbert.py --train_di
 --learning_rate=2e-5 \
 --weight_decay=0.01  \
 --batch_size=128 \
---num_epochs=5 \
+--num_epochs=2 \
 --amp \
 --parallel \
 --random_seed=42 \
