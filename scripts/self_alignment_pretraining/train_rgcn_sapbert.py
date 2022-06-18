@@ -228,17 +228,18 @@ def main(args):
     del train_pos_pairs_term_1_list
     del train_pos_pairs_term_2_list
     logging.info(f"There are {num_nodes} nodes and {num_edges} edges in graph.")
-
+    train_num_pos_pairs = len(train_pos_pairs_term_1_id_list)
+    train_pos_pairs_idx = torch.LongTensor(range(train_num_pos_pairs))
     train_pos_pair_sampler = PositiveRelationalNeighborSampler(pos_pairs_term_1_id_list=train_pos_pairs_term_1_id_list,
-                                                               pos_pairs_term_2_id_list=train_pos_pairs_term_2_id_list,
-                                                               pos_pairs_concept_ids_list=train_pos_pairs_concept_ids,
-                                                               sizes=args.rgcn_num_neighbors, edge_index=edge_index,
-                                                               term_id2tokenizer_output=train_term_id2tok_out,
-                                                               rel_ids=edge_rel_ids,
-                                                               node_id2token_ids_dict=node_id2token_ids_dict,
-                                                               seq_max_length=node_id2token_ids_dict,
-                                                               batch_size=args.batch_size,
-                                                               num_workers=args.dataloader_num_workers, shuffle=True, )
+                                                                   pos_pairs_term_2_id_list=train_pos_pairs_term_2_id_list,
+                                                                   pos_pairs_concept_ids_list=train_pos_pairs_concept_ids,
+                                                                   sizes=args.rgcn_num_neighbors, edge_index=edge_index,
+                                                                   term_id2tokenizer_output=train_term_id2tok_out,
+                                                                   rel_ids=edge_rel_ids, node_idx=train_pos_pairs_idx,
+                                                                   node_id2token_ids_dict=node_id2token_ids_dict,
+                                                                   seq_max_length=node_id2token_ids_dict,
+                                                                   batch_size=args.batch_size,
+                                                                   num_workers=args.dataloader_num_workers, shuffle=True, )
 
     val_pos_pair_sampler = None
     val_epoch_fn = None
@@ -253,12 +254,14 @@ def main(args):
         del val_pos_pairs_term_2_list
         val_term_id2tok_out = create_term_id2tokenizer_output(term2id=val_term2id, max_length=args.max_length,
                                                               tokenizer=bert_tokenizer)
+        val_num_pos_pairs = len(val_pos_pairs_term_1_id_list)
+        val_pos_pairs_idx = torch.LongTensor(range(val_num_pos_pairs))
         val_pos_pair_sampler = PositiveRelationalNeighborSampler(
             pos_pairs_term_1_id_list=val_pos_pairs_term_1_id_list,
             pos_pairs_term_2_id_list=val_pos_pairs_term_2_id_list,
             pos_pairs_concept_ids_list=val_pos_pairs_concept_ids,
             sizes=args.rgcn_num_neighbors, edge_index=edge_index,
-            term_id2tokenizer_output=val_term_id2tok_out,
+            term_id2tokenizer_output=val_term_id2tok_out, node_idx=val_pos_pairs_idx,
             rel_ids=edge_rel_ids, node_id2token_ids_dict=node_id2token_ids_dict,
             seq_max_length=node_id2token_ids_dict, batch_size=args.batch_size,
             num_workers=args.dataloader_num_workers, shuffle=True, )
