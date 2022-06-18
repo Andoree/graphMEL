@@ -233,7 +233,7 @@ def load_data_and_bert_model(train_node2terms_path: str, train_edges_path: str, 
 
 
 def convert_edges_tuples_to_oriented_edge_index_with_relations(edges_tuples: List[Tuple[int, int]],
-                                                               use_rel_or_rela: str) \
+                                                               use_rel_or_rela: str, remove_selfloops=False) \
         -> Tuple[torch.Tensor, torch.Tensor]:
     logging.info("Converting edge tuples to edge index")
     edge_strs_set = set()
@@ -244,8 +244,9 @@ def convert_edges_tuples_to_oriented_edge_index_with_relations(edges_tuples: Lis
             rel_id = rela_id
         else:
             raise ValueError(f"Invalid 'use_rel_or_rela' parameter value: {use_rel_or_rela}")
-        edge_str = f"{node_id_1}~{node_id_2}~{rel_id}"
-        edge_strs_set.add(edge_str)
+        if not (remove_selfloops and node_id_1 == node_id_2):
+            edge_str = f"{node_id_1}~{node_id_2}~{rel_id}"
+            edge_strs_set.add(edge_str)
     edge_index = torch.zeros(size=[2, len(edge_strs_set)], dtype=torch.long)
     edge_rel_ids = torch.zeros(len(edge_strs_set), dtype=torch.long)
     for idx, edge_str in enumerate(edge_strs_set):
