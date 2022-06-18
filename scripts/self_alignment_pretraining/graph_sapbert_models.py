@@ -1,10 +1,12 @@
+from typing import List
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import logging
 
-from torch_geometric.nn import SAGEConv
+from torch_geometric.nn import SAGEConv, FastRGCNConv, RGCNConv
 from tqdm import tqdm
 import random
 from torch.cuda.amp import autocast
@@ -12,7 +14,7 @@ from pytorch_metric_learning import miners, losses, distances
 
 
 class GraphSAGESapMetricLearning(nn.Module):
-    def __init__(self, bert_encoder, use_cuda,  loss, num_graphsage_layers, num_graphsage_channels,
+    def __init__(self, bert_encoder, use_cuda, loss, num_graphsage_layers, num_graphsage_channels,
                  graphsage_dropout_p, multigpu_flag, use_miner=True, miner_margin=0.2, type_of_triplets="all",
                  agg_mode="cls"):
 
@@ -22,9 +24,6 @@ class GraphSAGESapMetricLearning(nn.Module):
             ))
         super(GraphSAGESapMetricLearning, self).__init__()
         self.bert_encoder = bert_encoder
-        # self.pairwise = pairwise
-        # self.learning_rate = learning_rate
-        # self.weight_decay = weight_decay
         self.use_cuda = use_cuda
         self.loss = loss
         self.use_miner = use_miner
@@ -41,9 +40,9 @@ class GraphSAGESapMetricLearning(nn.Module):
         self.graphsage_dropout_p = graphsage_dropout_p
         for i in range(num_graphsage_layers):
             in_channels = self.bert_hidden_dim if i == 0 else num_graphsage_channels
-            #if multigpu_flag:
+            # if multigpu_flag:
             #    sage_conv = nn.DataParallel(SAGEConv(in_channels, num_graphsage_channels))
-            #else:
+            # else:
             sage_conv = SAGEConv(in_channels, num_graphsage_channels)
             self.convs.append(sage_conv)
 
@@ -66,7 +65,6 @@ class GraphSAGESapMetricLearning(nn.Module):
             self.loss = losses.NCALoss()
         logging.info(f"Using miner: {self.miner}")
         logging.info(f"Using loss function: {self.loss}")
-
 
     def encode_tokens(self, input_ids, attention_mask, adjs):
         # last_hidden_states = self.bert_encoder(**query_toks1, return_dict=True).last_hidden_state
@@ -120,3 +118,95 @@ class GraphSAGESapMetricLearning(nn.Module):
         return loss, in_topk
 
 
+class RGCNSapMetricLearning(nn.Module):
+    def __init__(self, bert_encoder, num_hidden_channels: int, num_layers: int, rgcn_dropout_p: float,
+                 num_relations: int, num_bases: int, num_blocks: int, use_fast_conv: bool, use_cuda, loss,
+                 multigpu_flag, use_miner=True, miner_margin=0.2, type_of_triplets="all", agg_mode="cls"):
+
+        logging.info(
+            "Sap_Metric_Learning! use_cuda={} loss={} use_miner={} miner_margin={} type_of_triplets={} agg_mode={}".format(
+                use_cuda, loss, use_miner, miner_margin, type_of_triplets, agg_mode
+            ))
+        super(RGCNSapMetricLearning, self).__init__()
+        self.bert_encoder = bert_encoder
+
+        self.use_cuda = use_cuda
+        self.loss = loss
+        self.use_miner = use_miner
+        self.miner_margin = miner_margin
+        self.agg_mode = agg_mode
+        self.bert_hidden_dim = bert_encoder.config.hidden_size
+        if multigpu_flag:
+            self.bert_encoder = nn.DataParallel(bert_encoder)
+        else:
+            self.bert_encoder = bert_encoder
+        RGCNConvClass = FastRGCNConv if use_fast_conv else RGCNConv
+        self.graphsage_dropout_p = rgcn_dropout_p
+        self.convs = nn.ModuleList()
+        for i in range(num_layers):
+            in_channels = self.bert_hidden_dim if i == 0 else num_hidden_channels
+            rgcn_conv = RGCNConvClass(in_channels=in_channels, out_channels=num_hidden_channels,
+                                      num_relations=num_relations, num_bases=num_bases,
+                                      num_blocks=num_blocks, )
+            self.convs.append(rgcn_conv)
+
+        if self.use_miner:
+            self.miner = miners.TripletMarginMiner(margin=miner_margin, type_of_triplets=type_of_triplets)
+        else:
+            self.miner = None
+
+        if self.loss == "ms_loss":
+            self.loss = losses.MultiSimilarityLoss(alpha=2, beta=50, base=0.5)  # 1,2,3; 40,50,60
+        elif self.loss == "circle_loss":
+            self.loss = losses.CircleLoss()
+        elif self.loss == "triplet_loss":
+            self.loss = losses.TripletMarginLoss()
+        elif self.loss == "infoNCE":
+            self.loss = losses.NTXentLoss(temperature=0.07)  # The MoCo paper uses 0.07, while SimCLR uses 0.5.
+        elif self.loss == "lifted_structure_loss":
+            self.loss = losses.LiftedStructureLoss()
+        elif self.loss == "nca_loss":
+            self.loss = losses.NCALoss()
+        logging.info(f"Using miner: {self.miner}")
+        logging.info(f"Using loss function: {self.loss}")
+
+    def encode_tokens(self, input_ids, attention_mask, adjs, rel_types):
+        x = self.bert_encoder(input_ids, attention_mask=attention_mask,
+                              return_dict=True)['last_hidden_state'][:, 0]
+
+        for i, ((edge_index, _, size), rel_type) in enumerate(zip(adjs, rel_types)):
+            x_target = x[:size[1]]  # Target nodes are always placed first.
+            x = self.convs[i]((x, x_target), edge_index=edge_index, edge_type=rel_type)
+            if i != self.rgcn_layers - 1:
+                x = x.relu()
+                x = F.dropout(x, p=self.rgcn_dropout_p, training=self.training)
+        return x
+
+    @autocast()
+    def forward(self, term_1_input_ids, term_1_att_masks, term_2_input_ids, term_2_att_masks, concept_ids,
+                adjs, rel_types, batch_size):
+        """
+        query : (N, h), candidates : (N, topk, h)
+
+        output : (N, topk)
+        """
+
+        query_embed1 = self.encode_tokens(input_ids=term_1_input_ids, attention_mask=term_1_att_masks, adjs=adjs,
+                                          rel_types=rel_types)[:batch_size]
+        query_embed2 = self.encode_tokens(input_ids=term_2_input_ids, attention_mask=term_2_att_masks, adjs=adjs,
+                                          rel_types=rel_types)[:batch_size]
+
+        query_embed = torch.cat([query_embed1, query_embed2], dim=0)
+        labels = torch.cat([concept_ids, concept_ids], dim=0)
+
+        if self.use_miner:
+            hard_pairs = self.miner(query_embed, labels)
+            return self.loss(query_embed, labels, hard_pairs)
+        else:
+            return self.loss(query_embed, labels)
+
+    def get_loss(self, outputs, targets):
+        if self.use_cuda:
+            targets = targets.cuda()
+        loss, in_topk = self.criterion(outputs, targets)
+        return loss, in_topk
