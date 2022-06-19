@@ -263,7 +263,7 @@ def main(args):
             sizes=args.rgcn_num_neighbors, edge_index=edge_index,
             term_id2tokenizer_output=val_term_id2tok_out, node_idx=val_pos_pairs_idx,
             rel_ids=edge_rel_ids, node_id2token_ids_dict=node_id2token_ids_dict,
-            seq_max_length=node_id2token_ids_dict, batch_size=args.batch_size,
+            seq_max_length=args.max_length, batch_size=args.batch_size,
             num_workers=args.dataloader_num_workers, shuffle=True, )
         val_epoch_fn = val_rgcn_sapbert
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
