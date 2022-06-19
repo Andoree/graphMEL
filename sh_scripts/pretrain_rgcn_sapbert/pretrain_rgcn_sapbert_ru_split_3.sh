@@ -18,6 +18,7 @@ python ../../scripts/self_alignment_pretraining/train_rgcn_sapbert.py --train_di
 --rgcn_num_neighbors 2 2 \
 --rgcn_num_blocks=96 \
 --use_rel_or_rela="rela" \
+--rgcn_use_fast_conv \
 --remove_selfloops \
 --max_length=32 \
 --use_cuda \

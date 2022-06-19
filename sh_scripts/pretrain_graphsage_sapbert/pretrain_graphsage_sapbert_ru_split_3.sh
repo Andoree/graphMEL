@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=ru_sage          # Название задачи
-#SBATCH --error=../../logs/pretrain_graphsage_sapbert_ru_split/ru_pretrain_graphsage_sapbert_1.err        # Файл для вывода ошибок
-#SBATCH --output=../../logs/pretrain_graphsage_sapbert_ru_split/ru_pretrain_graphsage_sapbert_1.txt       # Файл для вывода результатов
+#SBATCH --error=../../logs/pretrain_graphsage_sapbert_ru_split/ru_pretrain_graphsage_sapbert_3.err        # Файл для вывода ошибок
+#SBATCH --output=../../logs/pretrain_graphsage_sapbert_ru_split/ru_pretrain_graphsage_sapbert_3.txt       # Файл для вывода результатов
 #SBATCH --time=23:59:59                      # Максимальное время выполнения
 #SBATCH --cpus-per-task=8                   # Количество CPU на одну задачу
 #SBATCH --nodes=1
@@ -14,9 +14,9 @@ python ../../scripts/self_alignment_pretraining/train_graphsage_sapbert.py --tra
 --text_encoder="../../models/cambridgeltl/SapBERT-UMLS-2020AB-all-lang-from-XLMR/" \
 --dataloader_num_workers=4 \
 --num_graphsage_channels=768 \
---num_graphsage_layers=2 \
---graphsage_dropout_p=0.5 \
---graphsage_num_neighbors 2 2 \
+--num_graphsage_layers=1 \
+--graphsage_dropout_p=0.1 \
+--graphsage_num_neighbors 4 \
 --remove_selfloops \
 --max_length=32 \
 --use_cuda \
@@ -35,14 +35,16 @@ python ../../scripts/self_alignment_pretraining/train_graphsage_sapbert.py --tra
 --save_every_N_epoch=1 \
 --output_dir="../../pretrained_graphsapbert/2020AB/GraphSAGE/RU_split"
 
+
+
 python ../../scripts/self_alignment_pretraining/train_graphsage_sapbert.py --train_dir="../../data/umls_graph/2020AB_pos_pairs_datasets/RUS_pos_pairs_russian_SPLIT" \
 --validate \
 --text_encoder="../../models/cambridgeltl/SapBERT-UMLS-2020AB-all-lang-from-XLMR/" \
 --dataloader_num_workers=4 \
 --num_graphsage_channels=768 \
---num_graphsage_layers=2 \
---graphsage_dropout_p=0.5 \
---graphsage_num_neighbors 2 2 \
+--num_graphsage_layers=1 \
+--graphsage_dropout_p=0.1 \
+--graphsage_num_neighbors 4 \
 --remove_selfloops \
 --max_length=32 \
 --use_cuda \
@@ -50,8 +52,8 @@ python ../../scripts/self_alignment_pretraining/train_graphsage_sapbert.py --tra
 --weight_decay=0.01  \
 --batch_size=512 \
 --num_epochs=5 \
---amp \
 --parallel \
+--amp \
 --random_seed=42 \
 --loss="ms_loss" \
 --use_miner \
@@ -61,15 +63,14 @@ python ../../scripts/self_alignment_pretraining/train_graphsage_sapbert.py --tra
 --save_every_N_epoch=1 \
 --output_dir="../../pretrained_graphsapbert/2020AB/GraphSAGE/RU_split"
 
-
 python ../../scripts/self_alignment_pretraining/train_graphsage_sapbert.py --train_dir="../../data/umls_graph/2020AB_pos_pairs_datasets/RUS_pos_pairs_russian_SPLIT" \
 --validate \
 --text_encoder="../../models/cambridgeltl/SapBERT-UMLS-2020AB-all-lang-from-XLMR/" \
 --dataloader_num_workers=4 \
 --num_graphsage_channels=768 \
---num_graphsage_layers=2 \
---graphsage_dropout_p=0.5 \
---graphsage_num_neighbors 2 2 \
+--num_graphsage_layers=1 \
+--graphsage_dropout_p=0.1 \
+--graphsage_num_neighbors 4 \
 --remove_selfloops \
 --max_length=32 \
 --use_cuda \
@@ -77,8 +78,8 @@ python ../../scripts/self_alignment_pretraining/train_graphsage_sapbert.py --tra
 --weight_decay=0.01  \
 --batch_size=256 \
 --num_epochs=5 \
---amp \
 --parallel \
+--amp \
 --random_seed=42 \
 --loss="ms_loss" \
 --use_miner \
@@ -88,14 +89,15 @@ python ../../scripts/self_alignment_pretraining/train_graphsage_sapbert.py --tra
 --save_every_N_epoch=1 \
 --output_dir="../../pretrained_graphsapbert/2020AB/GraphSAGE/RU_split"
 
+
 python ../../scripts/self_alignment_pretraining/train_graphsage_sapbert.py --train_dir="../../data/umls_graph/2020AB_pos_pairs_datasets/RUS_pos_pairs_russian_SPLIT" \
 --validate \
 --text_encoder="../../models/cambridgeltl/SapBERT-UMLS-2020AB-all-lang-from-XLMR/" \
 --dataloader_num_workers=4 \
 --num_graphsage_channels=768 \
---num_graphsage_layers=2 \
---graphsage_dropout_p=0.5 \
---graphsage_num_neighbors 2 2 \
+--num_graphsage_layers=1 \
+--graphsage_dropout_p=0.1 \
+--graphsage_num_neighbors 4 \
 --remove_selfloops \
 --max_length=32 \
 --use_cuda \
@@ -103,8 +105,8 @@ python ../../scripts/self_alignment_pretraining/train_graphsage_sapbert.py --tra
 --weight_decay=0.01  \
 --batch_size=128 \
 --num_epochs=5 \
---amp \
 --parallel \
+--amp \
 --random_seed=42 \
 --loss="ms_loss" \
 --use_miner \
@@ -119,9 +121,9 @@ python ../../scripts/self_alignment_pretraining/train_graphsage_sapbert.py --tra
 --text_encoder="../../models/cambridgeltl/SapBERT-UMLS-2020AB-all-lang-from-XLMR/" \
 --dataloader_num_workers=4 \
 --num_graphsage_channels=768 \
---num_graphsage_layers=2 \
---graphsage_dropout_p=0.5 \
---graphsage_num_neighbors 2 2 \
+--num_graphsage_layers=1 \
+--graphsage_dropout_p=0.1 \
+--graphsage_num_neighbors 4 \
 --remove_selfloops \
 --max_length=32 \
 --use_cuda \
@@ -129,8 +131,8 @@ python ../../scripts/self_alignment_pretraining/train_graphsage_sapbert.py --tra
 --weight_decay=0.01  \
 --batch_size=100 \
 --num_epochs=5 \
---amp \
 --parallel \
+--amp \
 --random_seed=42 \
 --loss="ms_loss" \
 --use_miner \
@@ -145,9 +147,9 @@ python ../../scripts/self_alignment_pretraining/train_graphsage_sapbert.py --tra
 --text_encoder="../../models/cambridgeltl/SapBERT-UMLS-2020AB-all-lang-from-XLMR/" \
 --dataloader_num_workers=4 \
 --num_graphsage_channels=768 \
---num_graphsage_layers=2 \
---graphsage_dropout_p=0.5 \
---graphsage_num_neighbors 2 2 \
+--num_graphsage_layers=1 \
+--graphsage_dropout_p=0.1 \
+--graphsage_num_neighbors 4 \
 --remove_selfloops \
 --max_length=32 \
 --use_cuda \
@@ -155,8 +157,8 @@ python ../../scripts/self_alignment_pretraining/train_graphsage_sapbert.py --tra
 --weight_decay=0.01  \
 --batch_size=80 \
 --num_epochs=5 \
---amp \
 --parallel \
+--amp \
 --random_seed=42 \
 --loss="ms_loss" \
 --use_miner \
@@ -165,3 +167,5 @@ python ../../scripts/self_alignment_pretraining/train_graphsage_sapbert.py --tra
 --agg_mode "cls" \
 --save_every_N_epoch=1 \
 --output_dir="../../pretrained_graphsapbert/2020AB/GraphSAGE/RU_split"
+
+
