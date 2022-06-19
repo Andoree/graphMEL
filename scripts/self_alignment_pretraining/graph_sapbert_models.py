@@ -129,7 +129,7 @@ class RGCNSapMetricLearning(nn.Module):
             ))
         super(RGCNSapMetricLearning, self).__init__()
         self.bert_encoder = bert_encoder
-
+        self.num_layers = num_layers
         self.use_cuda = use_cuda
         self.loss = loss
         self.use_miner = use_miner
@@ -141,7 +141,7 @@ class RGCNSapMetricLearning(nn.Module):
         else:
             self.bert_encoder = bert_encoder
         RGCNConvClass = FastRGCNConv if use_fast_conv else RGCNConv
-        self.graphsage_dropout_p = rgcn_dropout_p
+        self.rgcn_dropout_p = rgcn_dropout_p
         self.convs = nn.ModuleList()
         for i in range(num_layers):
             in_channels = self.bert_hidden_dim if i == 0 else num_hidden_channels
@@ -177,7 +177,7 @@ class RGCNSapMetricLearning(nn.Module):
         for i, ((edge_index, _, size), rel_type) in enumerate(zip(adjs, rel_types)):
             x_target = x[:size[1]]  # Target nodes are always placed first.
             x = self.convs[i]((x, x_target), edge_index=edge_index, edge_type=rel_type)
-            if i != self.rgcn_layers - 1:
+            if i != self.num_layers - 1:
                 x = x.relu()
                 x = F.dropout(x, p=self.rgcn_dropout_p, training=self.training)
         return x
