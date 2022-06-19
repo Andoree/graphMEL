@@ -45,8 +45,9 @@ def parse_args():
     # GCN encoder configuration
     parser.add_argument('--num_gcn_channels', type=int)
     parser.add_argument('--gcn_num_neighbors', type=int)
-
+    parser.add_argument('--gcn_add_self_loops', action="store_true")
     parser.add_argument('--remove_selfloops', action="store_true")
+
 
     # Tokenizer settings
     parser.add_argument('--max_length', default=25, type=int)
@@ -154,9 +155,7 @@ def val_gcn_dgi_sapbert(model: GCNDGISapMetricLearning, val_loader: PositivePair
 def main(args):
     print(args)
     output_dir = args.output_dir
-    # TODO: Ввести параметры и добавить вот сюда
-    output_subdir = f"gs_{args.num_graphsage_layers}-{args.num_graphsage_channels}_" \
-                    f"{'.'.join((str(x) for x in args.graphsage_num_neighbors))}_{args.graphsage_dropout_p}_" \
+    output_subdir = f"ch_{args.num_gcn_channels}_nei_{args.gcn_num_neighbors}_gcn_loops_{args.gcn_add_self_loops}" \
                     f"lr_{args.learning_rate}_b_{args.batch_size}"
     output_dir = os.path.join(output_dir, output_subdir)
     if not os.path.exists(output_dir) and output_dir != '':
