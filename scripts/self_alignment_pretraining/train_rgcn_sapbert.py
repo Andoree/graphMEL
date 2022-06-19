@@ -115,11 +115,11 @@ def rgcn_sapbert_step(model: RGCNSapMetricLearning, batch, amp, device):
         with autocast():
             loss = model(term_1_input_ids=term_1_input_ids, term_1_att_masks=term_1_att_masks,
                          term_2_input_ids=term_2_input_ids, term_2_att_masks=term_2_att_masks,
-                         concept_ids=concept_ids, adjs=adjs, e_ids_list=rel_ids_list, batch_size=batch_size)
+                         concept_ids=concept_ids, adjs=adjs, rel_types=rel_ids_list, batch_size=batch_size)
     else:
         loss = model(term_1_input_ids=term_1_input_ids, term_1_att_masks=term_1_att_masks,
                      term_2_input_ids=term_2_input_ids, term_2_att_masks=term_2_att_masks,
-                     concept_ids=concept_ids, adjs=adjs, e_ids_list=rel_ids_list, batch_size=batch_size)
+                     concept_ids=concept_ids, adjs=adjs, rel_types=rel_ids_list, batch_size=batch_size)
     return loss
 
 
