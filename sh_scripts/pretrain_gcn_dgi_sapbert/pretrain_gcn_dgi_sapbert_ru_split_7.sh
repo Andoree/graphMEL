@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=ru_dgi          # Название задачи
-#SBATCH --error=../../logs/pretrain_gcn_dgi_sapbert_ru_split/ru_pretrain_gcn_dgi_sapbert_1.err        # Файл для вывода ошибок
-#SBATCH --output=../../logs/pretrain_gcn_dgi_sapbert_ru_split/ru_pretrain_gcn_dgi_sapbert_1.txt       # Файл для вывода результатов
+#SBATCH --error=../../logs/pretrain_gcn_dgi_sapbert_ru_split/ru_pretrain_gcn_dgi_sapbert_7.err        # Файл для вывода ошибок
+#SBATCH --output=../../logs/pretrain_gcn_dgi_sapbert_ru_split/ru_pretrain_gcn_dgi_sapbert_7.txt       # Файл для вывода результатов
 #SBATCH --time=23:59:59                      # Максимальное время выполнения
 #SBATCH --cpus-per-task=4                   # Количество CPU на одну задачу
 #SBATCH --gpus=4                   # Требуемое количество GPU
@@ -17,7 +17,7 @@ python ../../scripts/self_alignment_pretraining/train_gcn_dgi_sapbert.py --train
 --num_gcn_channels=768 \
 --gcn_num_neighbors=4 \
 --gcn_add_self_loops \
---dgi_loss_weight=1e-4 \
+--dgi_loss_weight=1e-1 \
 --remove_selfloops \
 --max_length=32 \
 --use_cuda \
@@ -43,7 +43,7 @@ python ../../scripts/self_alignment_pretraining/train_gcn_dgi_sapbert.py --train
 --num_gcn_channels=768 \
 --gcn_num_neighbors=4 \
 --gcn_add_self_loops \
---dgi_loss_weight=1e-4 \
+--dgi_loss_weight=1e-1 \
 --remove_selfloops \
 --max_length=32 \
 --use_cuda \
@@ -69,7 +69,7 @@ python ../../scripts/self_alignment_pretraining/train_gcn_dgi_sapbert.py --train
 --num_gcn_channels=768 \
 --gcn_num_neighbors=4 \
 --gcn_add_self_loops \
---dgi_loss_weight=1e-4 \
+--dgi_loss_weight=1e-1 \
 --remove_selfloops \
 --max_length=32 \
 --use_cuda \
