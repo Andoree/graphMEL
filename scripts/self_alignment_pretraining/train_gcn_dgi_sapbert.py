@@ -242,7 +242,7 @@ def main(args):
                                     add_self_loops=args.gcn_add_self_loops,
                                     multigpu_flag=args.parallel, use_miner=args.use_miner,
                                     miner_margin=args.miner_margin, type_of_triplets=args.type_of_triplets,
-                                    agg_mode=args.agg_mode)
+                                    agg_mode=args.agg_mode).to(device)
     start = time.time()
     train_graph_sapbert_model(model=model, train_epoch_fn=train_gcn_dgi_sapbert, val_epoch_fn=val_epoch_fn,
                               train_loader=train_pos_pair_sampler,

@@ -275,9 +275,9 @@ class GCNDGISapMetricLearning(nn.Module):
     def encode_tokens(self, input_ids, attention_mask, edge_index):
         x = self.bert_encoder(input_ids, attention_mask=attention_mask,
                               return_dict=True)['last_hidden_state'][:, 0]
-        x = self.dgi(x, edge_index)
+        pos_z, neg_z, summary = self.dgi(x, edge_index)
 
-        return x
+        return summary
 
     def corruption_fn(self, x, edge_index):
         return x[torch.randperm(x.size(0))], edge_index
@@ -296,7 +296,7 @@ class GCNDGISapMetricLearning(nn.Module):
         query_embed2 = self.encode_tokens(input_ids=term_2_input_ids, attention_mask=term_2_att_masks,
                                           edge_index=edge_index)[:batch_size]
         assert query_embed2.size()[0] == query_embed1.size()[0] == batch_size
-
+        print("query_embed1", query_embed1.size())
         query_embed = torch.cat([query_embed1, query_embed2], dim=0)
         labels = torch.cat([concept_ids, concept_ids], dim=0)
 
