@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=ru_sage          # Название задачи
-#SBATCH --error=../../logs/pretrain_gcn_dgi_sapbert_ru_split/ru_pretrain_gcn_dgi_sapbert_1.err        # Файл для вывода ошибок
-#SBATCH --output=../../logs/pretrain_gcn_dgi_sapbert_ru_split/ru_pretrain_gcn_dgi_sapbert_1.txt       # Файл для вывода результатов
+#SBATCH --job-name=ru_dgi          # Название задачи
+#SBATCH --error=../../logs/pretrain_gcn_dgi_sapbert_ru_split/ru_pretrain_gcn_dgi_sapbert_2.err        # Файл для вывода ошибок
+#SBATCH --output=../../logs/pretrain_gcn_dgi_sapbert_ru_split/ru_pretrain_gcn_dgi_sapbert_2.txt       # Файл для вывода результатов
 #SBATCH --time=23:59:59                      # Максимальное время выполнения
 #SBATCH --cpus-per-task=4                   # Количество CPU на одну задачу
 #SBATCH --gpus=4                   # Требуемое количество GPU
