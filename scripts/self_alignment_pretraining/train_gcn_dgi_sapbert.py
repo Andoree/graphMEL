@@ -44,7 +44,7 @@ def parse_args():
 
     # GCN encoder configuration
     parser.add_argument('--num_gcn_channels', type=int)
-    parser.add_argument('--gcn_num_neighbors', type=int)
+    parser.add_argument('--gcn_num_neighbors', type=int, nargs='+')
     parser.add_argument('--gcn_add_self_loops', action="store_true")
     parser.add_argument('--remove_selfloops', action="store_true")
 
