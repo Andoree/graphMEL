@@ -46,8 +46,8 @@ def parse_args():
     parser.add_argument('--num_gcn_channels', type=int)
     parser.add_argument('--gcn_num_neighbors', type=int, nargs='+')
     parser.add_argument('--gcn_add_self_loops', action="store_true")
+    parser.add_argument('--dgi_loss_weight', type=float)
     parser.add_argument('--remove_selfloops', action="store_true")
-
 
     # Tokenizer settings
     parser.add_argument('--max_length', default=25, type=int)
@@ -89,7 +89,7 @@ def parse_args():
     return args
 
 
-def gcn_dgi_sapbert_step(model: GCNDGISapMetricLearning, batch, amp, device):
+def gcn_dgi_sapbert_train_step(model: GCNDGISapMetricLearning, batch, amp, device):
     term_1_input_ids, term_1_att_masks = batch["term_1_input"]
     term_1_input_ids, term_1_att_masks = term_1_input_ids.to(device), term_1_att_masks.to(device)
     term_2_input_ids, term_2_att_masks = batch["term_2_input"]
@@ -99,7 +99,6 @@ def gcn_dgi_sapbert_step(model: GCNDGISapMetricLearning, batch, amp, device):
     if isinstance(adjs, list):
         raise ValueError("To make model more lightweighted, GCN+DGI+SapBert does not support multiple GCN layers")
     edge_index = adjs.edge_index.to(device)
-
     batch_size = batch["batch_size"]
     concept_ids = batch["concept_ids"].to(device)
 
@@ -115,6 +114,26 @@ def gcn_dgi_sapbert_step(model: GCNDGISapMetricLearning, batch, amp, device):
     return loss
 
 
+def gcn_dgi_sapbert_eval_step(model: GCNDGISapMetricLearning, batch, amp, device):
+    term_1_input_ids, term_1_att_masks = batch["term_1_input"]
+    term_1_input_ids, term_1_att_masks = term_1_input_ids.to(device), term_1_att_masks.to(device)
+    term_2_input_ids, term_2_att_masks = batch["term_2_input"]
+    term_2_input_ids, term_2_att_masks = term_2_input_ids.to(device), term_2_att_masks.to(device)
+    concept_ids = batch["concept_ids"].to(device)
+
+    if amp:
+        with autocast():
+            sapbert_loss = model.eval_step_loss(term_1_input_ids=term_1_input_ids, term_1_att_masks=term_1_att_masks,
+                                                term_2_input_ids=term_2_input_ids, term_2_att_masks=term_2_att_masks,
+                                                concept_ids=concept_ids, )
+
+    else:
+        sapbert_loss = model.eval_step_loss(term_1_input_ids=term_1_input_ids, term_1_att_masks=term_1_att_masks,
+                                            term_2_input_ids=term_2_input_ids, term_2_att_masks=term_2_att_masks,
+                                            concept_ids=concept_ids, )
+    return sapbert_loss
+
+
 def train_gcn_dgi_sapbert(model: GCNDGISapMetricLearning, train_loader: PositivePairNeighborSampler,
                           optimizer: torch.optim.Optimizer, scaler, amp, device):
     model.train()
@@ -122,7 +141,7 @@ def train_gcn_dgi_sapbert(model: GCNDGISapMetricLearning, train_loader: Positive
     num_steps = 0
     for batch in tqdm(train_loader, miniters=len(train_loader) // 100, total=len(train_loader)):
         optimizer.zero_grad()
-        loss = gcn_dgi_sapbert_step(model=model, batch=batch, amp=amp, device=device)
+        loss = gcn_dgi_sapbert_train_step(model=model, batch=batch, amp=amp, device=device)
         if amp:
             scaler.scale(loss).backward()
             scaler.step(optimizer)
@@ -144,7 +163,7 @@ def val_gcn_dgi_sapbert(model: GCNDGISapMetricLearning, val_loader: PositivePair
     num_steps = 0
     with torch.no_grad():
         for batch in tqdm(val_loader, miniters=len(val_loader) // 100, total=len(val_loader)):
-            loss = gcn_dgi_sapbert_step(model=model, batch=batch, amp=amp, device=device)
+            loss = gcn_dgi_sapbert_eval_step(model=model, batch=batch, amp=amp, device=device)
             num_steps += 1
             total_loss += float(loss)
             # wandb.log({"Val loss": loss.item()})
@@ -155,8 +174,8 @@ def val_gcn_dgi_sapbert(model: GCNDGISapMetricLearning, val_loader: PositivePair
 def main(args):
     print(args)
     output_dir = args.output_dir
-    output_subdir = f"ch_{args.num_gcn_channels}_nei_{args.gcn_num_neighbors}_gcn_loops_{args.gcn_add_self_loops}" \
-                    f"lr_{args.learning_rate}_b_{args.batch_size}"
+    output_subdir = f"ch_{args.num_gcn_channels}_nei_{args.gcn_num_neighbors}_gcn_loops_{args.gcn_add_self_loops}_" \
+                    f"dgi_loss_{args.dgi_loss_weight}_lr_{args.learning_rate}_b_{args.batch_size}"
     output_dir = os.path.join(output_dir, output_subdir)
     if not os.path.exists(output_dir) and output_dir != '':
         os.makedirs(output_dir)
@@ -238,7 +257,7 @@ def main(args):
     else:
         scaler = None
     model = GCNDGISapMetricLearning(bert_encoder, use_cuda=args.use_cuda, loss=args.loss,
-                                    num_gcn_channels=args.num_gcn_channels,
+                                    num_gcn_channels=args.num_gcn_channels, dgi_loss_weight=args.dgi_loss_weight,
                                     add_self_loops=args.gcn_add_self_loops,
                                     multigpu_flag=args.parallel, use_miner=args.use_miner,
                                     miner_margin=args.miner_margin, type_of_triplets=args.type_of_triplets,

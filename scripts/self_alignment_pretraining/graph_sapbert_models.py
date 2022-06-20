@@ -226,7 +226,8 @@ class GCNLayer(nn.Module):
 
 class GCNDGISapMetricLearning(nn.Module):
     def __init__(self, bert_encoder, use_cuda, loss, num_gcn_channels: int, add_self_loops: bool,
-                 multigpu_flag, use_miner=True, miner_margin=0.2, type_of_triplets="all", agg_mode="cls"):
+                 dgi_loss_weight: float, multigpu_flag, use_miner=True, miner_margin=0.2, type_of_triplets="all",
+                 agg_mode="cls"):
 
         logging.info(
             "Sap_Metric_Learning! use_cuda={} loss={} use_miner={} miner_margin={} type_of_triplets={} agg_mode={}".format(
@@ -251,6 +252,7 @@ class GCNDGISapMetricLearning(nn.Module):
             hidden_channels=num_gcn_channels, encoder=self.gcn_conv,
             summary=lambda z, *args, **kwargs: torch.sigmoid(z.mean(dim=0)),
             corruption=self.corruption_fn)
+        self.dgi_loss_weight = dgi_loss_weight
 
         if self.use_miner:
             self.miner = miners.TripletMarginMiner(margin=miner_margin, type_of_triplets=type_of_triplets)
@@ -275,9 +277,9 @@ class GCNDGISapMetricLearning(nn.Module):
     def encode_tokens(self, input_ids, attention_mask, edge_index):
         x = self.bert_encoder(input_ids, attention_mask=attention_mask,
                               return_dict=True)['last_hidden_state'][:, 0]
-        pos_z, neg_z, summary = self.dgi(x, edge_index)
+        pos_embs, neg_embs, summary = self.dgi(x, edge_index)
 
-        return summary
+        return pos_embs, neg_embs, summary
 
     def corruption_fn(self, x, edge_index):
         return x[torch.randperm(x.size(0))], edge_index
@@ -291,20 +293,52 @@ class GCNDGISapMetricLearning(nn.Module):
 
         output : (N, topk)
         """
-        query_embed1 = self.encode_tokens(input_ids=term_1_input_ids, attention_mask=term_1_att_masks,
-                                          edge_index=edge_index)[:batch_size]
-        query_embed2 = self.encode_tokens(input_ids=term_2_input_ids, attention_mask=term_2_att_masks,
-                                          edge_index=edge_index)[:batch_size]
-        assert query_embed2.size()[0] == query_embed1.size()[0] == batch_size
-        print("query_embed1", query_embed1.size())
+        q1_pos_embs, q1_neg_embs, q1_summary = self.encode_tokens(input_ids=term_1_input_ids,
+                                                                  attention_mask=term_1_att_masks,
+                                                                  edge_index=edge_index)
+        q2_pos_embs, q2_neg_embs, q2_summary = self.encode_tokens(input_ids=term_2_input_ids,
+                                                                  attention_mask=term_2_att_masks,
+                                                                  edge_index=edge_index)
+        q1_pos_embs, q2_pos_embs = q1_pos_embs[:batch_size], q2_pos_embs[:batch_size]
+        q1_neg_embs, q2_neg_embs = q1_neg_embs[:batch_size], q2_neg_embs[:batch_size]
+        assert q1_pos_embs.size()[0] == q2_pos_embs.size()[0] == batch_size
+        assert q1_neg_embs.size()[0] == q2_neg_embs.size()[0] == batch_size
+        query_embed = torch.cat([q1_pos_embs, q2_pos_embs], dim=0)
+        labels = torch.cat([concept_ids, concept_ids], dim=0)
+
+        if self.use_miner:
+            hard_pairs = self.miner(query_embed, labels)
+            sapbert_loss = self.loss(query_embed, labels, hard_pairs)
+        else:
+            sapbert_loss = self.loss(query_embed, labels)
+
+        q1_dgi_loss = self.dgi.loss(q1_pos_embs, q1_neg_embs, q1_summary)
+        q2_dgi_loss = self.dgi.loss(q2_pos_embs, q2_neg_embs, q2_summary)
+
+        return sapbert_loss + (q1_dgi_loss + q2_dgi_loss) * self.dgi_loss_weight
+
+    @autocast()
+    def eval_step_loss(self, term_1_input_ids, term_1_att_masks, term_2_input_ids, term_2_att_masks, concept_ids,):
+        """
+        query : (N, h), candidates : (N, topk, h)
+
+        output : (N, topk)
+        """
+
+        query_embed1 = self.bert_encoder(term_1_input_ids, attention_mask=term_1_att_masks,
+                              return_dict=True)['last_hidden_state'][:, 0]
+        query_embed2 = self.bert_encoder(term_2_input_ids, attention_mask=term_2_att_masks,
+                                         return_dict=True)['last_hidden_state'][:, 0]
+
         query_embed = torch.cat([query_embed1, query_embed2], dim=0)
         labels = torch.cat([concept_ids, concept_ids], dim=0)
 
         if self.use_miner:
             hard_pairs = self.miner(query_embed, labels)
-            return self.loss(query_embed, labels, hard_pairs)
+            sapbert_loss = self.loss(query_embed, labels, hard_pairs)
         else:
-            return self.loss(query_embed, labels)
+            sapbert_loss = self.loss(query_embed, labels)
+        return sapbert_loss
 
     def get_loss(self, outputs, targets):
         if self.use_cuda:
