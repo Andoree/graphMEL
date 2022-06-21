@@ -219,7 +219,7 @@ class GCNLayer(nn.Module):
         self.prelu = nn.PReLU(hidden_channels)
 
     def forward(self, x, edge_index):
-        x = self.conv(x, edge_index)
+        x = self.conv(x, edge_index=edge_index)
         x = self.prelu(x)
         return x
 
@@ -284,7 +284,6 @@ class GCNDGISapMetricLearning(nn.Module):
     def corruption_fn(self, x, edge_index):
         return x[torch.randperm(x.size(0))], edge_index
 
-
     @autocast()
     def forward(self, term_1_input_ids, term_1_att_masks, term_2_input_ids, term_2_att_masks, concept_ids, edge_index,
                 batch_size):
@@ -301,6 +300,7 @@ class GCNDGISapMetricLearning(nn.Module):
                                                                   edge_index=edge_index)
         q1_pos_embs, q2_pos_embs = q1_pos_embs[:batch_size], q2_pos_embs[:batch_size]
         q1_neg_embs, q2_neg_embs = q1_neg_embs[:batch_size], q2_neg_embs[:batch_size]
+
         assert q1_pos_embs.size()[0] == q2_pos_embs.size()[0] == batch_size
         assert q1_neg_embs.size()[0] == q2_neg_embs.size()[0] == batch_size
         query_embed = torch.cat([q1_pos_embs, q2_pos_embs], dim=0)
@@ -318,7 +318,8 @@ class GCNDGISapMetricLearning(nn.Module):
         return sapbert_loss + (q1_dgi_loss + q2_dgi_loss) * self.dgi_loss_weight
 
     @autocast()
-    def eval_step_loss(self, term_1_input_ids, term_1_att_masks, term_2_input_ids, term_2_att_masks, concept_ids,):
+    def eval_step_loss(self, term_1_input_ids, term_1_att_masks, term_2_input_ids, term_2_att_masks, concept_ids,
+                       batch_size):
         """
         query : (N, h), candidates : (N, topk, h)
 
@@ -326,10 +327,9 @@ class GCNDGISapMetricLearning(nn.Module):
         """
 
         query_embed1 = self.bert_encoder(term_1_input_ids, attention_mask=term_1_att_masks,
-                              return_dict=True)['last_hidden_state'][:, 0]
+                                         return_dict=True)['last_hidden_state'][:batch_size, 0]
         query_embed2 = self.bert_encoder(term_2_input_ids, attention_mask=term_2_att_masks,
-                                         return_dict=True)['last_hidden_state'][:, 0]
-
+                                         return_dict=True)['last_hidden_state'][:batch_size, 0]
         query_embed = torch.cat([query_embed1, query_embed2], dim=0)
         labels = torch.cat([concept_ids, concept_ids], dim=0)
 

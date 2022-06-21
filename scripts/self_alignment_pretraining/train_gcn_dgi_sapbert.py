@@ -120,17 +120,18 @@ def gcn_dgi_sapbert_eval_step(model: GCNDGISapMetricLearning, batch, amp, device
     term_2_input_ids, term_2_att_masks = batch["term_2_input"]
     term_2_input_ids, term_2_att_masks = term_2_input_ids.to(device), term_2_att_masks.to(device)
     concept_ids = batch["concept_ids"].to(device)
+    batch_size = batch["batch_size"]
 
     if amp:
         with autocast():
             sapbert_loss = model.eval_step_loss(term_1_input_ids=term_1_input_ids, term_1_att_masks=term_1_att_masks,
                                                 term_2_input_ids=term_2_input_ids, term_2_att_masks=term_2_att_masks,
-                                                concept_ids=concept_ids, )
+                                                concept_ids=concept_ids, batch_size=batch_size)
 
     else:
         sapbert_loss = model.eval_step_loss(term_1_input_ids=term_1_input_ids, term_1_att_masks=term_1_att_masks,
                                             term_2_input_ids=term_2_input_ids, term_2_att_masks=term_2_att_masks,
-                                            concept_ids=concept_ids, )
+                                            concept_ids=concept_ids, batch_size=batch_size)
     return sapbert_loss
 
 
@@ -225,7 +226,8 @@ def main(args):
                                                          node_idx=train_pos_pairs_idx,
                                                          node_id2token_ids_dict=node_id2token_ids_dict,
                                                          seq_max_length=args.max_length, batch_size=args.batch_size,
-                                                         num_workers=args.dataloader_num_workers, shuffle=True, )
+                                                         num_workers=args.dataloader_num_workers, shuffle=True,
+                                                         drop_last=True)
 
     val_pos_pair_sampler = None
     val_epoch_fn = None
@@ -249,9 +251,10 @@ def main(args):
                                                            node_idx=val_pos_pairs_idx,
                                                            node_id2token_ids_dict=node_id2token_ids_dict,
                                                            seq_max_length=args.max_length, batch_size=args.batch_size,
-                                                           num_workers=args.dataloader_num_workers, shuffle=False, )
+                                                           num_workers=args.dataloader_num_workers, shuffle=False,
+                                                           drop_last=False)
         val_epoch_fn = val_gcn_dgi_sapbert
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda:0' if args.use_cuda else 'cpu')
     if args.amp:
         scaler = GradScaler()
     else:
