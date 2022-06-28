@@ -33,7 +33,7 @@ python ../../scripts/self_alignment_pretraining/train_rgcn_dgi_sapbert.py --trai
 --miner_margin 0.2 \
 --agg_mode "cls" \
 --save_every_N_epoch=1 \
---output_dir="../../pretrained_graphsapbert/2020AB/RGCN/RU_split"
+--output_dir="../../pretrained_graphsapbert/2020AB/RGCN_DGI/RU_split"
 
 
 python ../../scripts/self_alignment_pretraining/train_rgcn_dgi_sapbert.py --train_dir="../../data/umls_graph/2020AB_pos_pairs_datasets/RUS_pos_pairs_russian_SPLIT" \
@@ -61,7 +61,7 @@ python ../../scripts/self_alignment_pretraining/train_rgcn_dgi_sapbert.py --trai
 --miner_margin 0.2 \
 --agg_mode "cls" \
 --save_every_N_epoch=1 \
---output_dir="../../pretrained_graphsapbert/2020AB/RGCN/RU_split"
+--output_dir="../../pretrained_graphsapbert/2020AB/RGCN_DGI/RU_split"
 
 python ../../scripts/self_alignment_pretraining/train_rgcn_dgi_sapbert.py --train_dir="../../data/umls_graph/2020AB_pos_pairs_datasets/RUS_pos_pairs_russian_SPLIT" \
 --validate \
@@ -88,4 +88,4 @@ python ../../scripts/self_alignment_pretraining/train_rgcn_dgi_sapbert.py --trai
 --miner_margin 0.2 \
 --agg_mode "cls" \
 --save_every_N_epoch=1 \
---output_dir="../../pretrained_graphsapbert/2020AB/RGCN/RU_split"
+--output_dir="../../pretrained_graphsapbert/2020AB/RGCN_DGI/RU_split"
