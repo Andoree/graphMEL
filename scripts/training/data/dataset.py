@@ -304,6 +304,7 @@ def map_terms2term_id(term_1_list: List[str], term_2_list: List[str]) -> Tuple[L
 
 
 def create_term_id2tokenizer_output(term2id: Dict[str, int], max_length: int, tokenizer: BertTokenizerFast):
+    logging.info("Tokenizing terms....")
     term_id2tok_out = {}
     for term, term_id in term2id.items():
         tok_out = tokenizer.encode_plus(
@@ -314,4 +315,5 @@ def create_term_id2tokenizer_output(term2id: Dict[str, int], max_length: int, to
             add_special_tokens=True,
             return_tensors="pt")
         term_id2tok_out[term_id] = tok_out
+    logging.info("Finished tokenizing terms....")
     return term_id2tok_out

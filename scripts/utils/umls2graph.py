@@ -105,7 +105,9 @@ def add_loops_to_edges_list(node_id2terms_list: Dict[int, List[str]], rel2rel_id
     Takes node_id to terms list mapping and then for each node with more than 1 term(synonyms)
     adds a selp-loop edge to list of edges with "LOOP" relation
     """
+    logging.info(f"Adding self-loops to the list of edge tuples. There are {len(edges)} edges")
     for node_id, terms_list in node_id2terms_list.items():
         if len(terms_list) > 1:
             loop = (node_id, node_id, rel2rel_id["LOOP"], rela2rela_id["LOOP"])
             edges.append(loop)
+    logging.info(f"Finished adding self-loops to the list of edge tuples. There are {len(edges)} edges")
