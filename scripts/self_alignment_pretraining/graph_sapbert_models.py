@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Union
 
 import torch
 import torch.nn as nn
@@ -6,7 +6,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import logging
 
-from torch_geometric.nn import SAGEConv, FastRGCNConv, RGCNConv, DeepGraphInfomax, GCNConv
+from torch_geometric.nn import SAGEConv, FastRGCNConv, RGCNConv, DeepGraphInfomax, GCNConv, GATv2Conv
 from tqdm import tqdm
 import random
 from torch.cuda.amp import autocast
@@ -439,6 +439,142 @@ class RGCNDGISapMetricLearning(nn.Module):
 
         query_embed1, query_embed2 = query_embed1[:batch_size], query_embed2[:batch_size]
         query_embed = torch.cat([query_embed1, query_embed2], dim=0)
+        labels = torch.cat([concept_ids, concept_ids], dim=0)
+
+        if self.use_miner:
+            hard_pairs = self.miner(query_embed, labels)
+            sapbert_loss = self.loss(query_embed, labels, hard_pairs)
+        else:
+            sapbert_loss = self.loss(query_embed, labels)
+
+        q1_dgi_loss = self.dgi.loss(q1_pos_embs, q1_neg_embs, q1_summary)
+        q2_dgi_loss = self.dgi.loss(q2_pos_embs, q2_neg_embs, q2_summary)
+
+        return sapbert_loss + (q1_dgi_loss + q2_dgi_loss) * self.dgi_loss_weight
+
+    @autocast()
+    def eval_step_loss(self, term_1_input_ids, term_1_att_masks, term_2_input_ids, term_2_att_masks, concept_ids,
+                       batch_size):
+        """
+        query : (N, h), candidates : (N, topk, h)
+
+        output : (N, topk)
+        """
+
+        query_embed1 = self.bert_encoder(term_1_input_ids, attention_mask=term_1_att_masks,
+                                         return_dict=True)['last_hidden_state'][:batch_size, 0]
+        query_embed2 = self.bert_encoder(term_2_input_ids, attention_mask=term_2_att_masks,
+                                         return_dict=True)['last_hidden_state'][:batch_size, 0]
+        query_embed = torch.cat([query_embed1, query_embed2], dim=0)
+        labels = torch.cat([concept_ids, concept_ids], dim=0)
+
+        if self.use_miner:
+            hard_pairs = self.miner(query_embed, labels)
+            sapbert_loss = self.loss(query_embed, labels, hard_pairs)
+        else:
+            sapbert_loss = self.loss(query_embed, labels)
+        return sapbert_loss
+
+    def get_loss(self, outputs, targets):
+        if self.use_cuda:
+            targets = targets.cuda()
+        loss, in_topk = self.criterion(outputs, targets)
+        return loss, in_topk
+
+
+class GATv2DGISapMetricLearning(nn.Module):
+    def __init__(self, bert_encoder, gat_num_hidden_channels: int, gat_num_att_heads: int,
+                 gat_attention_dropout_p: float, gat_edge_dim: Union[int, None],
+                 gat_use_relation_features, num_relations: Union[int, None],
+                 dgi_loss_weight: float, use_cuda, loss, multigpu_flag, use_miner=True, miner_margin=0.2,
+                 type_of_triplets="all", agg_mode="cls"):
+
+        logging.info(f"Sap_Metric_Learning! use_cuda={use_cuda} loss={loss} use_miner={miner_margin}"
+                     f"miner_margin={miner_margin} type_of_triplets={type_of_triplets} agg_mode={agg_mode}")
+        logging.info(f"model parameters: hidden_channels={gat_num_hidden_channels}, att_heads={gat_num_att_heads}, "
+                     f"att_dropout={gat_attention_dropout_p}, edge_dim={gat_edge_dim}, "
+                     f"use_relations={gat_use_relation_features}")
+        super(GATv2DGISapMetricLearning, self).__init__()
+        self.bert_encoder = bert_encoder
+        self.use_cuda = use_cuda
+        self.loss = loss
+        self.use_miner = use_miner
+        self.miner_margin = miner_margin
+        self.agg_mode = agg_mode
+        self.bert_hidden_dim = bert_encoder.config.hidden_size
+        if multigpu_flag:
+            self.bert_encoder = nn.DataParallel(bert_encoder)
+        else:
+            self.bert_encoder = bert_encoder
+        self.gat_use_relation_features = gat_use_relation_features
+
+        if self.gat_use_relation_features:
+            self.rel_emb = torch.nn.Embedding(num_embeddings=num_relations, embedding_dim=gat_edge_dim,)
+        else:
+            assert num_relations is None and gat_edge_dim is None
+        self.gat_v2_conv = GATv2Conv(in_channels=self.bert_hidden_dim, out_channels=gat_num_hidden_channels,
+                                     heads=gat_num_att_heads, dropout=gat_attention_dropout_p,
+                                     add_self_loops=False, edge_dim=gat_edge_dim, share_weights=True)
+        self.dgi = DeepGraphInfomax(
+            hidden_channels=gat_num_att_heads * gat_num_hidden_channels, encoder=self.gat_v2_conv,
+            summary=lambda z, *args, **kwargs: torch.sigmoid(z.mean(dim=0)),
+            corruption=self.corruption_fn)
+        self.dgi_loss_weight = dgi_loss_weight
+
+        if self.use_miner:
+            self.miner = miners.TripletMarginMiner(margin=miner_margin, type_of_triplets=type_of_triplets)
+        else:
+            self.miner = None
+
+        if self.loss == "ms_loss":
+            self.loss = losses.MultiSimilarityLoss(alpha=2, beta=50, base=0.5)  # 1,2,3; 40,50,60
+        elif self.loss == "circle_loss":
+            self.loss = losses.CircleLoss()
+        elif self.loss == "triplet_loss":
+            self.loss = losses.TripletMarginLoss()
+        elif self.loss == "infoNCE":
+            self.loss = losses.NTXentLoss(temperature=0.07)  # The MoCo paper uses 0.07, while SimCLR uses 0.5.
+        elif self.loss == "lifted_structure_loss":
+            self.loss = losses.LiftedStructureLoss()
+        elif self.loss == "nca_loss":
+            self.loss = losses.NCALoss()
+        logging.info(f"Using miner: {self.miner}")
+        logging.info(f"Using loss function: {self.loss}")
+
+
+    def corruption_fn(self, x, edge_index, edge_attr):
+        (x_source, x_target) = x
+        x = (x_source[torch.randperm(x_source.size(0))], x_target[torch.randperm(x_target.size(0))])
+        return x, edge_index, edge_attr
+
+    @autocast()
+    def forward(self, term_1_input_ids, term_1_att_masks, term_2_input_ids, term_2_att_masks, concept_ids,
+                edge_index, edge_type, batch_size):
+        """
+        query : (N, h), candidates : (N, topk, h)
+
+        output : (N, topk)
+        """
+        query_embed1 = self.bert_encoder(term_1_input_ids, attention_mask=term_1_att_masks,
+                                         return_dict=True)['last_hidden_state'][:, 0]
+        query_embed2 = self.bert_encoder(term_2_input_ids, attention_mask=term_2_att_masks,
+                                         return_dict=True)['last_hidden_state'][:, 0]
+        if self.gat_use_relation_features:
+            edge_attr = self.rel_emb(edge_type)
+        else:
+            edge_attr = None
+
+        q1_target_nodes = query_embed1[:batch_size]
+        q1_node_emb_tuple = (query_embed1, q1_target_nodes)
+        q2_target_nodes = query_embed2[:batch_size]
+        q2_node_emb_tuple = (query_embed2, q2_target_nodes)
+        q1_pos_embs, q1_neg_embs, q1_summary = self.dgi(q1_node_emb_tuple, edge_index=edge_index, edge_attr=edge_attr)
+        q2_pos_embs, q2_neg_embs, q2_summary = self.dgi(q2_node_emb_tuple, edge_index=edge_index, edge_attr=edge_attr)
+
+        assert q1_pos_embs.size()[0] == q2_pos_embs.size()[0] == batch_size
+        assert q1_neg_embs.size()[0] == q2_neg_embs.size()[0] == batch_size
+        # query_embed1, query_embed2 = query_embed1[:batch_size], query_embed2[:batch_size]
+        query_embed = torch.cat([q1_target_nodes, q2_target_nodes], dim=0)
         labels = torch.cat([concept_ids, concept_ids], dim=0)
 
         if self.use_miner:
