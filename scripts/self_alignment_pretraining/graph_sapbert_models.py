@@ -389,8 +389,7 @@ class RGCNDGISapMetricLearning(nn.Module):
                                    num_relations=num_relations)
         self.dgi = DeepGraphInfomax(
             hidden_channels=num_rgcn_channels, encoder=self.rgcn_conv,
-            summary=lambda z, *args, **kwargs: torch.sigmoid(z.mean(dim=0)),
-            corruption=self.corruption_fn)
+            summary=self.summary_fn, corruption=self.corruption_fn)
         self.dgi_loss_weight = dgi_loss_weight
 
         if self.use_miner:
@@ -412,6 +411,9 @@ class RGCNDGISapMetricLearning(nn.Module):
             self.loss = losses.NCALoss()
         logging.info(f"Using miner: {self.miner}")
         logging.info(f"Using loss function: {self.loss}")
+
+    def summary_fn(self, z, *args, **kwargs):
+        return torch.sigmoid(z.mean(dim=0))
 
     def corruption_fn(self, x, edge_index, edge_type):
         return x[torch.randperm(x.size(0))], edge_index, edge_type
@@ -440,14 +442,14 @@ class RGCNDGISapMetricLearning(nn.Module):
             logging.info(f"q2_pos_embs {torch.sum(torch.isnan(q2_pos_embs))}")
             logging.info(f"q2_neg_embs {torch.sum(torch.isnan(q2_neg_embs))}")
             logging.info(f"q2_summary {torch.sum(torch.isnan(q2_summary))}----\n----")
-            
+
             logging.info(f"q1_pos_embs max {torch.max(q1_pos_embs)}")
             logging.info(f"q1_neg_embs max {torch.max(q1_neg_embs)}")
             logging.info(f"q1_summary max {torch.max(q1_summary)}")
             logging.info(f"q2_pos_embs max {torch.max(q2_pos_embs)}")
             logging.info(f"q2_neg_embs max {torch.max(q2_neg_embs)}")
             logging.info(f"q2_summary max {torch.max(q2_summary)}\n----\n")
-   
+
             logging.info(f"q1_pos_embs min {torch.min(q1_pos_embs)}")
             logging.info(f"q1_neg_embs min {torch.min(q1_neg_embs)}")
             logging.info(f"q1_summary min {torch.min(q1_summary)}")
@@ -475,8 +477,8 @@ class RGCNDGISapMetricLearning(nn.Module):
         logging.info(f"sapbert loss {float(sapbert_loss)}")
         logging.info(f"q1_dgi_loss {float(q1_dgi_loss)}")
         logging.info(f"q2_dgi_loss {float(q2_dgi_loss)}")
-        #print("q1_dgi_loss", float(q1_dgi_loss))
-        #print("q2_dgi_loss", float(q2_dgi_loss))
+        # print("q1_dgi_loss", float(q1_dgi_loss))
+        # print("q2_dgi_loss", float(q2_dgi_loss))
         return sapbert_loss + (q1_dgi_loss + q2_dgi_loss) * self.dgi_loss_weight
 
     @autocast()
@@ -536,7 +538,7 @@ class GATv2DGISapMetricLearning(nn.Module):
         self.gat_use_relation_features = gat_use_relation_features
 
         if self.gat_use_relation_features:
-            self.rel_emb = torch.nn.Embedding(num_embeddings=num_relations, embedding_dim=gat_edge_dim,)
+            self.rel_emb = torch.nn.Embedding(num_embeddings=num_relations, embedding_dim=gat_edge_dim, )
         else:
             assert num_relations is None and gat_edge_dim is None
         self.gat_v2_conv = GATv2Conv(in_channels=self.bert_hidden_dim, out_channels=gat_num_hidden_channels,
@@ -544,8 +546,7 @@ class GATv2DGISapMetricLearning(nn.Module):
                                      add_self_loops=False, edge_dim=gat_edge_dim, share_weights=True)
         self.dgi = DeepGraphInfomax(
             hidden_channels=gat_num_att_heads * gat_num_hidden_channels, encoder=self.gat_v2_conv,
-            summary=lambda z, *args, **kwargs: torch.sigmoid(z.mean(dim=0)),
-            corruption=self.corruption_fn)
+            summary=self.summary_fn, corruption=self.corruption_fn)
         self.dgi_loss_weight = dgi_loss_weight
 
         if self.use_miner:
@@ -568,6 +569,8 @@ class GATv2DGISapMetricLearning(nn.Module):
         logging.info(f"Using miner: {self.miner}")
         logging.info(f"Using loss function: {self.loss}")
 
+    def summary_fn(self, z, *args, **kwargs):
+        return torch.sigmoid(z.mean(dim=0))
 
     def corruption_fn(self, x, edge_index, edge_attr):
         (x_source, x_target) = x
@@ -605,19 +608,19 @@ class GATv2DGISapMetricLearning(nn.Module):
             logging.info(f"q2_neg_embs {torch.sum(torch.isnan(q2_neg_embs))}")
             logging.info(f"q2_summary {torch.sum(torch.isnan(q2_summary))}\n----\n")
 
-            #logging.info(f"q1_pos_embs max {torch.max(q1_pos_embs)}")
-            #logging.info(f"q1_neg_embs max {torch.max(q1_neg_embs)}")
-            #logging.info(f"q1_summary max {torch.max(q1_summary)}")
-            #logging.info(f"q2_pos_embs max {torch.max(q2_pos_embs)}")
-            #logging.info(f"q2_neg_embs max {torch.max(q2_neg_embs)}")
-            #logging.info(f"q2_summary max {torch.max(q2_summary)}\n----\n")
+            # logging.info(f"q1_pos_embs max {torch.max(q1_pos_embs)}")
+            # logging.info(f"q1_neg_embs max {torch.max(q1_neg_embs)}")
+            # logging.info(f"q1_summary max {torch.max(q1_summary)}")
+            # logging.info(f"q2_pos_embs max {torch.max(q2_pos_embs)}")
+            # logging.info(f"q2_neg_embs max {torch.max(q2_neg_embs)}")
+            # logging.info(f"q2_summary max {torch.max(q2_summary)}\n----\n")
 
-            #logging.info(f"q1_pos_embs min {torch.min(q1_pos_embs)}")
-            #logging.info(f"q1_neg_embs min {torch.min(q1_neg_embs)}")
-            #logging.info(f"q1_summary min {torch.min(q1_summary)}")
-            #logging.info(f"q2_pos_embs min {torch.min(q2_pos_embs)}")
-            #logging.info(f"q2_neg_embs min {torch.min(q2_neg_embs)}")
-            #logging.info(f"q2_summary min {torch.min(q2_summary)}")
+            # logging.info(f"q1_pos_embs min {torch.min(q1_pos_embs)}")
+            # logging.info(f"q1_neg_embs min {torch.min(q1_neg_embs)}")
+            # logging.info(f"q1_summary min {torch.min(q1_summary)}")
+            # logging.info(f"q2_pos_embs min {torch.min(q2_pos_embs)}")
+            # logging.info(f"q2_neg_embs min {torch.min(q2_neg_embs)}")
+            # logging.info(f"q2_summary min {torch.min(q2_summary)}")
 
         assert q1_pos_embs.size()[0] == q2_pos_embs.size()[0] == batch_size
         assert q1_neg_embs.size()[0] == q2_neg_embs.size()[0] == batch_size
@@ -637,9 +640,9 @@ class GATv2DGISapMetricLearning(nn.Module):
         logging.info(f"sapbert loss {float(sapbert_loss)}")
         logging.info(f"q1_dgi_loss {float(q1_dgi_loss)}")
         logging.info(f"q2_dgi_loss {float(q2_dgi_loss)}")
-        #print("sapbert loss", float(sapbert_loss))
-        #print("q1_dgi_loss", float(q1_dgi_loss))
-        #print("q2_dgi_loss", float(q2_dgi_loss))
+        # print("sapbert loss", float(sapbert_loss))
+        # print("q1_dgi_loss", float(q1_dgi_loss))
+        # print("q2_dgi_loss", float(q2_dgi_loss))
         return sapbert_loss + (q1_dgi_loss + q2_dgi_loss) * self.dgi_loss_weight
 
     @autocast()
