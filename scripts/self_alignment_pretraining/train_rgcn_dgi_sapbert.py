@@ -157,7 +157,9 @@ def train_rgcn_dgi_sapbert(model: RGCNDGISapMetricLearning, train_loader: Positi
         num_steps += 1
         total_loss += float(loss)
         # wandb.log({"Train loss": loss.item()})
+        logging.info(f"num_steps  {num_steps}, Train step loss: {loss}")
     total_loss /= (num_steps + 1e-9)
+    print("total_loss", total_loss)
     return total_loss, num_steps
 
 def val_rgcn_dgi_sapbert(model: RGCNDGISapMetricLearning, val_loader: PositivePairNeighborSampler,

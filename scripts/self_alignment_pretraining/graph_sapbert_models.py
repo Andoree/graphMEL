@@ -428,9 +428,32 @@ class RGCNDGISapMetricLearning(nn.Module):
                                          return_dict=True)['last_hidden_state'][:, 0]
         query_embed2 = self.bert_encoder(term_2_input_ids, attention_mask=term_2_att_masks,
                                          return_dict=True)['last_hidden_state'][:, 0]
-
+        with torch.no_grad():
+            logging.info(f"query_embed1 {torch.sum(torch.isnan(query_embed1))}")
+            logging.info(f"query_embed2 {torch.sum(torch.isnan(query_embed2))}")
         q1_pos_embs, q1_neg_embs, q1_summary = self.dgi(query_embed1, edge_index=edge_index, edge_type=edge_type)
         q2_pos_embs, q2_neg_embs, q2_summary = self.dgi(query_embed2, edge_index=edge_index, edge_type=edge_type)
+        with torch.no_grad():
+            logging.info(f"q1_pos_embs {torch.sum(torch.isnan(q1_pos_embs))}")
+            logging.info(f"q1_neg_embs {torch.sum(torch.isnan(q1_neg_embs))}")
+            logging.info(f"q1_summary {torch.sum(torch.isnan(q1_summary))}")
+            logging.info(f"q2_pos_embs {torch.sum(torch.isnan(q2_pos_embs))}")
+            logging.info(f"q2_neg_embs {torch.sum(torch.isnan(q2_neg_embs))}")
+            logging.info(f"q2_summary {torch.sum(torch.isnan(q2_summary))}----\n----")
+            
+            logging.info(f"q1_pos_embs max {torch.max(q1_pos_embs)}")
+            logging.info(f"q1_neg_embs max {torch.max(q1_neg_embs)}")
+            logging.info(f"q1_summary max {torch.max(q1_summary)}")
+            logging.info(f"q2_pos_embs max {torch.max(q2_pos_embs)}")
+            logging.info(f"q2_neg_embs max {torch.max(q2_neg_embs)}")
+            logging.info(f"q2_summary max {torch.max(q2_summary)}\n----\n")
+   
+            logging.info(f"q1_pos_embs min {torch.min(q1_pos_embs)}")
+            logging.info(f"q1_neg_embs min {torch.min(q1_neg_embs)}")
+            logging.info(f"q1_summary min {torch.min(q1_summary)}")
+            logging.info(f"q2_pos_embs min {torch.min(q2_pos_embs)}")
+            logging.info(f"q2_neg_embs min {torch.min(q2_neg_embs)}")
+            logging.info(f"q2_summary min {torch.min(q2_summary)}")
         q1_pos_embs, q2_pos_embs = q1_pos_embs[:batch_size], q2_pos_embs[:batch_size]
         q1_neg_embs, q2_neg_embs = q1_neg_embs[:batch_size], q2_neg_embs[:batch_size]
 
@@ -449,7 +472,11 @@ class RGCNDGISapMetricLearning(nn.Module):
 
         q1_dgi_loss = self.dgi.loss(q1_pos_embs, q1_neg_embs, q1_summary)
         q2_dgi_loss = self.dgi.loss(q2_pos_embs, q2_neg_embs, q2_summary)
-
+        logging.info(f"sapbert loss {float(sapbert_loss)}")
+        logging.info(f"q1_dgi_loss {float(q1_dgi_loss)}")
+        logging.info(f"q2_dgi_loss {float(q2_dgi_loss)}")
+        #print("q1_dgi_loss", float(q1_dgi_loss))
+        #print("q2_dgi_loss", float(q2_dgi_loss))
         return sapbert_loss + (q1_dgi_loss + q2_dgi_loss) * self.dgi_loss_weight
 
     @autocast()
@@ -570,6 +597,27 @@ class GATv2DGISapMetricLearning(nn.Module):
         q2_node_emb_tuple = (query_embed2, q2_target_nodes)
         q1_pos_embs, q1_neg_embs, q1_summary = self.dgi(q1_node_emb_tuple, edge_index=edge_index, edge_attr=edge_attr)
         q2_pos_embs, q2_neg_embs, q2_summary = self.dgi(q2_node_emb_tuple, edge_index=edge_index, edge_attr=edge_attr)
+        with torch.no_grad():
+            logging.info(f"q1_pos_embs {torch.sum(torch.isnan(q1_pos_embs))}")
+            logging.info(f"q1_neg_embs {torch.sum(torch.isnan(q1_neg_embs))}")
+            logging.info(f"q1_summary {torch.sum(torch.isnan(q1_summary))}")
+            logging.info(f"q2_pos_embs {torch.sum(torch.isnan(q2_pos_embs))}")
+            logging.info(f"q2_neg_embs {torch.sum(torch.isnan(q2_neg_embs))}")
+            logging.info(f"q2_summary {torch.sum(torch.isnan(q2_summary))}\n----\n")
+
+            #logging.info(f"q1_pos_embs max {torch.max(q1_pos_embs)}")
+            #logging.info(f"q1_neg_embs max {torch.max(q1_neg_embs)}")
+            #logging.info(f"q1_summary max {torch.max(q1_summary)}")
+            #logging.info(f"q2_pos_embs max {torch.max(q2_pos_embs)}")
+            #logging.info(f"q2_neg_embs max {torch.max(q2_neg_embs)}")
+            #logging.info(f"q2_summary max {torch.max(q2_summary)}\n----\n")
+
+            #logging.info(f"q1_pos_embs min {torch.min(q1_pos_embs)}")
+            #logging.info(f"q1_neg_embs min {torch.min(q1_neg_embs)}")
+            #logging.info(f"q1_summary min {torch.min(q1_summary)}")
+            #logging.info(f"q2_pos_embs min {torch.min(q2_pos_embs)}")
+            #logging.info(f"q2_neg_embs min {torch.min(q2_neg_embs)}")
+            #logging.info(f"q2_summary min {torch.min(q2_summary)}")
 
         assert q1_pos_embs.size()[0] == q2_pos_embs.size()[0] == batch_size
         assert q1_neg_embs.size()[0] == q2_neg_embs.size()[0] == batch_size
@@ -586,6 +634,12 @@ class GATv2DGISapMetricLearning(nn.Module):
         q1_dgi_loss = self.dgi.loss(q1_pos_embs, q1_neg_embs, q1_summary)
         q2_dgi_loss = self.dgi.loss(q2_pos_embs, q2_neg_embs, q2_summary)
 
+        logging.info(f"sapbert loss {float(sapbert_loss)}")
+        logging.info(f"q1_dgi_loss {float(q1_dgi_loss)}")
+        logging.info(f"q2_dgi_loss {float(q2_dgi_loss)}")
+        #print("sapbert loss", float(sapbert_loss))
+        #print("q1_dgi_loss", float(q1_dgi_loss))
+        #print("q2_dgi_loss", float(q2_dgi_loss))
         return sapbert_loss + (q1_dgi_loss + q2_dgi_loss) * self.dgi_loss_weight
 
     @autocast()

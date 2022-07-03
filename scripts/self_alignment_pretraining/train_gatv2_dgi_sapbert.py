@@ -160,6 +160,7 @@ def train_gatv2_dgi_sapbert(model: GATv2DGISapMetricLearning, train_loader: Posi
         num_steps += 1
         total_loss += float(loss)
         # wandb.log({"Train loss": loss.item()})
+        logging.info(f"num_steps {num_steps}, Step loss {loss}")
     total_loss /= (num_steps + 1e-9)
     return total_loss, num_steps
 
