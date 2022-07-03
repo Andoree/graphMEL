@@ -6,11 +6,13 @@ import torch.nn.functional as F
 import torch.optim as optim
 import logging
 
-from torch_geometric.nn import SAGEConv, FastRGCNConv, RGCNConv, DeepGraphInfomax, GCNConv, GATv2Conv
+from torch_geometric.nn import SAGEConv, FastRGCNConv, RGCNConv, GCNConv, GATv2Conv
 from tqdm import tqdm
 import random
 from torch.cuda.amp import autocast
 from pytorch_metric_learning import miners, losses, distances
+
+from scripts.self_alignment_pretraining.dgi import DeepGraphInfomax
 
 
 class GraphSAGESapMetricLearning(nn.Module):
