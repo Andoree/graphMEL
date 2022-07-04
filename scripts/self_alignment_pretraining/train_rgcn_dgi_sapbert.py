@@ -117,6 +117,7 @@ def rgcn_dgi_sapbert_train_step(model: RGCNDGISapMetricLearning, batch, amp, dev
         loss = model(term_1_input_ids=term_1_input_ids, term_1_att_masks=term_1_att_masks,
                      term_2_input_ids=term_2_input_ids, term_2_att_masks=term_2_att_masks,
                      concept_ids=concept_ids, edge_index=edge_index, edge_type=edge_type, batch_size=batch_size)
+    logging.info(f"Train loss: {float(loss)}")
     return loss
 
 def rgcn_dgi_sapbert_eval_step(model: RGCNDGISapMetricLearning, batch, amp, device):

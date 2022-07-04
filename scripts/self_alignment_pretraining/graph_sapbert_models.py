@@ -12,7 +12,7 @@ import random
 from torch.cuda.amp import autocast
 from pytorch_metric_learning import miners, losses, distances
 
-from scripts.self_alignment_pretraining.dgi import DeepGraphInfomax
+from graphmel.scripts.self_alignment_pretraining.dgi import Float32DeepGraphInfomax
 
 
 class GraphSAGESapMetricLearning(nn.Module):
@@ -69,18 +69,14 @@ class GraphSAGESapMetricLearning(nn.Module):
         logging.info(f"Using loss function: {self.loss}")
 
     def encode_tokens(self, input_ids, attention_mask, adjs):
-        # last_hidden_states = self.bert_encoder(**query_toks1, return_dict=True).last_hidden_state
         x = self.bert_encoder(input_ids, attention_mask=attention_mask,
                               return_dict=True)['last_hidden_state'][:, 0]
-        # print("encode tokens x", x.size())
         for i, (edge_index, _, size) in enumerate(adjs):
-            # print("i, x", i, x.size())
             x_target = x[:size[1]]  # Target nodes are always placed first.
             x = self.convs[i]((x, x_target), edge_index)
             if i != self.num_graphsage_layers - 1:
                 x = x.relu()
                 x = F.dropout(x, p=self.graphsage_dropout_p, training=self.training)
-        # print("x", x.size())
         return x
 
     @autocast()
@@ -91,24 +87,14 @@ class GraphSAGESapMetricLearning(nn.Module):
 
         output : (N, topk)
         """
-        # logging.info("B")
         query_embed1 = self.encode_tokens(input_ids=term_1_input_ids, attention_mask=term_1_att_masks,
                                           adjs=adjs)[:batch_size]
-        # logging.info("BB")
         query_embed2 = self.encode_tokens(input_ids=term_2_input_ids, attention_mask=term_2_att_masks,
                                           adjs=adjs)[:batch_size]
-        # logging.info("BBB")
-        # print("query_embed1", query_embed1.size())
-        # print("query_embed2", query_embed2.size())
         query_embed = torch.cat([query_embed1, query_embed2], dim=0)
-        # print("query_embed", query_embed.size())
         labels = torch.cat([concept_ids, concept_ids], dim=0)
-        # print("labels", labels.size())
-        # logging.info("BBBB")
         if self.use_miner:
-            # logging.info("C")
             hard_pairs = self.miner(query_embed, labels)
-            # logging.info("CC")
             return self.loss(query_embed, labels, hard_pairs)
         else:
             return self.loss(query_embed, labels)
@@ -389,7 +375,7 @@ class RGCNDGISapMetricLearning(nn.Module):
         self.rgcn_conv = RGCNLayer(in_channels=self.bert_hidden_dim, num_hidden_channels=num_rgcn_channels,
                                    use_fast_conv=use_fast_conv, num_bases=num_bases, num_blocks=num_blocks,
                                    num_relations=num_relations)
-        self.dgi = DeepGraphInfomax(
+        self.dgi = Float32DeepGraphInfomax(
             hidden_channels=num_rgcn_channels, encoder=self.rgcn_conv,
             summary=self.summary_fn, corruption=self.corruption_fn)
         self.dgi_loss_weight = dgi_loss_weight
@@ -418,7 +404,16 @@ class RGCNDGISapMetricLearning(nn.Module):
         return torch.sigmoid(z.mean(dim=0))
 
     def corruption_fn(self, x, edge_index, edge_type):
-        return x[torch.randperm(x.size(0))], edge_index, edge_type
+        (x_source, x_target) = x
+        num_target_nodes = x_target.size(0)
+        overall_num_nodes = x_source.size(0)
+        num_non_target_nodes = overall_num_nodes - num_target_nodes
+        x_target_perm = torch.randperm(num_target_nodes)
+        x_non_target_perm = torch.randperm(num_non_target_nodes) + num_target_nodes
+        x_overall_perm = torch.cat((x_target_perm, x_non_target_perm), dim=0)
+        assert x_overall_perm.dim() == 1 and x_overall_perm.size(0) == overall_num_nodes
+        x = (x_source[x_overall_perm], x_target[x_target_perm])
+        return x, edge_index, edge_type
 
     @autocast()
     def forward(self, term_1_input_ids, term_1_att_masks, term_2_input_ids, term_2_att_masks, concept_ids,
@@ -432,40 +427,17 @@ class RGCNDGISapMetricLearning(nn.Module):
                                          return_dict=True)['last_hidden_state'][:, 0]
         query_embed2 = self.bert_encoder(term_2_input_ids, attention_mask=term_2_att_masks,
                                          return_dict=True)['last_hidden_state'][:, 0]
-        with torch.no_grad():
-            logging.info(f"query_embed1 {torch.sum(torch.isnan(query_embed1))}")
-            logging.info(f"query_embed2 {torch.sum(torch.isnan(query_embed2))}")
-        q1_pos_embs, q1_neg_embs, q1_summary = self.dgi(query_embed1, edge_index=edge_index, edge_type=edge_type)
-        q2_pos_embs, q2_neg_embs, q2_summary = self.dgi(query_embed2, edge_index=edge_index, edge_type=edge_type)
-        with torch.no_grad():
-            logging.info(f"q1_pos_embs {torch.sum(torch.isnan(q1_pos_embs))}")
-            logging.info(f"q1_neg_embs {torch.sum(torch.isnan(q1_neg_embs))}")
-            logging.info(f"q1_summary {torch.sum(torch.isnan(q1_summary))}")
-            logging.info(f"q2_pos_embs {torch.sum(torch.isnan(q2_pos_embs))}")
-            logging.info(f"q2_neg_embs {torch.sum(torch.isnan(q2_neg_embs))}")
-            logging.info(f"q2_summary {torch.sum(torch.isnan(q2_summary))}----\n----")
-
-            logging.info(f"q1_pos_embs max {torch.max(q1_pos_embs)}")
-            logging.info(f"q1_neg_embs max {torch.max(q1_neg_embs)}")
-            logging.info(f"q1_summary max {torch.max(q1_summary)}")
-            logging.info(f"q2_pos_embs max {torch.max(q2_pos_embs)}")
-            logging.info(f"q2_neg_embs max {torch.max(q2_neg_embs)}")
-            logging.info(f"q2_summary max {torch.max(q2_summary)}\n----\n")
-
-            logging.info(f"q1_pos_embs min {torch.min(q1_pos_embs)}")
-            logging.info(f"q1_neg_embs min {torch.min(q1_neg_embs)}")
-            logging.info(f"q1_summary min {torch.min(q1_summary)}")
-            logging.info(f"q2_pos_embs min {torch.min(q2_pos_embs)}")
-            logging.info(f"q2_neg_embs min {torch.min(q2_neg_embs)}")
-            logging.info(f"q2_summary min {torch.min(q2_summary)}")
-        q1_pos_embs, q2_pos_embs = q1_pos_embs[:batch_size], q2_pos_embs[:batch_size]
-        q1_neg_embs, q2_neg_embs = q1_neg_embs[:batch_size], q2_neg_embs[:batch_size]
+        q1_target_nodes = query_embed1[:batch_size]
+        q1_node_emb_tuple = (query_embed1, q1_target_nodes)
+        q2_target_nodes = query_embed2[:batch_size]
+        q2_node_emb_tuple = (query_embed2, q2_target_nodes)
+        q1_pos_embs, q1_neg_embs, q1_summary = self.dgi(q1_node_emb_tuple, edge_index=edge_index, edge_type=edge_type)
+        q2_pos_embs, q2_neg_embs, q2_summary = self.dgi(q2_node_emb_tuple, edge_index=edge_index, edge_type=edge_type)
 
         assert q1_pos_embs.size()[0] == q2_pos_embs.size()[0] == batch_size
         assert q1_neg_embs.size()[0] == q2_neg_embs.size()[0] == batch_size
 
-        query_embed1, query_embed2 = query_embed1[:batch_size], query_embed2[:batch_size]
-        query_embed = torch.cat([query_embed1, query_embed2], dim=0)
+        query_embed = torch.cat([q1_target_nodes, q2_target_nodes], dim=0)
         labels = torch.cat([concept_ids, concept_ids], dim=0)
 
         if self.use_miner:
@@ -476,11 +448,7 @@ class RGCNDGISapMetricLearning(nn.Module):
 
         q1_dgi_loss = self.dgi.loss(q1_pos_embs, q1_neg_embs, q1_summary)
         q2_dgi_loss = self.dgi.loss(q2_pos_embs, q2_neg_embs, q2_summary)
-        logging.info(f"sapbert loss {float(sapbert_loss)}")
-        logging.info(f"q1_dgi_loss {float(q1_dgi_loss)}")
-        logging.info(f"q2_dgi_loss {float(q2_dgi_loss)}")
-        # print("q1_dgi_loss", float(q1_dgi_loss))
-        # print("q2_dgi_loss", float(q2_dgi_loss))
+
         return sapbert_loss + (q1_dgi_loss + q2_dgi_loss) * self.dgi_loss_weight
 
     @autocast()
@@ -546,7 +514,7 @@ class GATv2DGISapMetricLearning(nn.Module):
         self.gat_v2_conv = GATv2Conv(in_channels=self.bert_hidden_dim, out_channels=gat_num_hidden_channels,
                                      heads=gat_num_att_heads, dropout=gat_attention_dropout_p,
                                      add_self_loops=False, edge_dim=gat_edge_dim, share_weights=True)
-        self.dgi = DeepGraphInfomax(
+        self.dgi = Float32DeepGraphInfomax(
             hidden_channels=gat_num_att_heads * gat_num_hidden_channels, encoder=self.gat_v2_conv,
             summary=self.summary_fn, corruption=self.corruption_fn)
         self.dgi_loss_weight = dgi_loss_weight
@@ -602,31 +570,10 @@ class GATv2DGISapMetricLearning(nn.Module):
         q2_node_emb_tuple = (query_embed2, q2_target_nodes)
         q1_pos_embs, q1_neg_embs, q1_summary = self.dgi(q1_node_emb_tuple, edge_index=edge_index, edge_attr=edge_attr)
         q2_pos_embs, q2_neg_embs, q2_summary = self.dgi(q2_node_emb_tuple, edge_index=edge_index, edge_attr=edge_attr)
-        with torch.no_grad():
-            logging.info(f"q1_pos_embs {torch.sum(torch.isnan(q1_pos_embs))}")
-            logging.info(f"q1_neg_embs {torch.sum(torch.isnan(q1_neg_embs))}")
-            logging.info(f"q1_summary {torch.sum(torch.isnan(q1_summary))}")
-            logging.info(f"q2_pos_embs {torch.sum(torch.isnan(q2_pos_embs))}")
-            logging.info(f"q2_neg_embs {torch.sum(torch.isnan(q2_neg_embs))}")
-            logging.info(f"q2_summary {torch.sum(torch.isnan(q2_summary))}\n----\n")
-
-            # logging.info(f"q1_pos_embs max {torch.max(q1_pos_embs)}")
-            # logging.info(f"q1_neg_embs max {torch.max(q1_neg_embs)}")
-            # logging.info(f"q1_summary max {torch.max(q1_summary)}")
-            # logging.info(f"q2_pos_embs max {torch.max(q2_pos_embs)}")
-            # logging.info(f"q2_neg_embs max {torch.max(q2_neg_embs)}")
-            # logging.info(f"q2_summary max {torch.max(q2_summary)}\n----\n")
-
-            # logging.info(f"q1_pos_embs min {torch.min(q1_pos_embs)}")
-            # logging.info(f"q1_neg_embs min {torch.min(q1_neg_embs)}")
-            # logging.info(f"q1_summary min {torch.min(q1_summary)}")
-            # logging.info(f"q2_pos_embs min {torch.min(q2_pos_embs)}")
-            # logging.info(f"q2_neg_embs min {torch.min(q2_neg_embs)}")
-            # logging.info(f"q2_summary min {torch.min(q2_summary)}")
 
         assert q1_pos_embs.size()[0] == q2_pos_embs.size()[0] == batch_size
         assert q1_neg_embs.size()[0] == q2_neg_embs.size()[0] == batch_size
-        # query_embed1, query_embed2 = query_embed1[:batch_size], query_embed2[:batch_size]
+
         query_embed = torch.cat([q1_target_nodes, q2_target_nodes], dim=0)
         labels = torch.cat([concept_ids, concept_ids], dim=0)
 
@@ -639,12 +586,6 @@ class GATv2DGISapMetricLearning(nn.Module):
         q1_dgi_loss = self.dgi.loss(q1_pos_embs, q1_neg_embs, q1_summary)
         q2_dgi_loss = self.dgi.loss(q2_pos_embs, q2_neg_embs, q2_summary)
 
-        logging.info(f"sapbert loss {float(sapbert_loss)}")
-        logging.info(f"q1_dgi_loss {float(q1_dgi_loss)}")
-        logging.info(f"q2_dgi_loss {float(q2_dgi_loss)}")
-        # print("sapbert loss", float(sapbert_loss))
-        # print("q1_dgi_loss", float(q1_dgi_loss))
-        # print("q2_dgi_loss", float(q2_dgi_loss))
         return sapbert_loss + (q1_dgi_loss + q2_dgi_loss) * self.dgi_loss_weight
 
     @autocast()
