@@ -1,9 +1,9 @@
 import torch
 
 EPS = 1e-15
+from torch_geometric.nn import DeepGraphInfomax
 
-
-class Float32DeepGraphInfomax(torch.nn.Module):
+class Float32DeepGraphInfomax(DeepGraphInfomax):
     r"""The Deep Graph Infomax model from the
     `"Deep Graph Infomax" <https://arxiv.org/abs/1809.10341>`_
     paper based on user-defined encoder and summary model :math:`\mathcal{E}`
