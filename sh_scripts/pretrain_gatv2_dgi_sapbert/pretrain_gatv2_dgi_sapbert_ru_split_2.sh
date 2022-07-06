@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=ru_gat          # Название задачи
-#SBATCH --error=../../logs/pretrain_gat_dgi_sapbert_ru_split/ru_pretrain_gat_dgi_sapbert_1.err        # Файл для вывода ошибок
-#SBATCH --output=../../logs/pretrain_gat_dgi_sapbert_ru_split/ru_pretrain_gat_dgi_sapbert_1.txt       # Файл для вывода результатов
+#SBATCH --error=../../logs/pretrain_gat_dgi_sapbert_ru_split/ru_pretrain_gat_dgi_sapbert_2.err        # Файл для вывода ошибок
+#SBATCH --output=../../logs/pretrain_gat_dgi_sapbert_ru_split/ru_pretrain_gat_dgi_sapbert_2.txt       # Файл для вывода результатов
 #SBATCH --time=05:00:59                      # Максимальное время выполнения
 #SBATCH --cpus-per-task=4                   # Количество CPU на одну задачу
 #SBATCH --gpus=2                   # Требуемое количество GPU
@@ -14,7 +14,7 @@ python ../../scripts/self_alignment_pretraining/train_gatv2_dgi_sapbert.py --tra
 --text_encoder="../../models/cambridgeltl/SapBERT-UMLS-2020AB-all-lang-from-XLMR/" \
 --dataloader_num_workers=4 \
 --gat_num_hidden_channels=64 \
---gat_num_neighbors 3 \
+--gat_num_neighbors 5 \
 --gat_num_att_heads=12 \
 --gat_attention_dropout_p=0.1 \
 --gat_use_relation_features \
@@ -43,7 +43,7 @@ python ../../scripts/self_alignment_pretraining/train_gatv2_dgi_sapbert.py --tra
 --text_encoder="../../models/cambridgeltl/SapBERT-UMLS-2020AB-all-lang-from-XLMR/" \
 --dataloader_num_workers=4 \
 --gat_num_hidden_channels=64 \
---gat_num_neighbors 3 \
+--gat_num_neighbors 5 \
 --gat_num_att_heads=12 \
 --gat_attention_dropout_p=0.1 \
 --gat_use_relation_features \

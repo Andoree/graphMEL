@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=ru_gat          # Название задачи
-#SBATCH --error=../../logs/pretrain_gat_dgi_sapbert_ru_split/ru_pretrain_gat_dgi_sapbert_1.err        # Файл для вывода ошибок
-#SBATCH --output=../../logs/pretrain_gat_dgi_sapbert_ru_split/ru_pretrain_gat_dgi_sapbert_1.txt       # Файл для вывода результатов
+#SBATCH --error=../../logs/pretrain_gat_dgi_sapbert_ru_split/ru_pretrain_gat_dgi_sapbert_5.err        # Файл для вывода ошибок
+#SBATCH --output=../../logs/pretrain_gat_dgi_sapbert_ru_split/ru_pretrain_gat_dgi_sapbert_5.txt       # Файл для вывода результатов
 #SBATCH --time=05:00:59                      # Максимальное время выполнения
 #SBATCH --cpus-per-task=4                   # Количество CPU на одну задачу
 #SBATCH --gpus=2                   # Требуемое количество GPU
@@ -19,7 +19,7 @@ python ../../scripts/self_alignment_pretraining/train_gatv2_dgi_sapbert.py --tra
 --gat_attention_dropout_p=0.1 \
 --gat_use_relation_features \
 --gat_edge_dim=64 \
---use_rel_or_rela="rel" \
+--use_rel_or_rela="rela" \
 --dgi_loss_weight=1e-3 \
 --max_length=32 \
 --use_cuda \
@@ -48,7 +48,7 @@ python ../../scripts/self_alignment_pretraining/train_gatv2_dgi_sapbert.py --tra
 --gat_attention_dropout_p=0.1 \
 --gat_use_relation_features \
 --gat_edge_dim=64 \
---use_rel_or_rela="rel" \
+--use_rel_or_rela="rela" \
 --dgi_loss_weight=1e-3 \
 --max_length=32 \
 --use_cuda \
