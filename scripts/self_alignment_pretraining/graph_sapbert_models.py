@@ -368,12 +368,10 @@ class RGCNDGISapMetricLearning(nn.Module):
         self.miner_margin = miner_margin
         self.agg_mode = agg_mode
         self.bert_hidden_dim = bert_encoder.config.hidden_size
-        # TODO
-        # if multigpu_flag:
-        #     self.bert_encoder = nn.DataParallel(bert_encoder)
-        # else:
-        #     self.bert_encoder = bert_encoder
-        self.bert_encoder = bert_encoder
+        if multigpu_flag:
+            self.bert_encoder = nn.DataParallel(bert_encoder)
+        else:
+            self.bert_encoder = bert_encoder
         self.rgcn_conv = RGCNLayer(in_channels=self.bert_hidden_dim, num_hidden_channels=num_rgcn_channels,
                                    use_fast_conv=use_fast_conv, num_bases=num_bases, num_blocks=num_blocks,
                                    num_relations=num_relations)
@@ -503,11 +501,10 @@ class GATv2DGISapMetricLearning(nn.Module):
         self.miner_margin = miner_margin
         self.agg_mode = agg_mode
         self.bert_hidden_dim = bert_encoder.config.hidden_size
-        # TODO
-        # if multigpu_flag:
-        #     self.bert_encoder = nn.DataParallel(bert_encoder)
-        # else:
-        #     self.bert_encoder = bert_encoder
+        if multigpu_flag:
+            self.bert_encoder = nn.DataParallel(bert_encoder)
+        else:
+            self.bert_encoder = bert_encoder
         self.gat_use_relation_features = gat_use_relation_features
 
         if self.gat_use_relation_features:
