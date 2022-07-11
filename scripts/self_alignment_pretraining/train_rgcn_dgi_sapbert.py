@@ -4,7 +4,7 @@ import argparse
 import torch
 from torch.cuda.amp import autocast
 from torch.cuda.amp import GradScaler
-
+import torch.nn as nn
 import logging
 import time
 import os
@@ -120,6 +120,7 @@ def rgcn_dgi_sapbert_train_step(model: RGCNDGISapMetricLearning, batch, amp, dev
     # logging.info(f"Train loss: {float(loss)}")
     return loss
 
+
 def rgcn_dgi_sapbert_eval_step(model: RGCNDGISapMetricLearning, batch, amp, device):
     term_1_input_ids, term_1_att_masks = batch["term_1_input"]
     term_1_input_ids, term_1_att_masks = term_1_input_ids.to(device), term_1_att_masks.to(device)
@@ -140,8 +141,9 @@ def rgcn_dgi_sapbert_eval_step(model: RGCNDGISapMetricLearning, batch, amp, devi
                                             concept_ids=concept_ids, batch_size=batch_size)
     return sapbert_loss
 
+
 def train_rgcn_dgi_sapbert(model: RGCNDGISapMetricLearning, train_loader: PositivePairNeighborSampler,
-                          optimizer: torch.optim.Optimizer, scaler, amp, device):
+                           optimizer: torch.optim.Optimizer, scaler, amp, device):
     model.train()
     total_loss = 0
     num_steps = 0
@@ -163,8 +165,9 @@ def train_rgcn_dgi_sapbert(model: RGCNDGISapMetricLearning, train_loader: Positi
     print("total_loss", total_loss)
     return total_loss, num_steps
 
+
 def val_rgcn_dgi_sapbert(model: RGCNDGISapMetricLearning, val_loader: PositivePairNeighborSampler,
-                        amp, device):
+                         amp, device):
     model.eval()
     total_loss = 0
     num_steps = 0
@@ -288,10 +291,26 @@ def main(args):
         scaler = GradScaler()
     else:
         scaler = None
-    model = RGCNDGISapMetricLearning(bert_encoder, num_rgcn_channels=args.rgcn_num_hidden_channels, dgi_loss_weight=args.dgi_loss_weight,
-                 num_relations=num_relations, num_bases=args.rgcn_num_bases, num_blocks=args.rgcn_num_blocks, use_fast_conv=args.rgcn_use_fast_conv, use_cuda=args.use_cuda, loss=args.loss,
-                 multigpu_flag=args.parallel, use_miner=args.use_miner, miner_margin=args.miner_margin,
-                             type_of_triplets=args.type_of_triplets, agg_mode=args.agg_mode).to(device)
+    if args.parallel:
+        model = nn.DataParallel(RGCNDGISapMetricLearning(bert_encoder, num_rgcn_channels=args.rgcn_num_hidden_channels,
+                                                         dgi_loss_weight=args.dgi_loss_weight,
+                                                         num_relations=num_relations, num_bases=args.rgcn_num_bases,
+                                                         num_blocks=args.rgcn_num_blocks,
+                                                         use_fast_conv=args.rgcn_use_fast_conv, use_cuda=args.use_cuda,
+                                                         loss=args.loss,
+                                                         multigpu_flag=args.parallel, use_miner=args.use_miner,
+                                                         miner_margin=args.miner_margin,
+                                                         type_of_triplets=args.type_of_triplets,
+                                                         agg_mode=args.agg_mode)).to(device)
+    else:
+        model = RGCNDGISapMetricLearning(bert_encoder, num_rgcn_channels=args.rgcn_num_hidden_channels,
+                                         dgi_loss_weight=args.dgi_loss_weight,
+                                         num_relations=num_relations, num_bases=args.rgcn_num_bases,
+                                         num_blocks=args.rgcn_num_blocks, use_fast_conv=args.rgcn_use_fast_conv,
+                                         use_cuda=args.use_cuda, loss=args.loss,
+                                         multigpu_flag=args.parallel, use_miner=args.use_miner,
+                                         miner_margin=args.miner_margin,
+                                         type_of_triplets=args.type_of_triplets, agg_mode=args.agg_mode).to(device)
     start = time.time()
     train_graph_sapbert_model(model=model, train_epoch_fn=train_rgcn_dgi_sapbert, val_epoch_fn=val_epoch_fn,
                               train_loader=train_pos_pair_sampler,
