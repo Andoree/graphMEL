@@ -54,7 +54,8 @@ def write_intersiblings_hierarhical_relations(adjacency_lists_dict: Dict[str, Se
                                            miniters=len(adjacency_lists_dict.keys()) // 100):
             num_siblings = len(child_cuis_list)
             if num_siblings > 1:
-                assert len(list(itertools.combinations(child_cuis_list, 2))) == int(num_siblings * (num_siblings - 1) / 2)
+                assert len(list(itertools.combinations(child_cuis_list, 2))) == int(
+                    num_siblings * (num_siblings - 1) / 2)
                 for (sibling_cui_1, sibling_cui_2) in itertools.combinations(child_cuis_list, 2):
                     parent_sibling_cui, child_sibling_cui = None, None
                     if adjacency_lists_dict.get(sibling_cui_1) is not None:
@@ -63,9 +64,13 @@ def write_intersiblings_hierarhical_relations(adjacency_lists_dict: Dict[str, Se
                     if adjacency_lists_dict.get(sibling_cui_2) is not None:
                         if sibling_cui_1 in adjacency_lists_dict[sibling_cui_2]:
                             parent_sibling_cui, child_sibling_cui = sibling_cui_2, sibling_cui_1
-                    if parent_sibling_cui is not None and child_sibling_cui is not None:
-                        parent_sibling_str, child_sibling_str = cui2term[parent_sibling_cui], cui2term[child_sibling_cui]
+                    if parent_sibling_cui is not None and child_sibling_cui is not None \
+                            and cui2term.get(parent_sibling_cui) is not None and cui2term.get(
+                        child_sibling_cui) is not None:
+                        parent_sibling_str, child_sibling_str = cui2term[parent_sibling_cui], cui2term[
+                            child_sibling_cui]
                         out_file.write(f"{cui_1}||{parent_sibling_str}||{child_sibling_str}\n")
+
 
 def create_cui2term_dict(mrconso_df: pd.DataFrame) -> Dict[str, str]:
     cui2term = {}
@@ -74,7 +79,6 @@ def create_cui2term_dict(mrconso_df: pd.DataFrame) -> Dict[str, str]:
         term = row["STR"].strip()
         cui2term[cui] = term
     return cui2term
-
 
 
 def main():
