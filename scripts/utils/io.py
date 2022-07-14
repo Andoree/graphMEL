@@ -1,7 +1,7 @@
 import codecs
 import logging
 import os.path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Iterable
 
 import pandas as pd
 from tqdm import tqdm
@@ -121,3 +121,22 @@ def write_strings(fpath: str, strings_list: List[str]):
     with codecs.open(fpath, 'w+', encoding="utf-8") as out_file:
         for s in strings_list:
             out_file.write(f"{s.strip()}\n")
+
+
+def save_adjacency_list(adjacency_list: Dict[int, Iterable[int]], save_path: str, source_node_sep='\t',
+                        inter_target_nodes_sep=','):
+    with codecs.open(save_path, 'w+', encoding="utf-8") as out_file:
+        for src_node, trg_nodes_list in adjacency_list.items():
+            inter_target_nodes_sep.join((str(x) for x in trg_nodes_list))
+            out_file.write(f"{src_node}{source_node_sep}{inter_target_nodes_sep}\n")
+
+
+def load_adjacency_list(input_path: str, source_node_sep='\t', inter_target_nodes_sep=',') -> Dict[int, Set[int]]:
+    adjacency_list: Dict[int, List[int]] = {}
+    with codecs.open(input_path, 'r', encoding="utf-8") as inp_file:
+        for line in inp_file:
+            src_target_nodes_tuple = line.strip().split(source_node_sep)
+            src_node_id = int(src_target_nodes_tuple[0])
+            target_nodes_list = list(map(int, src_target_nodes_tuple[1].split(inter_target_nodes_sep)))
+            adjacency_list[src_node_id] = target_nodes_list
+    return adjacency_list

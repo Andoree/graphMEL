@@ -11,7 +11,6 @@ from graphmel.scripts.utils.io import write_strings, read_mrconso, read_mrrel, l
 HIERARCHICAL_RELS_LIST = ("CHD", "PAR", "RB", "RN")
 
 
-# TODO
 def create_hierarchy_adjacency_lists(edge_tuples: List[Tuple[int]], id2rel: Dict[int, str]) -> \
         Tuple[Dict[int, Set[int]], Dict[int, Set[int]]]:
     """
@@ -25,7 +24,7 @@ def create_hierarchy_adjacency_lists(edge_tuples: List[Tuple[int]], id2rel: Dict
     """
     parent_childs_adjacency_list: Dict[int, Set[int]] = {}
     child_parents_adjacency_list: Dict[int, Set[int]] = {}
-    for t in tqdm(edge_tuples, ):
+    for t in tqdm(edge_tuples, miniters=len(edge_tuples) // 100):
         node_id_1 = edge_tuples[0]
         node_id_2 = edge_tuples[1]
         rel_id = edge_tuples[2]
