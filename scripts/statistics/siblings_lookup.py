@@ -4,7 +4,8 @@ import os.path
 import random
 from argparse import ArgumentParser
 from typing import List, Tuple, Set, Dict
-
+import numpy as np
+import logging
 import pandas as pd
 from tqdm import tqdm
 
@@ -77,9 +78,12 @@ def write_intersiblings_hierarhical_relations(adjacency_lists_dict: Dict[str, Se
 def create_cui2term_dict(mrconso_df: pd.DataFrame) -> Dict[str, str]:
     cui2term = {}
     for _, row in tqdm(mrconso_df.iterrows(), total=mrconso_df.shape[0], miniters=mrconso_df.shape[0] // 100):
-        cui = row["CUI"].strip()
-        term = row["STR"].strip()
-        cui2term[cui] = term
+        if row["CUI"] is not np.nan and row["STR"] is not np.nan:
+            cui = row["CUI"].strip()
+            term = row["STR"].strip()
+            cui2term[cui] = term
+        else:
+            logging.info(f"nan MRCONSO str, cui {cui}, str {term}")
     return cui2term
 
 
