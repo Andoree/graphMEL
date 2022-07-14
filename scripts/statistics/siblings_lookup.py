@@ -50,7 +50,7 @@ def write_intersiblings_hierarhical_relations(adjacency_lists_dict: Dict[str, Se
                                               output_path: str):
     with codecs.open(output_path, 'w+', encoding="utf-8") as out_file:
         out_file.write(f"common_parent||parent_sibling||child_sibling\n")
-        for cui_1, child_cuis_list in tqdm(adjacency_lists_dict.items(), total=len(adjacency_lists_dict.keys()),
+        for superparent_cui, child_cuis_list in tqdm(adjacency_lists_dict.items(), total=len(adjacency_lists_dict.keys()),
                                            miniters=len(adjacency_lists_dict.keys()) // 100):
             num_siblings = len(child_cuis_list)
             if num_siblings > 1:
@@ -66,10 +66,12 @@ def write_intersiblings_hierarhical_relations(adjacency_lists_dict: Dict[str, Se
                             parent_sibling_cui, child_sibling_cui = sibling_cui_2, sibling_cui_1
                     if parent_sibling_cui is not None and child_sibling_cui is not None \
                             and cui2term.get(parent_sibling_cui) is not None and cui2term.get(
-                        child_sibling_cui) is not None:
-                        parent_sibling_str, child_sibling_str = cui2term[parent_sibling_cui], cui2term[
-                            child_sibling_cui]
-                        out_file.write(f"{cui_1}||{parent_sibling_str}||{child_sibling_str}\n")
+                        child_sibling_cui) is not None and cui2term.get(superparent_cui) is not None:
+                        parent_sibling_str = cui2term[parent_sibling_cui]
+                        child_sibling_str =  cui2term[child_sibling_cui]
+                        superparent_str = cui2term[superparent_cui]
+                        out_file.write(f"{superparent_cui},{superparent_str}||{parent_sibling_cui},"
+                                       f"{parent_sibling_str}||{child_sibling_cui},{child_sibling_str}\n")
 
 
 def create_cui2term_dict(mrconso_df: pd.DataFrame) -> Dict[str, str]:
