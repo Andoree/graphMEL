@@ -2,11 +2,13 @@ import logging
 import os.path
 from argparse import ArgumentParser
 import random
+from typing import List, Tuple, Dict, Set
 
 from graphmel.scripts.preprocessing.reformat_umls_to_graph import create_relations2id_dicts, create_cui2node_id_mapping, \
     create_graph_files
 from graphmel.scripts.utils.io import write_strings, read_mrconso, read_mrrel, load_dict, load_edges_tuples, \
     save_adjacency_list
+from tqdm import tqdm
 
 HIERARCHICAL_RELS_LIST = ("CHD", "PAR", "RB", "RN")
 
@@ -24,25 +26,35 @@ def create_hierarchy_adjacency_lists(edge_tuples: List[Tuple[int]], id2rel: Dict
     """
     parent_childs_adjacency_list: Dict[int, Set[int]] = {}
     child_parents_adjacency_list: Dict[int, Set[int]] = {}
+    num_removed_self_loops = 0
+    logging.info(f"Processing edge tuples. There are {len(edge_tuples)} tuples.")
     for t in tqdm(edge_tuples, miniters=len(edge_tuples) // 100):
-        node_id_1 = edge_tuples[0]
-        node_id_2 = edge_tuples[1]
-        rel_id = edge_tuples[2]
-        rel_verbose = id2rel[rel_id]
-        # TODO: Перепроверить с примерами, что RN, PAR действительно в правильную сторону описывают иерархию
-        if rel in ("CHD", "RN"):
-            parent_node_id, child_node_id = node_id_2, node_id_1
-        elif rel in ("PAR", "RB"):
-            parent_node_id, child_node_id = node_id_1, node_id_2
+        node_id_1 = t[0]
+        node_id_2 = t[1]
+        if node_id_1 != node_id_2:
+            rel_id = t[2]
+            rel_verbose = id2rel[rel_id]
+            if rel_verbose in ("CHD", "RN"):
+                parent_node_id, child_node_id = node_id_2, node_id_1
+            elif rel_verbose in ("PAR", "RB"):
+                parent_node_id, child_node_id = node_id_1, node_id_2
+            else:
+                continue
+            if parent_childs_adjacency_list.get(parent_node_id) is None:
+                parent_childs_adjacency_list[parent_node_id] = set()
+            if child_parents_adjacency_list.get(child_node_id) is None:
+                child_parents_adjacency_list[child_node_id] = set()
+            parent_childs_adjacency_list[parent_node_id].add(child_node_id)
+            child_parents_adjacency_list[child_node_id].add(parent_node_id)
         else:
-            continue
-        if parent_childs_adjacency_list.get(parent_node_id) is None:
-            parent_childs_adjacency_list[parent_node_id] = set()
-        if child_parents_adjacency_list.get(child_node_id) is None:
-            child_parents_adjacency_list[child_node_id] = set()
-        parent_childs_adjacency_list[parent_node_id].add(child_node_id)
-        child_parents_adjacency_list[child_node_id].add(parent_node_id)
-
+            num_removed_self_loops += 1
+    num_tree_edges = 0
+    for child_ids in parent_childs_adjacency_list.values():
+        num_tree_edges += len(child_ids)
+    for parent_ids in child_parents_adjacency_list.values():
+        num_tree_edges += len(parent_ids)
+    logging.info(f"Finished extracting hierarchy tree. There are {num_tree_edges} edges in the tree. "
+                 f"Removed {num_removed_self_loops} self-loops")
     return parent_childs_adjacency_list, child_parents_adjacency_list
 
 
