@@ -131,7 +131,7 @@ def save_adjacency_list(adjacency_list: Dict[int, Iterable[int]], save_path: str
             out_file.write(f"{src_node}{source_node_sep}{inter_target_nodes_sep}\n")
 
 
-def load_adjacency_list(input_path: str, source_node_sep='\t', inter_target_nodes_sep=',') -> Dict[int, Set[int]]:
+def load_adjacency_list(input_path: str, source_node_sep='\t', inter_target_nodes_sep=',') -> Dict[int, List[int]]:
     adjacency_list: Dict[int, List[int]] = {}
     with codecs.open(input_path, 'r', encoding="utf-8") as inp_file:
         for line in inp_file:
