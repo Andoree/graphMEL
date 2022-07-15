@@ -29,13 +29,13 @@ def create_child_parent_adjacency_lists(triplet_strings_set: Set[str]) -> Dict[s
     for s in triplet_strings_set:
         cui_1, rel, cui_2 = s.split('||')
         if rel == "CHD" or rel == "RN":
-            if adjacency_lists_dict.get(cui_2) is None:
-                adjacency_lists_dict[cui_2] = set()
-            adjacency_lists_dict[cui_2].add(cui_1)
-        elif rel == "PAR" or rel == "RB":
             if adjacency_lists_dict.get(cui_1) is None:
                 adjacency_lists_dict[cui_1] = set()
             adjacency_lists_dict[cui_1].add(cui_2)
+        elif rel == "PAR" or rel == "RB":
+            if adjacency_lists_dict.get(cui_2) is None:
+                adjacency_lists_dict[cui_2] = set()
+            adjacency_lists_dict[cui_2].add(cui_1)
     return adjacency_lists_dict
 
 
