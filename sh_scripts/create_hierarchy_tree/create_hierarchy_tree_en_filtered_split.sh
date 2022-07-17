@@ -6,6 +6,7 @@
 #SBATCH --cpus-per-task=2                   # Количество CPU на одну задачу
 
 python ../../scripts/self_alignment_pretraining/extract_tree_from_graph_dataset.py \
+--mrsty "../../UMLS/2020AB/MRSTY.RRF" \
 --input_graph_dataset_dir "../../data/umls_graph/2020AB_pos_pairs_datasets/ENG_MSH_MDR_SNOMEDCT_US_ICD10CM_ICD9CM_ICD10_DRUGBANK_RXNORM_pos_pairs_english_filtered_SPLIT" \
 --output_dir "../../data/umls_graph/2020AB_pos_pairs_datasets/ENG_MSH_MDR_SNOMEDCT_US_ICD10CM_ICD9CM_ICD10_DRUGBANK_RXNORM_pos_pairs_english_filtered_SPLIT"
 
