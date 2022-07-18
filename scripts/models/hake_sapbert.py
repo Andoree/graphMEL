@@ -21,7 +21,10 @@ class HakeSapMetricLearning(nn.Module):
                      f"hake_phase_weight: {hake_phase_weight}, num_relation: {num_relation}, "
                      f"hake_adversarial_temperature: {hake_adversarial_temperature}")
         super(HakeSapMetricLearning, self).__init__()
-        self.bert_encoder = bert_encoder
+        if multigpu_flag:
+            self.bert_encoder = nn.DataParallel(bert_encoder)
+        else:
+            self.bert_encoder = bert_encoder
         self.use_cuda = use_cuda
         self.loss = loss
         self.use_miner = use_miner
