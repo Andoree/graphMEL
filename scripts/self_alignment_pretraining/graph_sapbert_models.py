@@ -1,16 +1,12 @@
-from typing import List, Union
+import logging
+from typing import Union
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.optim as optim
-import logging
-
-from torch_geometric.nn import SAGEConv, FastRGCNConv, RGCNConv, GCNConv, GATv2Conv
-from tqdm import tqdm
-import random
+from pytorch_metric_learning import miners, losses
 from torch.cuda.amp import autocast
-from pytorch_metric_learning import miners, losses, distances
+from torch_geometric.nn import SAGEConv, FastRGCNConv, RGCNConv, GCNConv, GATv2Conv
 
 from graphmel.scripts.self_alignment_pretraining.dgi import Float32DeepGraphInfomax
 

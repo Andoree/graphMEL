@@ -11,7 +11,7 @@ from torch_sparse import SparseTensor
 from torch_geometric.utils.num_nodes import maybe_num_nodes
 from transformers import AutoTokenizer, AutoModel, BertTokenizerFast
 
-from graphmel.scripts.utils.io import load_node_id2terms_list, load_edges_tuples
+from graphmel.scripts.utils.io import load_node_id2terms_list, load_edges_tuples, load_adjacency_list
 
 
 def tokenize_node_terms(node_id_to_terms_dict, tokenizer, max_length: int) -> Dict[int, List[List[int]]]:
@@ -317,3 +317,19 @@ def create_term_id2tokenizer_output(term2id: Dict[str, int], max_length: int, to
         term_id2tok_out[term_id] = tok_out
     logging.info("Finished tokenizing terms....")
     return term_id2tok_out
+
+
+def load_tree_dataset_and_bert_model(node2terms_path: str,  text_encoder_name: str,
+                                     parent_children_adjacency_list_path: str, child_parents_adjacency_list_path: str,
+                                     text_encoder_seq_length: int, use_fast: bool = True, do_lower_case=True):
+    node_id2terms_dict = load_node_id2terms_list(dict_path=node2terms_path, )
+
+    parent_children_adjacency_list = load_adjacency_list(input_path=parent_children_adjacency_list_path)
+    child_parents_adjacency_list = load_adjacency_list(input_path=child_parents_adjacency_list_path)
+
+    tokenizer = AutoTokenizer.from_pretrained(text_encoder_name, do_lower_case=do_lower_case, use_fast=use_fast)
+    bert_encoder = AutoModel.from_pretrained(text_encoder_name, )
+    node_id2token_ids_dict = tokenize_node_terms(node_id2terms_dict, tokenizer,
+                                                       max_length=text_encoder_seq_length)
+
+    return bert_encoder, tokenizer, node_id2token_ids_dict, parent_children_adjacency_list, child_parents_adjacency_list
