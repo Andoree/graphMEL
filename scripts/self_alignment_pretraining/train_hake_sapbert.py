@@ -294,9 +294,10 @@ def main(args):
                           miner_margin=args.miner_margin, type_of_triplets=args.type_of_triplets,
                           agg_mode=args.agg_mode, ).to(device)
 
-    if args.parallel:
-        # TODO: Если не будет работать, зде0.6708956305389275сь параллельным сделать только энкодер
-        model = torch.nn.DataParallel(model)
+
+    #if args.parallel:
+    #    # TODO: Если не будет работать, здесь параллельным сделать только энкодер
+    #    model = torch.nn.DataParallel(model)
 
     start = time.time()
     train_graph_sapbert_model(model=model, train_epoch_fn=train_hake_sapbert, val_epoch_fn=val_epoch_fn,
