@@ -163,7 +163,7 @@ class SapMetricLearningHierarchicalDataset(Dataset):
         self.node_id2token_ids_dict = node_id2token_ids_dict
         self.seq_max_length = seq_max_length
         self.negative_sample_size = negative_sample_size
-        assert len(concept_id2parents) == len(concept_id2childs)
+        # assert len(concept_id2parents) == len(concept_id2childs)
         self.num_nodes = len(node_id2token_ids_dict)
 
         # Hierarchy tree fields

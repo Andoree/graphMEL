@@ -95,7 +95,7 @@ def hake_sapbert_train_step(model: HakeSapMetricLearning, batch, amp, device):
     term_1_input = (batch["term_1_input_ids"].to(device), batch["term_1_att_mask"].to(device))
     term_2_input = (batch["term_2_input_ids"].to(device), batch["term_2_att_mask"].to(device))
     concept_ids = batch["anchor_concept_id"].to(device)
-    pos_parent_mask = batch["pos_parent_mask"].to(device)
+    # pos_parent_mask = batch["pos_parent_mask"].to(device)
     pos_parent_input = (batch["pos_parent_input_ids"].to(device), batch["pos_parent_att_mask"].to(device))
     neg_parent_rel_corr_h_input = (batch["neg_parent_rel_corr_h_input_ids"].to(device),
                                    batch["neg_parent_rel_corr_h_att_mask"].to(device))
@@ -113,7 +113,7 @@ def hake_sapbert_train_step(model: HakeSapMetricLearning, batch, amp, device):
         with autocast():
             sapbert_loss, hake_loss = model(term_1_input=term_1_input, term_2_input=term_2_input,
                                             concept_ids=concept_ids, model_mode="train",
-                                            pos_parent_mask=pos_parent_mask, pos_parent_input=pos_parent_input,
+                                            pos_parent_input=pos_parent_input,
                                             neg_parent_rel_corr_h_input=neg_parent_rel_corr_h_input,
                                             neg_parent_rel_corr_t_input=neg_parent_rel_corr_t_input,
                                             pos_child_input=pos_child_input,
@@ -248,7 +248,7 @@ def main(args):
                                                          pos_pairs_concept_ids_list=train_pos_pairs_concept_ids,
                                                          term_id2tokenizer_output=train_term_id2tok_out,
                                                          node_id2token_ids_dict=node_id2token_ids_dict,
-                                                         concept_id2parents=parent_children_adjacency_list,
+                                                         concept_id2parents=child_parents_adjacency_list,
                                                          concept_id2childs=parent_children_adjacency_list,
                                                          seq_max_length=args.max_length,
                                                          negative_sample_size=args.negative_sample_size)
