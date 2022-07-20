@@ -136,7 +136,7 @@ def hake_sapbert_train_step(model: HakeSapMetricLearning, batch, amp, device):
     return sapbert_loss, hake_loss
 
 
-def hake_sapbert_eval_step(model: HakeSapMetricLearning, batch, amp, device):
+def hake_sapbert_eval_step(model: HakeSapMetricLearning, batch, amp, device, **kwargs):
     term_1_input = (batch["term_1_input_ids"].to(device), batch["term_1_att_mask"].to(device))
     term_2_input = (batch["term_2_input_ids"].to(device), batch["term_2_att_mask"].to(device))
     concept_ids = batch["anchor_concept_id"].to(device)
@@ -188,7 +188,7 @@ def train_hake_sapbert(model: HakeSapMetricLearning, train_loader: SapMetricLear
 
 
 def val_hake_sapbert(model: HakeSapMetricLearning, val_loader: SapMetricLearningHierarchicalDataset,
-                     amp, device):
+                     amp, device, **kwargs):
     model.eval()
     total_loss = 0
     num_steps = 0
@@ -295,9 +295,10 @@ def main(args):
                           miner_margin=args.miner_margin, type_of_triplets=args.type_of_triplets,
                           agg_mode=args.agg_mode, ).to(device)
 
-    if args.parallel:
-        # TODO: Если не будет работать, здесь параллельным сделать только энкодер
-        model = torch.nn.DataParallel(model)
+
+    #if args.parallel:
+    #    # TODO: Если не будет работать, здесь параллельным сделать только энкодер
+    #    model = torch.nn.DataParallel(model)
 
     start = time.time()
     train_graph_sapbert_model(model=model, train_epoch_fn=train_hake_sapbert, val_epoch_fn=val_epoch_fn,
