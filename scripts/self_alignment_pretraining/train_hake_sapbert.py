@@ -101,7 +101,7 @@ def hake_sapbert_train_step(model: HakeSapMetricLearning, batch, amp, device):
                                    batch["neg_parent_rel_corr_h_att_mask"].to(device))
     neg_parent_rel_corr_t_input = (batch["neg_parent_rel_corr_t_input_ids"].to(device),
                                    batch["neg_parent_rel_corr_t_att_mask"].to(device))
-    pos_child_mask = batch["pos_child_mask"].to(device)
+    hierarchical_sample_weight = batch["hierarchical_sample_weight"].to(device)
     pos_child_input = (batch["pos_child_input_ids"].to(device), batch["pos_child_att_mask"].to(device))
     neg_child_rel_corr_h_input = (batch["neg_child_rel_corr_h_input_ids"].to(device),
                                   batch["neg_child_rel_corr_h_att_mask"].to(device))
@@ -116,18 +116,19 @@ def hake_sapbert_train_step(model: HakeSapMetricLearning, batch, amp, device):
                                             pos_parent_mask=pos_parent_mask, pos_parent_input=pos_parent_input,
                                             neg_parent_rel_corr_h_input=neg_parent_rel_corr_h_input,
                                             neg_parent_rel_corr_t_input=neg_parent_rel_corr_t_input,
-                                            pos_child_mask=pos_child_mask, pos_child_input=pos_child_input,
+                                            pos_child_input=pos_child_input,
+                                            hierarchical_sample_weight=hierarchical_sample_weight,
                                             neg_child_rel_corr_h_input=neg_child_rel_corr_h_input,
                                             neg_child_rel_corr_t_input=neg_child_rel_corr_t_input,
                                             parent_rel_id=parent_rel_id, child_rel_id=child_rel_id)
 
     else:
         sapbert_loss, hake_loss = model(term_1_input=term_1_input, term_2_input=term_2_input,
-                                        concept_ids=concept_ids, model_mode="train",
-                                        pos_parent_mask=pos_parent_mask, pos_parent_input=pos_parent_input,
+                                        concept_ids=concept_ids, model_mode="train", pos_parent_input=pos_parent_input,
                                         neg_parent_rel_corr_h_input=neg_parent_rel_corr_h_input,
                                         neg_parent_rel_corr_t_input=neg_parent_rel_corr_t_input,
-                                        pos_child_mask=pos_child_mask, pos_child_input=pos_child_input,
+                                        pos_child_input=pos_child_input,
+                                        hierarchical_sample_weight=hierarchical_sample_weight,
                                         neg_child_rel_corr_h_input=neg_child_rel_corr_h_input,
                                         neg_child_rel_corr_t_input=neg_child_rel_corr_t_input,
                                         parent_rel_id=parent_rel_id, child_rel_id=child_rel_id)

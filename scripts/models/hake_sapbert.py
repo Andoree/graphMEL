@@ -30,7 +30,6 @@ class HakeSapMetricLearning(nn.Module):
         self.bert_hidden_dim = bert_encoder.config.hidden_size
         self.num_relation = num_relation
 
-
         if self.use_miner:
             self.miner = miners.TripletMarginMiner(margin=miner_margin, type_of_triplets=type_of_triplets)
         else:
@@ -119,8 +118,8 @@ class HakeSapMetricLearning(nn.Module):
         return self.hake_gamma.item() - (phase_score + r_score)
 
     @autocast()
-    def forward(self, term_1_input, term_2_input, concept_ids, model_mode, pos_parent_mask=None, pos_parent_input=None,
-                neg_parent_rel_corr_h_input=None, neg_parent_rel_corr_t_input=None, pos_child_mask=None,
+    def forward(self, term_1_input, term_2_input, concept_ids, model_mode, pos_parent_input=None,
+                hierarchical_sample_weight=None, neg_parent_rel_corr_h_input=None, neg_parent_rel_corr_t_input=None,
                 pos_child_input=None, neg_child_rel_corr_h_input=None, neg_child_rel_corr_t_input=None,
                 parent_rel_id=None, child_rel_id=None, ):
         """
@@ -130,19 +129,13 @@ class HakeSapMetricLearning(nn.Module):
         """
         term_1_input_ids, term_1_att_masks = term_1_input
         term_2_input_ids, term_2_att_masks = term_2_input
-        # print("term_1_input_ids", term_1_input_ids.size(), )
-        # print("term_1_att_masks", term_1_att_masks.size(), )
-        # print("term_2_input_ids", term_2_input_ids.size(), )
-        # print("term_2_att_masks", term_2_att_masks.size(), )
+
         query_embed1 = self.bert_encoder(term_1_input_ids, attention_mask=term_1_att_masks,
                                          return_dict=True)['last_hidden_state'][:, 0]
         query_embed2 = self.bert_encoder(term_2_input_ids, attention_mask=term_2_att_masks,
                                          return_dict=True)['last_hidden_state'][:, 0]
         query_embed = torch.cat([query_embed1, query_embed2], dim=0)
         labels = torch.cat([concept_ids, concept_ids], dim=0)
-        # print("concept_ids", concept_ids.size(), concept_ids)
-        # print("pos_parent_mask", pos_parent_mask.size(), )
-        # print("pos_child_mask", pos_child_mask.size(), )
 
         if self.use_miner:
             hard_pairs = self.miner(query_embed, labels)
@@ -154,69 +147,23 @@ class HakeSapMetricLearning(nn.Module):
             return sapbert_loss
 
         pos_parent_input_ids, pos_parent_att_mask = pos_parent_input
-        # pos_parent_input_ids, pos_parent_att_mask = pos_parent_input_ids[pos_parent_mask, :], \
-        #                                             pos_parent_att_mask[pos_parent_mask, :]
-        # pos_parent_input_ids, pos_parent_att_mask = torch.masked_select(pos_parent_input_ids, pos_parent_mask), \
-        #                                             torch.masked_select(pos_parent_att_mask, pos_parent_mask)
-
         neg_parent_rel_corr_h_input_ids, neg_parent_rel_corr_h_att_mask = neg_parent_rel_corr_h_input
-        # neg_parent_rel_corr_h_input_ids, neg_parent_rel_corr_h_att_mask = \
-        #     neg_parent_rel_corr_h_input_ids[pos_parent_mask, :], neg_parent_rel_corr_h_att_mask[pos_parent_mask, :]
-        # neg_parent_rel_corr_h_input_ids, neg_parent_rel_corr_h_att_mask = \
-        #     torch.masked_select(neg_parent_rel_corr_h_input_ids, pos_parent_mask), \
-        #     torch.masked_select(neg_parent_rel_corr_h_att_mask, pos_parent_mask)
-
         neg_parent_rel_corr_t_input_ids, neg_parent_rel_corr_t_att_mask = neg_parent_rel_corr_t_input
-        # neg_parent_rel_corr_t_input_ids, neg_parent_rel_corr_t_att_mask = \
-        #     neg_parent_rel_corr_t_input_ids[pos_parent_mask, :], neg_parent_rel_corr_t_att_mask[pos_parent_mask, :]
-        # neg_parent_rel_corr_t_input_ids, neg_parent_rel_corr_t_att_mask = \
-        #     torch.masked_select(neg_parent_rel_corr_t_input_ids, pos_parent_mask), \
-        #     torch.masked_select(neg_parent_rel_corr_t_att_mask, pos_parent_mask)
+
         parent_batch_size = neg_parent_rel_corr_t_input_ids.size()[0]
         parent_negative_sample_size = neg_parent_rel_corr_t_input_ids.size()[1]
         parent_negative_seq_length = neg_parent_rel_corr_t_input_ids.size()[2]
         pos_child_input_ids, pos_child_att_mask = pos_child_input
-        # pos_child_input_ids, pos_child_att_mask = \
-        #     pos_child_input_ids[pos_child_mask, :], pos_child_att_mask[pos_child_mask, :]
-        # pos_child_input_ids, pos_child_att_mask = torch.masked_select(pos_child_input_ids, pos_child_mask), \
-        #                                           torch.masked_select(pos_child_att_mask, pos_child_mask)
 
         neg_child_rel_corr_h_input_ids, neg_child_rel_corr_h_att_mask = neg_child_rel_corr_h_input
-        # neg_child_rel_corr_h_input_ids, neg_child_rel_corr_h_att_mask = \
-        #     torch.masked_select(neg_child_rel_corr_h_input_ids, pos_child_mask), \
-        #     torch.masked_select(neg_child_rel_corr_h_att_mask, pos_child_mask)
-        # neg_child_rel_corr_h_input_ids, neg_child_rel_corr_h_att_mask = \
-        #     neg_child_rel_corr_h_input_ids[pos_child_mask, :], neg_child_rel_corr_h_att_mask[pos_child_mask, :]
-
         neg_child_rel_corr_t_input_ids, neg_child_rel_corr_t_att_mask = neg_child_rel_corr_t_input
-        # neg_child_rel_corr_t_input_ids, neg_child_rel_corr_t_att_mask = \
-        #     torch.masked_select(neg_child_rel_corr_t_input_ids, pos_child_mask), \
-        #     torch.masked_select(neg_child_rel_corr_t_att_mask, pos_child_mask)
-        # neg_child_rel_corr_t_input_ids, neg_child_rel_corr_t_att_mask = \
-        #     neg_child_rel_corr_t_input_ids[pos_child_mask, :], \
-        #     neg_child_rel_corr_t_att_mask[pos_child_mask, :]
         child_batch_size = neg_child_rel_corr_t_input_ids.size()[0]
         child_negative_sample_size = neg_child_rel_corr_t_input_ids.size()[1]
         child_negative_seq_length = neg_child_rel_corr_t_input_ids.size()[2]
-        # print("pos_parent_input_ids", pos_parent_input_ids.size())
-        # print("pos_parent_att_mask", pos_parent_att_mask.size())
+
         pos_parent_emb = \
             self.bert_encoder(pos_parent_input_ids.squeeze(1), attention_mask=pos_parent_att_mask.squeeze(1),
                               return_dict=True)['last_hidden_state'][:, 0].unsqueeze(1)
-        # print("neg_parent_rel_corr_h_input_ids", neg_parent_rel_corr_h_input_ids.size())
-        # print("neg_parent_rel_corr_h_att_mask", neg_parent_rel_corr_h_att_mask.size())
-        # neg_parent_rel_corr_t_input_ids, neg_parent_rel_corr_t_att_mask
-        # print("neg_parent_rel_corr_t_input_ids", neg_parent_rel_corr_t_input_ids.size())
-        # print("neg_parent_rel_corr_t_att_mask", neg_parent_rel_corr_t_att_mask.size())
-        # pos_child_input_ids, pos_child_att_mask
-        # print("pos_child_input_ids", pos_child_input_ids.size())
-        # print("pos_child_att_mask", pos_child_att_mask.size())
-        # neg_child_rel_corr_h_input_ids, neg_child_rel_corr_h_att_mask
-        # print("neg_child_rel_corr_h_input_ids", neg_child_rel_corr_h_input_ids.size())
-        # print("neg_child_rel_corr_h_att_mask", neg_child_rel_corr_h_att_mask.size())
-        # neg_child_rel_corr_t_input_ids, neg_child_rel_corr_t_att_mask
-        # print("neg_child_rel_corr_t_input_ids", neg_child_rel_corr_t_input_ids.size())
-        # print("neg_child_rel_corr_t_att_mask", neg_child_rel_corr_t_att_mask.size())
 
         neg_parent_rel_corr_h_emb = \
             self.bert_encoder(neg_parent_rel_corr_h_input_ids.view((-1, parent_negative_seq_length)),
@@ -224,37 +171,35 @@ class HakeSapMetricLearning(nn.Module):
                               return_dict=True)['last_hidden_state'][:, 0] \
                 .view((parent_batch_size, parent_negative_sample_size, -1))
         neg_parent_rel_corr_t_emb = \
-        self.bert_encoder(neg_parent_rel_corr_t_input_ids.view((-1, parent_negative_seq_length)),
-                          attention_mask=neg_parent_rel_corr_t_att_mask.view((-1, parent_negative_seq_length)),
-                          return_dict=True)['last_hidden_state'][:, 0] \
-            .view((parent_batch_size, parent_negative_sample_size, -1))
+            self.bert_encoder(neg_parent_rel_corr_t_input_ids.view((-1, parent_negative_seq_length)),
+                              attention_mask=neg_parent_rel_corr_t_att_mask.view((-1, parent_negative_seq_length)),
+                              return_dict=True)['last_hidden_state'][:, 0] \
+                .view((parent_batch_size, parent_negative_sample_size, -1))
 
         pos_child_emb = self.bert_encoder(pos_child_input_ids.squeeze(1), attention_mask=pos_child_att_mask.squeeze(1),
                                           return_dict=True)['last_hidden_state'][:, 0].unsqueeze(1)
-        neg_child_rel_corr_h_emb = self.bert_encoder(neg_child_rel_corr_h_input_ids.view((-1, child_negative_seq_length)),
-                                                     attention_mask=neg_child_rel_corr_h_input_ids.view((-1, child_negative_seq_length)),
-                                                     return_dict=True)['last_hidden_state'][:, 0]\
+        neg_child_rel_corr_h_emb = \
+        self.bert_encoder(neg_child_rel_corr_h_input_ids.view((-1, child_negative_seq_length)),
+                          attention_mask=neg_child_rel_corr_h_input_ids.view((-1, child_negative_seq_length)),
+                          return_dict=True)['last_hidden_state'][:, 0] \
             .view((child_batch_size, child_negative_sample_size, -1))
-        neg_child_rel_corr_t_emb = self.bert_encoder(neg_child_rel_corr_t_input_ids.view((-1, child_negative_seq_length)),
-                                                     attention_mask=neg_child_rel_corr_t_att_mask.view((-1, child_negative_seq_length)),
-                                                     return_dict=True)['last_hidden_state'][:, 0]\
+        neg_child_rel_corr_t_emb = \
+        self.bert_encoder(neg_child_rel_corr_t_input_ids.view((-1, child_negative_seq_length)),
+                          attention_mask=neg_child_rel_corr_t_att_mask.view((-1, child_negative_seq_length)),
+                          return_dict=True)['last_hidden_state'][:, 0] \
             .view((child_batch_size, child_negative_sample_size, -1))
-        # print("query_embed1", query_embed1.size())
-        # print("query_embed2", query_embed2.size())
 
         mean_query = torch.mean(torch.stack((query_embed1, query_embed2)), dim=0).unsqueeze(1)
-        # print("mean_query", mean_query.size())
-
 
         rel_parent_embs = self.relation_embedding(parent_rel_id).unsqueeze(1)
         rel_child_embs = self.relation_embedding(child_rel_id).unsqueeze(1)
 
-        score_pos_parent = F.logsigmoid(self.calculate_hake_score(head_embeddings=mean_query,
+        score_pos_parent = F.logsigmoid(self.calculate_hake_score(head_embeddings=pos_parent_emb,
                                                                   rel_embeddings=rel_parent_embs,
-                                                                  tail_embeddings=pos_parent_emb,
+                                                                  tail_embeddings=mean_query,
                                                                   batch_type="SINGLE")).squeeze(dim=1)
 
-        score_neg_parent_corrupted_tail = self.calculate_hake_score(head_embeddings=mean_query,
+        score_neg_parent_corrupted_tail = self.calculate_hake_score(head_embeddings=pos_parent_emb,
                                                                     rel_embeddings=rel_parent_embs,
                                                                     tail_embeddings=neg_parent_rel_corr_t_emb,
                                                                     batch_type="CORRUPTED_TAIL")
@@ -264,18 +209,18 @@ class HakeSapMetricLearning(nn.Module):
 
         score_neg_parent_corrupted_head = self.calculate_hake_score(head_embeddings=neg_parent_rel_corr_h_emb,
                                                                     rel_embeddings=rel_parent_embs,
-                                                                    tail_embeddings=pos_parent_emb,
+                                                                    tail_embeddings=mean_query,
                                                                     batch_type="CORRUPTED_HEAD")
         score_neg_parent_corrupted_head = (F.softmax(score_neg_parent_corrupted_head *
                                                      self.hake_adversarial_temperature, dim=1).detach()
                                            * F.logsigmoid(-score_neg_parent_corrupted_head)).sum(dim=1)
         # Child relation part
-        score_pos_child = F.logsigmoid(self.calculate_hake_score(head_embeddings=mean_query,
+        score_pos_child = F.logsigmoid(self.calculate_hake_score(head_embeddings=pos_child_emb,
                                                                  rel_embeddings=rel_child_embs,
-                                                                 tail_embeddings=pos_child_emb,
+                                                                 tail_embeddings=pos_parent_emb,
                                                                  batch_type="SINGLE")).squeeze(dim=1)
 
-        score_neg_child_corrupted_tail = self.calculate_hake_score(head_embeddings=mean_query,
+        score_neg_child_corrupted_tail = self.calculate_hake_score(head_embeddings=pos_child_emb,
                                                                    rel_embeddings=rel_child_embs,
                                                                    tail_embeddings=neg_child_rel_corr_t_emb,
                                                                    batch_type="CORRUPTED_TAIL")
@@ -285,17 +230,20 @@ class HakeSapMetricLearning(nn.Module):
 
         score_neg_child_corrupted_head = self.calculate_hake_score(head_embeddings=neg_child_rel_corr_h_emb,
                                                                    rel_embeddings=rel_child_embs,
-                                                                   tail_embeddings=pos_child_emb,
+                                                                   tail_embeddings=pos_parent_emb,
                                                                    batch_type="CORRUPTED_HEAD")
         score_neg_child_corrupted_head = (F.softmax(score_neg_child_corrupted_head *
                                                     self.hake_adversarial_temperature, dim=1).detach()
                                           * F.logsigmoid(-score_neg_child_corrupted_head)).sum(dim=1)
 
-        positive_parent_loss = - score_pos_parent.sum()
-        negative_parent_loss = - (score_neg_parent_corrupted_head.sum() + score_neg_parent_corrupted_tail.sum())
+        weights_sum = hierarchical_sample_weight.sum()
+        positive_parent_loss = - (hierarchical_sample_weight * score_pos_parent).sum() / weights_sum
+        negative_parent_loss = - (hierarchical_sample_weight * (score_neg_parent_corrupted_head +
+                                                                score_neg_parent_corrupted_tail)).sum() / weights_sum
 
-        positive_child_loss = - score_pos_child.sum()
-        negative_child_loss = - (score_neg_child_corrupted_head.sum() + score_neg_child_corrupted_tail.sum())
+        positive_child_loss = - (hierarchical_sample_weight * score_pos_child).sum() / weights_sum
+        negative_child_loss = - (hierarchical_sample_weight * (score_neg_child_corrupted_head +
+                                                               score_neg_child_corrupted_tail)).sum() / weights_sum
 
         hake_loss = (positive_parent_loss + negative_parent_loss + positive_child_loss + negative_child_loss) / 4
 

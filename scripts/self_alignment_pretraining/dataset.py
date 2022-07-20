@@ -196,9 +196,7 @@ class SapMetricLearningHierarchicalDataset(Dataset):
         """
         Returns a positive sample and `self.neg_size` negative samples.
         """
-        # print("max(self.concept_id2children.keys()", max(self.concept_id2children.keys()))
-        # print("max(self.concept_id2parents.keys()", max(self.concept_id2parents.keys()))
-        # print("max(self.pos_pairs_concept_ids_list.keys()", max(self.pos_pairs_concept_ids_list))
+
         tokenized_term_1 = self.term_id2tokenizer_output[self.pos_pairs_term_1_id_list[idx]]
         tokenized_term_2 = self.term_id2tokenizer_output[self.pos_pairs_term_2_id_list[idx]]
         term_1_input_ids = tokenized_term_1["input_ids"][0]
@@ -207,23 +205,22 @@ class SapMetricLearningHierarchicalDataset(Dataset):
         term_2_att_mask = tokenized_term_2["attention_mask"][0]
         anchor_concept_id = self.pos_pairs_concept_ids_list[idx]
         concept_parents_list = self.concept_id2parents.get(anchor_concept_id)
-        concept_children_list = self.concept_id2children.get(anchor_concept_id)
+        # children_of_parent_list = self.concept_id2children.get()
+        # concept_children_list = self.concept_id2children.get(anchor_concept_id)
 
-        # print("anchor_concept_id", anchor_concept_id)
-        # print("concept_parents_list", concept_parents_list)
-        # print("concept_children_list", concept_children_list)
-        # 0 - id of relation from child to parent, 1 - from parent to child
+        # 0 - id of relation from parent to child, 1 - from child to parent
         if concept_parents_list is not None and len(concept_parents_list) > 0:
             positive_parent_concept_id = random.choice(concept_parents_list)
-            # pos_relation: (concept_id, 0, positive_parent_concept_id)
-            positive_parent_mask = torch.LongTensor(1)
+            # children_of_parent_list = self.concept_id2children.get(positive_parent_concept_id)
+            # pos_relation: (positive_parent_concept_id, IS_A_CHILD_OF, concept_id)
+            hierarchical_sample_weight = torch.FloatTensor([1, ])
 
             negative_parent_relation_corrupted_heads = \
-                self.create_negative_samples(concept_id_to_remain=positive_parent_concept_id,
-                                             concept_id2neighbors=self.concept_id2children)
-            negative_parent_relation_corrupted_tails = \
                 self.create_negative_samples(concept_id_to_remain=anchor_concept_id,
                                              concept_id2neighbors=self.concept_id2parents)
+            negative_parent_relation_corrupted_tails = \
+                self.create_negative_samples(concept_id_to_remain=positive_parent_concept_id,
+                                             concept_id2neighbors=self.concept_id2children)
 
             positive_parent_tokenized = random.choice(self.node_id2token_ids_dict[positive_parent_concept_id])
 
@@ -243,8 +240,41 @@ class SapMetricLearningHierarchicalDataset(Dataset):
                 [d["input_ids"][0] for d in negative_parent_relation_corrupted_tails_tokenized])
             negative_parent_relation_corrupted_tails_att_mask = torch.stack(
                 [d["attention_mask"][0] for d in negative_parent_relation_corrupted_tails_tokenized])
+
+            # Child to parent relation sampling
+            children_of_parent_list = self.concept_id2children.get(positive_parent_concept_id)
+            positive_child_of_parent_concept_id = random.choice(children_of_parent_list)
+
+            # pos_relation: (positive_child_of_parent_concept_id, IS_A_PARENT_OF, positive_parent_concept_id)
+            negative_child_relation_corrupted_heads = \
+                self.create_negative_samples(concept_id_to_remain=positive_parent_concept_id,
+                                             concept_id2neighbors=self.concept_id2children)
+            negative_child_relation_corrupted_tails = \
+                self.create_negative_samples(concept_id_to_remain=positive_child_of_parent_concept_id,
+                                             concept_id2neighbors=self.concept_id2parents)
+
+            positive_child_of_parent_tokenized = \
+                random.choice(self.node_id2token_ids_dict[positive_child_of_parent_concept_id])
+            negative_child_relation_corrupted_heads_tokenized = \
+                [random.choice(self.node_id2token_ids_dict[i]) for i in negative_child_relation_corrupted_heads]
+            negative_child_relation_corrupted_tails_tokenized = \
+                [random.choice(self.node_id2token_ids_dict[i]) for i in negative_child_relation_corrupted_tails]
+
+            positive_child_of_parent_input_ids = positive_child_of_parent_tokenized["input_ids"][0]
+            positive_child_of_parent_att_mask = positive_child_of_parent_tokenized["attention_mask"][0]
+
+            negative_child_relation_corrupted_heads_input_ids = torch.stack(
+                [d["input_ids"][0] for d in negative_child_relation_corrupted_heads_tokenized])
+            negative_child_relation_corrupted_heads_att_mask = torch.stack(
+                [d["attention_mask"][0] for d in negative_child_relation_corrupted_heads_tokenized])
+
+            negative_child_relation_corrupted_tails_input_ids = torch.stack(
+                [d["input_ids"][0] for d in negative_child_relation_corrupted_tails_tokenized])
+            negative_child_relation_corrupted_tails_att_mask = torch.stack(
+                [d["attention_mask"][0] for d in negative_child_relation_corrupted_tails_tokenized])
+
         else:
-            positive_parent_mask = torch.LongTensor([0, ])
+            hierarchical_sample_weight = torch.FloatTensor([0, ])
             positive_parent_input_ids = torch.zeros(self.seq_max_length, dtype=torch.long)
             positive_parent_att_mask = torch.zeros(self.seq_max_length, dtype=torch.long)
             negative_parent_relation_corrupted_heads_input_ids = \
@@ -256,39 +286,8 @@ class SapMetricLearningHierarchicalDataset(Dataset):
             negative_parent_relation_corrupted_tails_att_mask = \
                 torch.zeros((self.negative_sample_size, self.seq_max_length), dtype=torch.long)
 
-        if concept_children_list is not None and len(concept_children_list) > 0:
-            positive_child_concept_id = random.choice(concept_children_list)
-            positive_child_mask = torch.LongTensor([1, ])
-
-            negative_parent_relation_corrupted_heads = \
-                self.create_negative_samples(concept_id_to_remain=positive_child_concept_id,
-                                             concept_id2neighbors=self.concept_id2parents)
-            negative_parent_relation_corrupted_tails = \
-                self.create_negative_samples(concept_id_to_remain=anchor_concept_id,
-                                             concept_id2neighbors=self.concept_id2children)
-
-            positive_child_tokenized = random.choice(self.node_id2token_ids_dict[positive_child_concept_id])
-
-            negative_child_relation_corrupted_heads_tokenized = \
-                [random.choice(self.node_id2token_ids_dict[i]) for i in negative_parent_relation_corrupted_heads]
-            negative_child_relation_corrupted_tails_tokenized = \
-                [random.choice(self.node_id2token_ids_dict[i]) for i in negative_parent_relation_corrupted_tails]
-
-            positive_child_input_ids = positive_child_tokenized["input_ids"][0]
-            positive_child_att_mask = positive_child_tokenized["attention_mask"][0]
-            negative_child_relation_corrupted_heads_input_ids = torch.stack(
-                [d["input_ids"][0] for d in negative_child_relation_corrupted_heads_tokenized])
-            negative_child_relation_corrupted_heads_att_mask = torch.stack(
-                [d["attention_mask"][0] for d in negative_child_relation_corrupted_heads_tokenized])
-
-            negative_child_relation_corrupted_tails_input_ids = torch.stack(
-                [d["input_ids"][0] for d in negative_child_relation_corrupted_tails_tokenized])
-            negative_child_relation_corrupted_tails_att_mask = torch.stack(
-                [d["attention_mask"][0] for d in negative_child_relation_corrupted_tails_tokenized])
-        else:
-            positive_child_mask = torch.LongTensor([0,])
-            positive_child_input_ids = torch.zeros(self.seq_max_length, dtype=torch.long)
-            positive_child_att_mask = torch.zeros(self.seq_max_length, dtype=torch.long)
+            positive_child_of_parent_input_ids = torch.zeros(self.seq_max_length, dtype=torch.long)
+            positive_child_of_parent_att_mask = torch.zeros(self.seq_max_length, dtype=torch.long)
             negative_child_relation_corrupted_heads_input_ids = \
                 torch.zeros((self.negative_sample_size, self.seq_max_length), dtype=torch.long)
             negative_child_relation_corrupted_heads_att_mask = \
@@ -300,21 +299,6 @@ class SapMetricLearningHierarchicalDataset(Dataset):
 
         parent_rel_id = torch.LongTensor([0, ])
         child_rel_id = torch.LongTensor([1, ])
-        # print("pos_parent_mask", positive_parent_mask,)
-        # print("pos_parent_input_ids", positive_parent_input_ids,)
-        # print("pos_parent_att_mask", positive_parent_att_mask,)
-        # print("neg_parent_rel_corr_h_input_ids", negative_parent_relation_corrupted_heads_input_ids,)
-        # print("neg_parent_rel_corr_h_att_mask", negative_parent_relation_corrupted_heads_att_mask,)
-        # print("neg_parent_rel_corr_t_input_ids", negative_parent_relation_corrupted_tails_input_ids,)
-        # print("neg_parent_rel_corr_t_att_mask", negative_parent_relation_corrupted_tails_att_mask,)
-        #
-        # print("pos_child_mask", positive_child_mask,)
-        # print("pos_child_input_ids", positive_child_input_ids,)
-        # print("pos_child_att_mask", positive_child_att_mask,)
-        # print("neg_child_rel_corr_h_input_ids", negative_child_relation_corrupted_heads_input_ids,)
-        # print("neg_child_rel_corr_h_att_mask", negative_child_relation_corrupted_heads_att_mask,)
-        # print("neg_child_rel_corr_t_input_ids", negative_child_relation_corrupted_tails_input_ids,)
-        # print("neg_child_rel_corr_t_att_mask", negative_child_relation_corrupted_tails_att_mask,)
 
         anchor_concept_id = torch.LongTensor([anchor_concept_id, ])
         sample = {
@@ -323,7 +307,7 @@ class SapMetricLearningHierarchicalDataset(Dataset):
             "anchor_concept_id": anchor_concept_id,
             "parent_rel_id": parent_rel_id, "child_rel_id": child_rel_id,
 
-            "pos_parent_mask": positive_parent_mask,
+            "hierarchical_sample_weight": hierarchical_sample_weight,
             "pos_parent_input_ids": positive_parent_input_ids,
             "pos_parent_att_mask": positive_parent_att_mask,
             "neg_parent_rel_corr_h_input_ids": negative_parent_relation_corrupted_heads_input_ids,
@@ -331,9 +315,8 @@ class SapMetricLearningHierarchicalDataset(Dataset):
             "neg_parent_rel_corr_t_input_ids": negative_parent_relation_corrupted_tails_input_ids,
             "neg_parent_rel_corr_t_att_mask": negative_parent_relation_corrupted_tails_att_mask,
 
-            "pos_child_mask": positive_child_mask,
-            "pos_child_input_ids": positive_child_input_ids,
-            "pos_child_att_mask": positive_child_att_mask,
+            "pos_child_input_ids": positive_child_of_parent_input_ids,
+            "pos_child_att_mask": positive_child_of_parent_att_mask,
             "neg_child_rel_corr_h_input_ids": negative_child_relation_corrupted_heads_input_ids,
             "neg_child_rel_corr_h_att_mask": negative_child_relation_corrupted_heads_att_mask,
             "neg_child_rel_corr_t_input_ids": negative_child_relation_corrupted_tails_input_ids,
@@ -356,8 +339,8 @@ class SapMetricLearningHierarchicalDataset(Dataset):
         child_rel_id = torch.stack([d["child_rel_id"][0] for d in data], dim=0)
         assert term_1_input_ids.size(0) == anchor_concept_id.size(0) == parent_rel_id.size(0) == child_rel_id.size(0)
 
-        pos_parent_mask = torch.stack([d["pos_parent_mask"][0] for d in data], dim=0)
-        pos_parent_mask = pos_parent_mask > 0
+        hierarchical_sample_weight = torch.stack([d["hierarchical_sample_weight"][0] for d in data], dim=0)
+        # hierarchical_sample_weight = hierarchical_sample_weight > 0
         pos_parent_input_ids = torch.stack([d["pos_parent_input_ids"] for d in data], dim=0).unsqueeze(1)
         pos_parent_att_mask = torch.stack([d["pos_parent_att_mask"] for d in data], dim=0).unsqueeze(1)
 
@@ -368,8 +351,6 @@ class SapMetricLearningHierarchicalDataset(Dataset):
         assert neg_parent_rel_corr_h_input_ids.size() == neg_parent_rel_corr_h_att_mask.size() \
                == neg_parent_rel_corr_t_input_ids.size() == neg_parent_rel_corr_t_att_mask.size()
 
-        pos_child_mask = torch.stack([d["pos_child_mask"][0] for d in data], dim=0)
-        pos_child_mask = pos_child_mask > 0
         pos_child_input_ids = torch.stack([d["pos_child_input_ids"] for d in data], dim=0).unsqueeze(1)
         pos_child_att_mask = torch.stack([d["pos_child_att_mask"] for d in data], dim=0).unsqueeze(1)
         assert pos_parent_input_ids.size() == pos_parent_att_mask.size() \
@@ -382,37 +363,20 @@ class SapMetricLearningHierarchicalDataset(Dataset):
         assert neg_child_rel_corr_h_input_ids.size() == neg_child_rel_corr_h_att_mask.size() \
                == neg_child_rel_corr_t_input_ids.size() == neg_child_rel_corr_t_att_mask.size()
 
-        # print("pos_parent_mask", pos_parent_mask.size(),)
-        # print("pos_parent_input_ids", pos_parent_input_ids.size(),)
-        # print("pos_parent_att_mask", pos_parent_att_mask.size(),)
-        # print("neg_parent_rel_corr_h_input_ids", neg_parent_rel_corr_h_input_ids.size(),)
-        # print("neg_parent_rel_corr_h_att_mask", neg_parent_rel_corr_h_att_mask.size(),)
-        # print("neg_parent_rel_corr_t_input_ids", neg_parent_rel_corr_t_input_ids.size(),)
-        # print("neg_parent_rel_corr_t_att_mask", neg_parent_rel_corr_t_att_mask.size(),)
-        #
-        # print("pos_child_mask", pos_child_mask.size(),)
-        # print("pos_child_input_ids", pos_child_input_ids.size(),)
-        # print("pos_child_att_mask", pos_child_att_mask.size(),)
-        # print("neg_child_rel_corr_h_input_ids", neg_child_rel_corr_h_input_ids.size(),)
-        # print("neg_child_rel_corr_h_att_mask", neg_child_rel_corr_h_att_mask.size(),)
-        # print("neg_child_rel_corr_t_input_ids", neg_child_rel_corr_t_input_ids.size(),)
-        # print("neg_child_rel_corr_t_att_mask", neg_child_rel_corr_t_att_mask.size(),)
-
         batch = {
             "term_1_input_ids": term_1_input_ids, "term_1_att_mask": term_1_att_mask,
             "term_2_input_ids": term_2_input_ids, "term_2_att_mask": term_2_att_mask,
             "anchor_concept_id": anchor_concept_id,
             "parent_rel_id": parent_rel_id, "child_rel_id": child_rel_id,
 
-            "pos_parent_mask": pos_parent_mask,
+            "hierarchical_sample_weight": hierarchical_sample_weight,
             "pos_parent_input_ids": pos_parent_input_ids,
             "pos_parent_att_mask": pos_parent_att_mask,
             "neg_parent_rel_corr_h_input_ids": neg_parent_rel_corr_h_input_ids,
             "neg_parent_rel_corr_h_att_mask": neg_parent_rel_corr_h_att_mask,
             "neg_parent_rel_corr_t_input_ids": neg_parent_rel_corr_t_input_ids,
             "neg_parent_rel_corr_t_att_mask": neg_parent_rel_corr_t_att_mask,
-
-            "pos_child_mask": pos_child_mask,
+            # "pos_child_mask": pos_child_mask,
             "pos_child_input_ids": pos_child_input_ids,
             "pos_child_att_mask": pos_child_att_mask,
             "neg_child_rel_corr_h_input_ids": neg_child_rel_corr_h_input_ids,
