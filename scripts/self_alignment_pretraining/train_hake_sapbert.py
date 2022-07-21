@@ -274,7 +274,7 @@ def main(args):
                                                            pos_pairs_concept_ids_list=val_pos_pairs_concept_ids,
                                                            term_id2tokenizer_output=val_term_id2tok_out,
                                                            node_id2token_ids_dict=node_id2token_ids_dict,
-                                                           concept_id2parents=parent_children_adjacency_list,
+                                                           concept_id2parents=child_parents_adjacency_list,
                                                            concept_id2childs=parent_children_adjacency_list,
                                                            seq_max_length=args.max_length,
                                                            negative_sample_size=args.negative_sample_size)
