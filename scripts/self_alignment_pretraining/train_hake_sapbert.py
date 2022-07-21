@@ -7,7 +7,7 @@ import time
 
 import numpy as np
 import torch
-from scripts.utils.umls2graph import filter_transitive_hierarchical_relations
+from scripts.utils.umls2graph import filter_transitive_hierarchical_relations, filter_hierarchical_semantic_type_nodes
 from torch.cuda.amp import GradScaler
 from torch.cuda.amp import autocast
 from torch.utils.data import DataLoader
@@ -52,6 +52,8 @@ def parse_args():
     parser.add_argument('--hake_adversarial_temperature', type=float)
     parser.add_argument('--hake_loss_weight', type=float)
     parser.add_argument('--filter_transitive_relations', action="store_true")
+    parser.add_argument('--filter_semantic_type_nodes', action="store_true")
+    parser.add_argument('--node_id_lower_bound_filtering', type=int, required=False)
 
     # Tokenizer settings
     parser.add_argument('--max_length', default=25, type=int)
@@ -209,7 +211,8 @@ def main(args):
     output_dir = args.output_dir
     output_subdir = f"neg_{args.negative_sample_size}_gamma_{args.hake_gamma}_mw_" \
                     f"{args.hake_modulus_weight}_pw_{args.hake_phase_weight}_adv_{args.hake_adversarial_temperature}_" \
-                    f"filter_transtive_{args.filter_transitive_relations}_" \
+                    f"filt_trans_{args.filter_transitive_relations}_" \
+                    f"filt_sem_type_{args.filter_semantic_type_nodes}_" \
                     f"hake_weight_{args.hake_loss_weight}_lr_{args.learning_rate}_b_{args.batch_size}"
     output_dir = os.path.join(output_dir, output_subdir)
     if not os.path.exists(output_dir) and output_dir != '':
@@ -238,6 +241,13 @@ def main(args):
     if args.filter_transitive_relations:
         filter_transitive_hierarchical_relations(node_id2children=parent_children_adjacency_list,
                                                  node_id2parents=child_parents_adjacency_list)
+    if args.filter_semantic_type_nodes:
+        node_id_lower_bound_filtering = args.node_id_lower_bound_filtering
+        filter_hierarchical_semantic_type_nodes(node_id2children=parent_children_adjacency_list,
+                                                node_id2parents=child_parents_adjacency_list,
+                                                node_id2_terms=node_id2token_ids_dict,
+                                                node_id_lower_bound_filtering=node_id_lower_bound_filtering)
+
 
     train_positive_pairs_path = os.path.join(args.train_dir, f"train_pos_pairs")
     train_pos_pairs_term_1_list, train_pos_pairs_term_2_list, train_pos_pairs_concept_ids = \

@@ -158,3 +158,25 @@ def filter_transitive_hierarchical_relations(node_id2children: Dict[int, List[in
     logging.info(f"Finished filtering transitive hierarchical relations. "
                  f"{deleted_edges_counter} edges have been deleted")
 
+
+def filter_hierarchical_semantic_type_nodes(node_id2children: Dict[int, List[int]],
+                                            node_id2parents: Dict[int, List[int]],
+                                            node_id2_terms: Dict, node_id_lower_bound_filtering: int):
+    logging.info("Removing semantic type nodes")
+    for node_id, children_node_ids in node_id2children.items():
+        if node_id >= node_id_lower_bound_filtering:
+            del node_id2children[node_id]
+        for children_id in children_node_ids:
+            if children_id >= node_id_lower_bound_filtering:
+                children_node_ids.remove(children_id)
+
+    for node_id, parent_node_ids in node_id2parents.items():
+        if node_id >= node_id_lower_bound_filtering:
+            del node_id2parents[node_id]
+        for parent_id in parent_node_ids:
+            if parent_id >= node_id_lower_bound_filtering:
+                parent_node_ids.remove(parent_id)
+    for node_id in node_id2_terms.keys():
+        if node_id >= node_id_lower_bound_filtering:
+            del node_id2_terms[node_id]
+    logging.info("Finished removing semantic type nodes")
