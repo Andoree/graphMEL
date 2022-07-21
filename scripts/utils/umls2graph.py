@@ -111,3 +111,50 @@ def add_loops_to_edges_list(node_id2terms_list: Dict[int, List[str]], rel2rel_id
             loop = (node_id, node_id, rel2rel_id["LOOP"], rela2rela_id["LOOP"])
             edges.append(loop)
     logging.info(f"Finished adding self-loops to the list of edge tuples. There are {len(edges)} edges")
+
+
+def transitive_relations_filtering_recursive_call(all_ancestors_parents: Set[int], current_node_id: int,
+                                                  nodeid2parents: Dict[int, List[int]],
+                                                  nodeid2children: Dict[int, List[int]],
+                                                  deleted_edges_counter: int):
+    all_ancestors_parents_copy = all_ancestors_parents.copy()
+    current_node_parent_nodes = nodeid2parents.get(current_node_id)
+    all_ancestors_parents_copy.update(current_node_parent_nodes)
+    # Filtering parent nodes there are the parents of parents
+    for parent_node in current_node_parent_nodes:
+        if parent_node in all_ancestors_parents:
+            current_node_parent_nodes.remove(parent_node)
+            deleted_edges_counter += 1
+
+    current_node_child_nodes = nodeid2children.get(current_node_id)
+    if current_node_child_nodes is not None:
+        for child_node in current_node_child_nodes:
+            deleted_edges_counter = transitive_relations_filtering_recursive_call(
+                all_ancestors_parents=all_ancestors_parents_copy,
+                current_node_id=child_node,
+                nodeid2parents=nodeid2parents,
+                nodeid2children=nodeid2children,
+                deleted_edges_counter=deleted_edges_counter)
+    return deleted_edges_counter
+
+
+def filter_transitive_hierarchical_relations(node_id2children: Dict[int, List[int]],
+                                             node_id2parents: Dict[int, List[int]]):
+    logging.info("Starting filtering transitive hierarchical relations. Finding root nodes.")
+    root_node_ids = set(node_id2children.keys())
+    for potential_root_node_id in node_id2children.keys():
+        potential_root_node_id_parents = node_id2parents.get(potential_root_node_id)
+        if potential_root_node_id_parents is not None and len(potential_root_node_id_parents) > 0:
+            root_node_ids.remove(potential_root_node_id)
+    logging.info(f"There are {len(root_node_ids)} root nodes in the hierarchy tree")
+    deleted_edges_counter = 0
+    all_ancestors_parents = set()
+    for root_id in root_node_ids:
+        deleted_edges_counter = transitive_relations_filtering_recursive_call(
+            all_ancestors_parents=all_ancestors_parents,
+            current_node_id=root_id, nodeid2parents=node_id2parents,
+            nodeid2children=node_id2children,
+            deleted_edges_counter=deleted_edges_counter)
+    logging.info(f"Finished filtering transitive hierarchical relations. "
+                 f"{deleted_edges_counter} edges have been deleted")
+

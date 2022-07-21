@@ -7,6 +7,7 @@ import time
 
 import numpy as np
 import torch
+from scripts.utils.umls2graph import filter_transitive_hierarchical_relations
 from torch.cuda.amp import GradScaler
 from torch.cuda.amp import autocast
 from torch.utils.data import DataLoader
@@ -50,6 +51,7 @@ def parse_args():
     parser.add_argument('--hake_phase_weight', type=float)
     parser.add_argument('--hake_adversarial_temperature', type=float)
     parser.add_argument('--hake_loss_weight', type=float)
+    parser.add_argument('--filter_transitive_relations', action="store_true")
 
     # Tokenizer settings
     parser.add_argument('--max_length', default=25, type=int)
@@ -161,7 +163,7 @@ def train_hake_sapbert(model: HakeSapMetricLearning, train_loader: SapMetricLear
     num_steps = 0
     # hake_loss_weight = torch.FloatTensor([hake_loss_weight,], requires_grad=False)
     for batch in tqdm(train_loader, miniters=len(train_loader) // 100, total=len(train_loader)):
-    # for batch in tqdm(train_loader, ):
+        # for batch in tqdm(train_loader, ):
         optimizer.zero_grad()
         sapbert_loss, hake_loss = hake_sapbert_train_step(model=model, batch=batch, amp=amp, device=device)
         loss = sapbert_loss + hake_loss_weight * hake_loss
@@ -201,6 +203,7 @@ def val_hake_sapbert(model: HakeSapMetricLearning, val_loader: SapMetricLearning
     total_loss /= (num_steps + 1e-9)
     return total_loss
 
+
 def main(args):
     print(args)
     output_dir = args.output_dir
@@ -231,6 +234,9 @@ def main(args):
                                          parent_children_adjacency_list_path=parent_children_adjacency_list_path,
                                          child_parents_adjacency_list_path=child_parents_adjacency_list_path,
                                          text_encoder_seq_length=args.max_length, )
+    if args.filter_transitive_relations:
+        filter_transitive_hierarchical_relations(node_id2children=parent_children_adjacency_list,
+                                                 node_id2parents=child_parents_adjacency_list)
 
     train_positive_pairs_path = os.path.join(args.train_dir, f"train_pos_pairs")
     train_pos_pairs_term_1_list, train_pos_pairs_term_2_list, train_pos_pairs_concept_ids = \
@@ -288,17 +294,13 @@ def main(args):
     else:
         scaler = None
 
-    model = HakeSapMetricLearning(bert_encoder, hake_gamma=args.hake_gamma, hake_modulus_weight=args.hake_modulus_weight,
-                          hake_phase_weight=args.hake_phase_weight, num_relation=2, use_cuda=args.use_cuda,
-                          hake_adversarial_temperature=args.hake_adversarial_temperature,
-                          loss=args.loss, multigpu_flag=args.parallel, use_miner=args.use_miner,
-                          miner_margin=args.miner_margin, type_of_triplets=args.type_of_triplets,
-                          agg_mode=args.agg_mode, ).to(device)
-
-
-    #if args.parallel:
-    #    # TODO: Если не будет работать, здесь параллельным сделать только энкодер
-    #    model = torch.nn.DataParallel(model)
+    model = HakeSapMetricLearning(bert_encoder, hake_gamma=args.hake_gamma,
+                                  hake_modulus_weight=args.hake_modulus_weight,
+                                  hake_phase_weight=args.hake_phase_weight, num_relation=2, use_cuda=args.use_cuda,
+                                  hake_adversarial_temperature=args.hake_adversarial_temperature,
+                                  loss=args.loss, multigpu_flag=args.parallel, use_miner=args.use_miner,
+                                  miner_margin=args.miner_margin, type_of_triplets=args.type_of_triplets,
+                                  agg_mode=args.agg_mode, ).to(device)
 
     start = time.time()
     train_graph_sapbert_model(model=model, train_epoch_fn=train_hake_sapbert, val_epoch_fn=val_epoch_fn,
