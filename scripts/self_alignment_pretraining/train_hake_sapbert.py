@@ -7,7 +7,8 @@ import time
 
 import numpy as np
 import torch
-from graphmel.utils.umls2graph import filter_transitive_hierarchical_relations, filter_hierarchical_semantic_type_nodes
+from graphmel.scripts.utils.umls2graph import filter_transitive_hierarchical_relations, \
+    filter_hierarchical_semantic_type_nodes
 from torch.cuda.amp import GradScaler
 from torch.cuda.amp import autocast
 from torch.utils.data import DataLoader
