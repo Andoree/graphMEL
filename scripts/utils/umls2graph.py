@@ -119,17 +119,19 @@ def transitive_relations_filtering_recursive_call(all_ancestors_parents: Set[int
                                                   deleted_edges_counter: int):
     all_ancestors_parents_copy = all_ancestors_parents.copy()
     current_node_parent_nodes = nodeid2parents.get(current_node_id)
-    if len(all_ancestors_parents) > 0:
+    if current_node_parent_nodes is not None:
         all_ancestors_parents_copy.update(current_node_parent_nodes)
-        # Filtering parent nodes there are the parents of parents
-        for parent_node in current_node_parent_nodes:
-            if parent_node in all_ancestors_parents:
-                current_node_parent_nodes.remove(parent_node)
-                deleted_edges_counter += 1
 
     current_node_child_nodes = nodeid2children.get(current_node_id)
     if current_node_child_nodes is not None:
         for child_node in current_node_child_nodes:
+            child_node_parents = nodeid2parents.get(child_node)
+            if child_node_parents is not None:
+                for child_node_parent in child_node_parents:
+                    # Filtering parent nodes there are the parents of parents
+                    if child_node_parent in all_ancestors_parents_copy:
+                        child_node_parents.remove(child_node_parent)
+                        deleted_edges_counter += 1
             deleted_edges_counter = transitive_relations_filtering_recursive_call(
                 all_ancestors_parents=all_ancestors_parents_copy,
                 current_node_id=child_node,
@@ -164,22 +166,30 @@ def filter_hierarchical_semantic_type_nodes(node_id2children: Dict[int, List[int
                                             node_id2parents: Dict[int, List[int]],
                                             node_id2_terms: Dict, node_id_lower_bound_filtering: int):
     logging.info("Removing semantic type nodes")
+    nodes_deleted = set()
     for node_id in list(node_id2children.keys()):
-        children_node_ids = node_id2children[node_id]
         if node_id >= node_id_lower_bound_filtering:
+            nodes_deleted.add(node_id)
             del node_id2children[node_id]
-        for children_id in children_node_ids:
-            if children_id >= node_id_lower_bound_filtering:
-                children_node_ids.remove(children_id)
+        else:
+            children_node_ids = node_id2children[node_id]
+            for child_id in children_node_ids:
+                if child_id >= node_id_lower_bound_filtering:
+                    nodes_deleted.add(child_id)
+                    children_node_ids.remove(child_id)
 
     for node_id in list(node_id2parents.keys()):
-        parent_node_ids = node_id2parents[node_id]
         if node_id >= node_id_lower_bound_filtering:
+            nodes_deleted.add(node_id)
             del node_id2parents[node_id]
-        for parent_id in parent_node_ids:
-            if parent_id >= node_id_lower_bound_filtering:
-                parent_node_ids.remove(parent_id)
+        else:
+            parent_node_ids = node_id2parents[node_id]
+            for parent_id in parent_node_ids:
+                if parent_id >= node_id_lower_bound_filtering:
+                    parent_node_ids.remove(parent_id)
+                    nodes_deleted.add(node_id)
     for node_id in list(node_id2_terms.keys()):
         if node_id >= node_id_lower_bound_filtering:
+            nodes_deleted.add(node_id)
             del node_id2_terms[node_id]
-    logging.info("Finished removing semantic type nodes")
+    logging.info(f"Finished removing semantic type nodes. {len(nodes_deleted)} nodes have been deleted.")
