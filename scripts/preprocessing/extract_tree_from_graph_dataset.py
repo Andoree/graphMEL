@@ -88,9 +88,9 @@ def create_hierarchy_adjacency_lists(edge_tuples: List[Tuple[int]], id2rel: Dict
             rel_id = t[2]
             rel_verbose = id2rel[rel_id]
             if rel_verbose in ("CHD", "RN"):
-                parent_node_id, child_node_id = node_id_2, node_id_1
-            elif rel_verbose in ("PAR", "RB"):
                 parent_node_id, child_node_id = node_id_1, node_id_2
+            elif rel_verbose in ("PAR", "RB"):
+                parent_node_id, child_node_id = node_id_2, node_id_1
             else:
                 continue
             if parent_childs_adjacency_list.get(parent_node_id) is None:
