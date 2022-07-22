@@ -142,8 +142,8 @@ def transitive_relations_filtering_recursive_call(all_ancestors_parents: Set[int
 def filter_transitive_hierarchical_relations(node_id2children: Dict[int, List[int]],
                                              node_id2parents: Dict[int, List[int]]):
     logging.info("Starting filtering transitive hierarchical relations. Finding root nodes.")
-    root_node_ids = set(node_id2children.keys())
-    for potential_root_node_id in node_id2children.keys():
+    root_node_ids = set(node_id2parents.keys())
+    for potential_root_node_id in node_id2parents.keys():
         potential_root_node_id_parents = node_id2parents.get(potential_root_node_id)
         if potential_root_node_id_parents is not None and len(potential_root_node_id_parents) > 0:
             root_node_ids.remove(potential_root_node_id)
