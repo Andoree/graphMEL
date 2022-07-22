@@ -132,6 +132,7 @@ def transitive_relations_filtering_recursive_call(all_ancestors_parents: Set[int
                     if child_node_parent in all_ancestors_parents_copy:
                         child_node_parents.remove(child_node_parent)
                         deleted_edges_counter += 1
+        for child_node in current_node_child_nodes:
             deleted_edges_counter = transitive_relations_filtering_recursive_call(
                 all_ancestors_parents=all_ancestors_parents_copy,
                 current_node_id=child_node,
@@ -144,15 +145,15 @@ def transitive_relations_filtering_recursive_call(all_ancestors_parents: Set[int
 def filter_transitive_hierarchical_relations(node_id2children: Dict[int, List[int]],
                                              node_id2parents: Dict[int, List[int]]):
     logging.info("Starting filtering transitive hierarchical relations. Finding root nodes.")
-    root_node_ids = set(node_id2parents.keys())
-    for potential_root_node_id in node_id2parents.keys():
+    root_node_ids = set(node_id2children.keys())
+    for potential_root_node_id in node_id2children.keys():
         potential_root_node_id_parents = node_id2parents.get(potential_root_node_id)
         if potential_root_node_id_parents is not None and len(potential_root_node_id_parents) > 0:
             root_node_ids.remove(potential_root_node_id)
     logging.info(f"There are {len(root_node_ids)} root nodes in the hierarchy tree")
     deleted_edges_counter = 0
-    all_ancestors_parents = set()
     for root_id in root_node_ids:
+        all_ancestors_parents = set()
         deleted_edges_counter = transitive_relations_filtering_recursive_call(
             all_ancestors_parents=all_ancestors_parents,
             current_node_id=root_id, nodeid2parents=node_id2parents,
