@@ -127,11 +127,10 @@ def transitive_relations_filtering_recursive_call(all_ancestors_parents: Set[int
         for child_node in current_node_child_nodes:
             child_node_parents = nodeid2parents.get(child_node)
             if child_node_parents is not None:
-                for child_node_parent in child_node_parents:
-                    # Filtering parent nodes there are the parents of parents
-                    if child_node_parent in all_ancestors_parents_copy:
-                        child_node_parents.remove(child_node_parent)
-                        deleted_edges_counter += 1
+                # Filtering parent nodes there are the parents of parents
+                new_child_node_parents = [p for p in child_node_parents if p not in all_ancestors_parents]
+                nodeid2parents[child_node] = new_child_node_parents
+                deleted_edges_counter += len(new_child_node_parents) - len(child_node_parents)
         for child_node in current_node_child_nodes:
             deleted_edges_counter = transitive_relations_filtering_recursive_call(
                 all_ancestors_parents=all_ancestors_parents_copy,
@@ -175,14 +174,7 @@ def filter_hierarchical_semantic_type_nodes(node_id2children: Dict[int, List[int
             logging.info(f"AA node_id {node_id} node_id_lower_bound_filtering {node_id_lower_bound_filtering}")
             del node_id2children[node_id]
         else:
-            children_node_ids = node_id2children[node_id]
-            children_node_ids = [p for p in children_node_ids if p < node_id_lower_bound_filtering]
-            node_id2children[node_id] = children_node_ids
-            #for child_id in children_node_ids:
-            #    assert type(child_id) is int
-            #    if child_id >= node_id_lower_bound_filtering:
-            #        nodes_deleted.add(child_id)
-            #        children_node_ids.remove(child_id)
+            node_id2children[node_id] = [p for p in node_id2children[node_id] if p < node_id_lower_bound_filtering]
 
     for node_id in list(node_id2parents.keys()):
         assert type(node_id) is int
@@ -191,15 +183,8 @@ def filter_hierarchical_semantic_type_nodes(node_id2children: Dict[int, List[int
             logging.info(f"BB node_id {node_id} node_id_lower_bound_filtering {node_id_lower_bound_filtering}")
             del node_id2parents[node_id]
         else:
-            parent_node_ids = node_id2parents[node_id]
-            parent_node_ids = [p for p in parent_node_ids if p < node_id_lower_bound_filtering]
-            node_id2parents[node_id] = parent_node_ids
-            #for parent_id in parent_node_ids:
-            #    assert type(parent_id) is int
-            #    if parent_id >= node_id_lower_bound_filtering:
-            #        logging.info(f"CC parent_id {parent_id} node_id_lower_bound_filtering {node_id_lower_bound_filtering}")
-            #        parent_node_ids = [p for p in parent_node_ids if p < node_id_lower_bound_filtering]
-            #        nodes_deleted.add(parent_id)
+            node_id2parents[node_id] = [p for p in node_id2parents[node_id] if p < node_id_lower_bound_filtering]
+
     for node_id in list(node_id2_terms.keys()):
         if node_id >= node_id_lower_bound_filtering:
             logging.info(f"ddd node_id {node_id} node_id_lower_bound_filtering {node_id_lower_bound_filtering}")
