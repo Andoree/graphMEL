@@ -170,27 +170,39 @@ def filter_hierarchical_semantic_type_nodes(node_id2children: Dict[int, List[int
     nodes_deleted = set()
     for node_id in list(node_id2children.keys()):
         if node_id >= node_id_lower_bound_filtering:
+            assert type(node_id) is int
             nodes_deleted.add(node_id)
+            logging.info(f"AA node_id {node_id} node_id_lower_bound_filtering {node_id_lower_bound_filtering}")
             del node_id2children[node_id]
         else:
             children_node_ids = node_id2children[node_id]
-            for child_id in children_node_ids:
-                if child_id >= node_id_lower_bound_filtering:
-                    nodes_deleted.add(child_id)
-                    children_node_ids.remove(child_id)
+            children_node_ids = [p for p in children_node_ids if p < node_id_lower_bound_filtering]
+            node_id2children[node_id] = children_node_ids
+            #for child_id in children_node_ids:
+            #    assert type(child_id) is int
+            #    if child_id >= node_id_lower_bound_filtering:
+            #        nodes_deleted.add(child_id)
+            #        children_node_ids.remove(child_id)
 
     for node_id in list(node_id2parents.keys()):
+        assert type(node_id) is int
         if node_id >= node_id_lower_bound_filtering:
             nodes_deleted.add(node_id)
+            logging.info(f"BB node_id {node_id} node_id_lower_bound_filtering {node_id_lower_bound_filtering}")
             del node_id2parents[node_id]
         else:
             parent_node_ids = node_id2parents[node_id]
-            for parent_id in parent_node_ids:
-                if parent_id >= node_id_lower_bound_filtering:
-                    parent_node_ids.remove(parent_id)
-                    nodes_deleted.add(node_id)
+            parent_node_ids = [p for p in parent_node_ids if p < node_id_lower_bound_filtering]
+            node_id2parents[node_id] = parent_node_ids
+            #for parent_id in parent_node_ids:
+            #    assert type(parent_id) is int
+            #    if parent_id >= node_id_lower_bound_filtering:
+            #        logging.info(f"CC parent_id {parent_id} node_id_lower_bound_filtering {node_id_lower_bound_filtering}")
+            #        parent_node_ids = [p for p in parent_node_ids if p < node_id_lower_bound_filtering]
+            #        nodes_deleted.add(parent_id)
     for node_id in list(node_id2_terms.keys()):
         if node_id >= node_id_lower_bound_filtering:
+            logging.info(f"ddd node_id {node_id} node_id_lower_bound_filtering {node_id_lower_bound_filtering}")
             nodes_deleted.add(node_id)
             del node_id2_terms[node_id]
     logging.info(f"Finished removing semantic type nodes. {len(nodes_deleted)} nodes have been deleted.")
