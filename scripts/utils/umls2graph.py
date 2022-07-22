@@ -164,7 +164,7 @@ def filter_hierarchical_semantic_type_nodes(node_id2children: Dict[int, List[int
                                             node_id2parents: Dict[int, List[int]],
                                             node_id2_terms: Dict, node_id_lower_bound_filtering: int):
     logging.info("Removing semantic type nodes")
-    for node_id in node_id2children.keys():
+    for node_id in list(node_id2children.keys()):
         children_node_ids = node_id2children[node_id]
         if node_id >= node_id_lower_bound_filtering:
             del node_id2children[node_id]
@@ -172,14 +172,14 @@ def filter_hierarchical_semantic_type_nodes(node_id2children: Dict[int, List[int
             if children_id >= node_id_lower_bound_filtering:
                 children_node_ids.remove(children_id)
 
-    for node_id in node_id2parents.keys():
+    for node_id in list(node_id2parents.keys()):
         parent_node_ids = node_id2parents[node_id]
         if node_id >= node_id_lower_bound_filtering:
             del node_id2parents[node_id]
         for parent_id in parent_node_ids:
             if parent_id >= node_id_lower_bound_filtering:
                 parent_node_ids.remove(parent_id)
-    for node_id in node_id2_terms.keys():
+    for node_id in list(node_id2_terms.keys()):
         if node_id >= node_id_lower_bound_filtering:
             del node_id2_terms[node_id]
     logging.info("Finished removing semantic type nodes")
