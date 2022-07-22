@@ -127,9 +127,9 @@ def main(args):
     output_parent_childs_adjacency_list_path = os.path.join(output_dir, "parent_childs_adjacency_list")
     output_child_parents_adjacency_list_path = os.path.join(output_dir, "child_parents_adjacency_list")
 
-    id2cui = {int(i): cui for i, cui in load_dict(input_id2cui_id_path)}
+    id2cui = {int(i): cui for i, cui in load_dict(input_id2cui_id_path).items()}
     cui2id = {cui: i for i, cui in id2cui.items()}
-    rel2id = {rel: int(i) for rel, i in load_dict(input_rel2rel_id_path)}
+    rel2id = {rel: int(i) for rel, i in load_dict(input_rel2rel_id_path).items()}
     id2rel = {i: rel for rel, i in rel2id.items()}
     edge_tuples = load_edges_tuples(path=input_edges_path)
     
