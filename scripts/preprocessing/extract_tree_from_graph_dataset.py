@@ -43,13 +43,13 @@ def add_semantic_type_hierarchical_edge_tuples(mrsty_df: pd.DataFrame, edge_tupl
     for _, row in tqdm(mrsty_df.iterrows(), total=mrsty_df.shape[0], miniters=mrsty_df.shape[0] // 100):
         cui = row["CUI"]
         tui = row["TUI"]
-
-        cui_node_id = cui2id[cui]
-        tui_node_id = tui2node_id[tui]
-        parent_rel_id = rel2id["PAR"]
-        child_rel_id = rel2id["CHD"]
-        edge_tuples.append((cui_node_id, tui_node_id, parent_rel_id, 0))
-        edge_tuples.append((tui_node_id, cui_node_id, child_rel_id, 0))
+        if cui2id.get(cui) is not None:
+            cui_node_id = cui2id[cui]
+            tui_node_id = tui2node_id[tui]
+            parent_rel_id = rel2id["PAR"]
+            child_rel_id = rel2id["CHD"]
+            edge_tuples.append((cui_node_id, tui_node_id, parent_rel_id, 0))
+            edge_tuples.append((tui_node_id, cui_node_id, child_rel_id, 0))
     logging.info("Finished adding additional MRSTY nodes")
 
 
