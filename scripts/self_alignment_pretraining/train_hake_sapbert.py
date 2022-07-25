@@ -260,6 +260,8 @@ def main(args):
                                                             tokenizer=bert_tokenizer)
     del train_pos_pairs_term_1_list
     del train_pos_pairs_term_2_list
+    del train_term2id
+
 
     train_dataset = SapMetricLearningHierarchicalDataset(pos_pairs_term_1_id_list=train_pos_pairs_term_1_id_list,
                                                          pos_pairs_term_2_id_list=train_pos_pairs_term_2_id_list,
@@ -286,6 +288,7 @@ def main(args):
         del val_pos_pairs_term_2_list
         val_term_id2tok_out = create_term_id2tokenizer_output(term2id=val_term2id, max_length=args.max_length,
                                                               tokenizer=bert_tokenizer)
+        del val_term2id
 
         val_dataset = SapMetricLearningHierarchicalDataset(pos_pairs_term_1_id_list=val_pos_pairs_term_1_id_list,
                                                            pos_pairs_term_2_id_list=val_pos_pairs_term_2_id_list,
