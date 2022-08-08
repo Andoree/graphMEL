@@ -1,7 +1,8 @@
 import random
-from typing import List, Dict
+from typing import List, Dict, Tuple
 import logging
 from torch.utils.data import Dataset
+from torch_geometric.data import HeteroData
 from torch_geometric.loader import NeighborSampler as RawNeighborSampler
 from torch_cluster import random_walk
 import torch
@@ -387,3 +388,164 @@ class SapMetricLearningHierarchicalDataset(Dataset):
         }
 
         return batch
+
+
+class HeterogeneousPositivePairNeighborSampler(RawNeighborSampler):
+    def __init__(self, pos_pairs_term_1_id_list: List[int], pos_pairs_term_2_id_list: List[int],
+                 pos_pairs_concept_ids_list: List[int], node_id2sem_group: Dict[int, str],
+                 term_id2tokenizer_output: Dict, rel_ids, node_id2token_ids_dict, seq_max_length, *args, **kwargs):
+        super(HeterogeneousPositivePairNeighborSampler, self).__init__(*args, **kwargs)
+        self.node_id2token_ids_dict = node_id2token_ids_dict
+        assert len(pos_pairs_term_1_id_list) == len(pos_pairs_term_2_id_list) == len(pos_pairs_concept_ids_list)
+        self.pos_pairs_term_1_id_list = pos_pairs_term_1_id_list
+        self.pos_pairs_term_2_id_list = pos_pairs_term_2_id_list
+        self.pos_pairs_concept_ids_list = pos_pairs_concept_ids_list
+        self.node_id2sem_group = node_id2sem_group
+        self.rel_ids = rel_ids
+        self.term_id2tokenizer_output = term_id2tokenizer_output
+        self.seq_max_length = seq_max_length
+
+        self.num_edges = self.edge_index.size()[1]
+
+        assert self.num_edges == len(rel_ids)
+
+    def __len__(self):
+        return len(self.pos_pairs_term_1_id_list) // self.batch_size
+
+    def sample(self, batch):
+        term_1_ids = [self.pos_pairs_term_1_id_list[idx] for idx in batch]
+        term_1_tok_out = [self.term_id2tokenizer_output[idx] for idx in term_1_ids]
+        term_1_input_ids = torch.stack([t_out["input_ids"][0] for t_out in term_1_tok_out])
+        term_1_att_masks = torch.stack([t_out["attention_mask"][0] for t_out in term_1_tok_out])
+
+        term_2_ids = [self.pos_pairs_term_2_id_list[idx] for idx in batch]
+        term_2_tok_out = [self.term_id2tokenizer_output[idx] for idx in term_2_ids]
+        term_2_input_ids = torch.stack([t_out["input_ids"][0] for t_out in term_2_tok_out])
+        term_2_att_masks = torch.stack([t_out["attention_mask"][0] for t_out in term_2_tok_out])
+
+        assert term_1_input_ids.size()[1] == term_1_att_masks.size()[1] == self.seq_max_length
+        assert term_2_input_ids.size()[1] == term_2_att_masks.size()[1] == self.seq_max_length
+
+        triplet_concept_ids = torch.LongTensor([self.pos_pairs_concept_ids_list[idx] for idx in batch])
+        assert len(triplet_concept_ids) == len(term_1_input_ids)
+
+        (batch_size, n_id, adjs) = super(HeterogeneousPositivePairNeighborSampler, self).sample(triplet_concept_ids)
+
+        neighbor_node_ids = n_id[batch_size:]
+
+        if isinstance(adjs, list):
+            adj = adjs[0]
+        else:
+            adj = adjs
+        edge_index = adj.edge_index
+        src_semantic_groups, trg_semantic_groups = self.get_node_semantic_groups(edge_index=edge_index,
+                                                                                 node_ids=n_id)
+        # src_semantic_groups = torch.LongTensor(src_semantic_groups)
+        # trg_semantic_groups = torch.LongTensor(trg_semantic_groups)
+
+        e_ids_list = adj.e_id
+        rel_ids_list = [self.rel_ids[e_id] for e_id in e_ids_list]
+
+        term_1_neighbor_input_ids, term_1_neighbor_att_masks = node_ids2tokenizer_output(
+            batch=neighbor_node_ids, node_id_to_token_ids_dict=self.node_id2token_ids_dict,
+            seq_max_length=self.seq_max_length)
+        term_2_neighbor_input_ids, term_2_neighbor_att_masks = node_ids2tokenizer_output(
+            batch=neighbor_node_ids, node_id_to_token_ids_dict=self.node_id2token_ids_dict,
+            seq_max_length=self.seq_max_length)
+        assert term_1_neighbor_input_ids.size() == term_1_neighbor_att_masks.size() \
+               == term_2_neighbor_att_masks.size()
+        assert term_2_neighbor_input_ids.size() == term_2_neighbor_att_masks.size()
+
+        term_1_input_ids = torch.cat((term_1_input_ids, term_1_neighbor_input_ids), dim=0)
+        term_1_att_masks = torch.cat((term_1_att_masks, term_1_neighbor_att_masks), dim=0)
+        term_2_input_ids = torch.cat((term_2_input_ids, term_2_neighbor_input_ids), dim=0)
+        term_2_att_masks = torch.cat((term_2_att_masks, term_2_neighbor_att_masks), dim=0)
+        term_1_input = (term_1_input_ids, term_1_att_masks)
+        term_2_input = (term_2_input_ids, term_2_att_masks,)
+
+        batch_dict = {
+            "term_1_input": term_1_input, "term_2_input": term_2_input, "edge_index": edge_index,
+            "src_semantic_groups": src_semantic_groups, "trg_semantic_groups": trg_semantic_groups,
+            "batch_size": batch_size, "concept_ids": triplet_concept_ids, "rel_ids_list": rel_ids_list,
+        }
+        return batch_dict
+
+    def get_node_semantic_groups(self, edge_index, node_ids, ) -> Tuple[List[str], List[str]]:
+
+        num_batch_nodes = edge_index.size(1)
+        src_sem_groups_list = []
+        trg_sem_groups_list = []
+        for i in range(num_batch_nodes):
+            src_batch_node_id, trg_batch_node_id = edge_index[0][i], edge_index[1][i]
+            src_global_node_id, trg_global_node_id = node_ids[src_batch_node_id], node_ids[trg_batch_node_id]
+            src_sem_group = self.node_id2sem_group[src_global_node_id.item()]
+            trg_sem_group = self.node_id2sem_group[trg_global_node_id.item()]
+
+            src_sem_groups_list.append(src_sem_group)
+            trg_sem_groups_list.append(trg_sem_group)
+
+        return src_sem_groups_list, trg_sem_groups_list
+
+
+def graph_to_hetero_dataset(edge_index, hetero_dataset, all_node_types, sem_group_rel_combs,
+                            node_features, src_node_sem_groups, trg_node_sem_groups, rel_types):
+
+    # hetero_dataset = HeteroData()
+    unique_nodes_grouped_by_sem_type = {}
+    node2id_grouped_by_sem_group = {}
+    num_batch_nodes = edge_index.size(1)
+
+    for node_type in all_node_types:
+        hetero_dataset[node_type].x = torch.zeros((1, 768), dtype=torch.float)
+    for (node_type_1, node_type_2, rel_id) in sem_group_rel_combs:
+        hetero_dataset[node_type_1, str(rel_id), node_type_2].edge_index = torch.zeros((2, 0), dtype=torch.long)
+
+
+    for i in range(num_batch_nodes):
+        src_node_id, trg_node_id = edge_index[0][i], edge_index[1][i]
+        src_sem_group, trg_sem_group = src_node_sem_groups[i], trg_node_sem_groups[i]
+        if unique_nodes_grouped_by_sem_type.get(src_sem_group) is None:
+            unique_nodes_grouped_by_sem_type[src_sem_group] = set()
+        if unique_nodes_grouped_by_sem_type.get(trg_sem_group) is None:
+            unique_nodes_grouped_by_sem_type[trg_sem_group] = set()
+
+        unique_nodes_grouped_by_sem_type[src_sem_group].add(src_node_id.item())
+        unique_nodes_grouped_by_sem_type[trg_sem_group].add(trg_node_id.item())
+
+    for sem_gr, sem_gr_node_ids in unique_nodes_grouped_by_sem_type.items():
+        node2id_grouped_by_sem_group[sem_gr] = {orig_node_id: i for i, orig_node_id in enumerate(sem_gr_node_ids)}
+
+    for sem_gr in node2id_grouped_by_sem_group.keys():
+        ts = [(orig_node_id, i) for orig_node_id, i in node2id_grouped_by_sem_group[sem_gr].items()]
+        ts.sort(key=lambda t: t[1])
+        feature_ind = [t[0] for t in ts]
+        hetero_dataset[sem_gr].x = node_features[feature_ind, :]
+
+    edge_index_dict_tmp = {}
+    for i in range(num_batch_nodes):
+        src_global_node_id, trg_global_node_id, rel_id = edge_index[0][i], edge_index[1][i], rel_types[i]
+        src_sem_group, trg_sem_group = src_node_sem_groups[i], trg_node_sem_groups[i]
+
+        assert ('|' not in src_sem_group) and ('|' not in str(rel_id)) and ('|' not in trg_sem_group)
+        edge_str = f"{src_sem_group}|{rel_id.item()}|{trg_sem_group}"
+
+        src_local_node_id = node2id_grouped_by_sem_group[src_sem_group][src_global_node_id.item()]
+        trg_local_node_id = node2id_grouped_by_sem_group[trg_sem_group][trg_global_node_id.item()]
+        if edge_index_dict_tmp.get(edge_str) is  None:
+
+            edge_index_dict_tmp[edge_str] = []
+
+        edge_index_dict_tmp[edge_str].append((src_local_node_id, trg_local_node_id))
+    # edge_index_dict = {}
+    for edge_str, edge_tuples in edge_index_dict_tmp.items():
+        attrs = edge_str.split('|')
+        src_sem_group, rel_id, trg_sem_group = attrs[0], attrs[1], attrs[2]
+        num_rels = len(edge_tuples)
+        e_index = torch.zeros(size=(2, num_rels), dtype=torch.long)
+        for i in range(num_rels):
+            (src_node_id, trg_node_id) = edge_tuples[i]
+            e_index[0][i] = src_node_id
+            e_index[1][i] = trg_node_id
+        hetero_dataset[src_sem_group, rel_id, trg_sem_group].edge_index = e_index
+
+    return hetero_dataset

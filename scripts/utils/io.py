@@ -100,6 +100,11 @@ def read_mrdef(fpath):
     return pd.read_csv(fpath, names=columns, sep='|', encoding='utf-8')
 
 
+def read_sem_groups(fpath):
+    columns = ["Semantic Group Abbrev", "Semantic Group Name", "TUI", "Full Semantic Type Name"]
+    return pd.read_csv(fpath, names=columns, sep='|', encoding='utf-8')
+
+
 def update_log_file(path: str, dict_to_log: Dict):
     with codecs.open(path, 'a+', encoding="utf-8") as out_file:
         s = ', '.join((f"{k} : {v}" for k, v in dict_to_log.items()))

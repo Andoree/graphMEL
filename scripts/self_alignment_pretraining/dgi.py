@@ -1,7 +1,10 @@
+import logging
+
 import torch
 
 EPS = 1e-15
 from torch_geometric.nn import DeepGraphInfomax
+
 
 class Float32DeepGraphInfomax(DeepGraphInfomax):
     r"""The Deep Graph Infomax model from the
@@ -19,7 +22,7 @@ class Float32DeepGraphInfomax(DeepGraphInfomax):
 
     def __init__(self, hidden_channels, encoder, summary, corruption):
         super(Float32DeepGraphInfomax, self).__init__(hidden_channels=hidden_channels,
-                                                encoder=encoder, summary=summary, corruption=corruption)
+                                                      encoder=encoder, summary=summary, corruption=corruption)
 
     def discriminate(self, z, summary, sigmoid=True):
         r"""Given the patch-summary pair :obj:`z` and :obj:`summary`, computes
@@ -39,3 +42,33 @@ class Float32DeepGraphInfomax(DeepGraphInfomax):
         summary = summary.t() if summary.dim() > 1 else summary
         value = torch.matmul(z, torch.matmul(self.weight, summary)).float()
         return torch.sigmoid(value) if sigmoid else value
+
+
+class Float32DeepGraphInfomaxV2(Float32DeepGraphInfomax):
+    r"""The Deep Graph Infomax model from the
+    `"Deep Graph Infomax" <https://arxiv.org/abs/1809.10341>`_
+    paper based on user-defined encoder and summary model :math:`\mathcal{E}`
+    and :math:`\mathcal{R}` respectively, and a corruption function
+    :math:`\mathcal{C}`.
+
+    Args:
+        hidden_channels (int): The latent space dimensionality.
+        encoder (Module): The encoder module :math:`\mathcal{E}`.
+        summary (callable): The readout function :math:`\mathcal{R}`.
+        corruption (callable): The corruption function :math:`\mathcal{C}`.
+    """
+
+    def __init__(self, hidden_channels, encoder, summary, corruption):
+        super(Float32DeepGraphInfomaxV2, self).__init__(hidden_channels=hidden_channels,
+                                                        encoder=encoder, summary=summary, corruption=corruption)
+
+    def forward(self, x_dict, edge_index_dict, ):
+        """Returns the latent space for the input arguments, their
+        corruptions and their summary representation."""
+
+        pos_z = self.encoder(x_dict=x_dict, edge_index_dict=edge_index_dict, )
+        cor = self.corruption(x_dict=x_dict, edge_index_dict=edge_index_dict, )
+        cor = cor if isinstance(cor, tuple) else (cor,)
+        neg_z = self.encoder(*cor)
+        summary = self.summary(pos_z, x_dict=x_dict, edge_index_dict=edge_index_dict, )
+        return pos_z, neg_z, summary
