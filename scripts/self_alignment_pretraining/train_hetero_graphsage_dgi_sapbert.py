@@ -121,7 +121,7 @@ def heterogeneous_graphsage_dgi_sapbert_train_step(model: HeteroGraphSAGESapMetr
                                              all_node_types=hetero_dataset.all_node_types,
                                              sem_group_rel_combs=hetero_dataset.sem_group_rel_combs,
                                              src_node_sem_groups=src_semantic_groups,
-                                             trg_node_sem_groups=trg_semantic_groups, rel_types=rel_types)
+                                             trg_node_sem_groups=trg_semantic_groups, rel_types=rel_types).to(device)
 
     dgi_loss_1 = model.dgi_loss(x_dict=hetero_dataset.x_dict, edge_index_dict=hetero_dataset.edge_index_dict, )
     hetero_dataset = graph_to_hetero_dataset(edge_index=edge_index, node_features=term_2_node_features,
@@ -129,7 +129,7 @@ def heterogeneous_graphsage_dgi_sapbert_train_step(model: HeteroGraphSAGESapMetr
                                              src_node_sem_groups=src_semantic_groups,
                                              all_node_types=hetero_dataset.all_node_types,
                                              sem_group_rel_combs=hetero_dataset.sem_group_rel_combs,
-                                             trg_node_sem_groups=trg_semantic_groups, rel_types=rel_types)
+                                             trg_node_sem_groups=trg_semantic_groups, rel_types=rel_types).to(device)
     dgi_loss_2 = model.dgi_loss(hetero_dataset.x_dict, hetero_dataset.edge_index_dict, )
 
     if amp:
@@ -144,7 +144,7 @@ def heterogeneous_graphsage_dgi_sapbert_train_step(model: HeteroGraphSAGESapMetr
     # logging.info(f"dgi_loss_2 {dgi_loss_2.item()}")
 
     loss = sapbert_loss + (dgi_loss_1 + dgi_loss_2) * model.dgi_loss_weight
-    logging.info(f"loss {loss.item()}")
+    # logging.info(f"loss {loss.item()}")
     return loss
 
 
