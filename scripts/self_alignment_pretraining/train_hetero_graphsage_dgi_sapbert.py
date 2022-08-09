@@ -116,21 +116,27 @@ def heterogeneous_graphsage_dgi_sapbert_train_step(model: HeteroGraphSAGESapMetr
     term_1_node_features = model.bert_encode(input_ids=term_1_input_ids, att_masks=term_1_att_masks)
     term_2_node_features = model.bert_encode(input_ids=term_2_input_ids, att_masks=term_2_att_masks)
 
-    hetero_dataset = graph_to_hetero_dataset(edge_index=edge_index, hetero_dataset=hetero_dataset,
-                                             node_features=term_1_node_features,
-                                             all_node_types=hetero_dataset.all_node_types,
-                                             sem_group_rel_combs=hetero_dataset.sem_group_rel_combs,
-                                             src_node_sem_groups=src_semantic_groups,
-                                             trg_node_sem_groups=trg_semantic_groups, rel_types=rel_types).to(device)
+    hetero_dataset, local_id2batch_id = graph_to_hetero_dataset(edge_index=edge_index, hetero_dataset=hetero_dataset,
+                                                                node_features=term_1_node_features,
+                                                                all_node_types=hetero_dataset.all_node_types,
+                                                                sem_group_rel_combs=hetero_dataset.sem_group_rel_combs,
+                                                                src_node_sem_groups=src_semantic_groups,
+                                                                trg_node_sem_groups=trg_semantic_groups,
+                                                                rel_types=rel_types)
+    hetero_dataset = hetero_dataset.to(device)
 
-    dgi_loss_1 = model.dgi_loss(x_dict=hetero_dataset.x_dict, edge_index_dict=hetero_dataset.edge_index_dict, )
-    hetero_dataset = graph_to_hetero_dataset(edge_index=edge_index, node_features=term_2_node_features,
-                                             hetero_dataset=hetero_dataset,
-                                             src_node_sem_groups=src_semantic_groups,
-                                             all_node_types=hetero_dataset.all_node_types,
-                                             sem_group_rel_combs=hetero_dataset.sem_group_rel_combs,
-                                             trg_node_sem_groups=trg_semantic_groups, rel_types=rel_types).to(device)
-    dgi_loss_2 = model.dgi_loss(hetero_dataset.x_dict, hetero_dataset.edge_index_dict, )
+    dgi_loss_1 = model.dgi_loss(x_dict=hetero_dataset.x_dict, edge_index_dict=hetero_dataset.edge_index_dict,
+                                batch_size=batch_size, local_id2batch_id=local_id2batch_id,)
+    hetero_dataset, local_id2batch_id = graph_to_hetero_dataset(edge_index=edge_index, hetero_dataset=hetero_dataset,
+                                                                node_features=term_2_node_features,
+                                                                src_node_sem_groups=src_semantic_groups,
+                                                                all_node_types=hetero_dataset.all_node_types,
+                                                                sem_group_rel_combs=hetero_dataset.sem_group_rel_combs,
+                                                                trg_node_sem_groups=trg_semantic_groups,
+                                                                rel_types=rel_types)
+    hetero_dataset = hetero_dataset.to(device)
+    dgi_loss_2 = model.dgi_loss(hetero_dataset.x_dict, hetero_dataset.edge_index_dict,
+                                batch_size=batch_size, local_id2batch_id=local_id2batch_id, )
 
     if amp:
         with autocast():

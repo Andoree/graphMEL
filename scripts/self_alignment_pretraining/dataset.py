@@ -489,7 +489,6 @@ class HeterogeneousPositivePairNeighborSampler(RawNeighborSampler):
 
 def graph_to_hetero_dataset(edge_index, hetero_dataset, all_node_types, sem_group_rel_combs,
                             node_features, src_node_sem_groups, trg_node_sem_groups, rel_types):
-
     # hetero_dataset = HeteroData()
     unique_nodes_grouped_by_sem_type = {}
     node2id_grouped_by_sem_group = {}
@@ -499,7 +498,6 @@ def graph_to_hetero_dataset(edge_index, hetero_dataset, all_node_types, sem_grou
         hetero_dataset[node_type].x = torch.zeros((1, 768), dtype=torch.float)
     for (node_type_1, node_type_2, rel_id) in sem_group_rel_combs:
         hetero_dataset[node_type_1, str(rel_id), node_type_2].edge_index = torch.zeros((2, 0), dtype=torch.long)
-
 
     for i in range(num_batch_nodes):
         src_node_id, trg_node_id = edge_index[0][i], edge_index[1][i]
@@ -514,12 +512,14 @@ def graph_to_hetero_dataset(edge_index, hetero_dataset, all_node_types, sem_grou
 
     for sem_gr, sem_gr_node_ids in unique_nodes_grouped_by_sem_type.items():
         node2id_grouped_by_sem_group[sem_gr] = {orig_node_id: i for i, orig_node_id in enumerate(sem_gr_node_ids)}
-
+    local_node_id2batch_node_id_grouped_by_sem_group = {}
     for sem_gr in node2id_grouped_by_sem_group.keys():
         ts = [(orig_node_id, i) for orig_node_id, i in node2id_grouped_by_sem_group[sem_gr].items()]
         ts.sort(key=lambda t: t[1])
         feature_ind = [t[0] for t in ts]
         hetero_dataset[sem_gr].x = node_features[feature_ind, :]
+        local_node_id2batch_node_id_grouped_by_sem_group[sem_gr] = \
+            {i: orig_node_id for (orig_node_id, i) in node2id_grouped_by_sem_group[sem_gr].items()}
 
     edge_index_dict_tmp = {}
     for i in range(num_batch_nodes):
@@ -531,8 +531,7 @@ def graph_to_hetero_dataset(edge_index, hetero_dataset, all_node_types, sem_grou
 
         src_local_node_id = node2id_grouped_by_sem_group[src_sem_group][src_global_node_id.item()]
         trg_local_node_id = node2id_grouped_by_sem_group[trg_sem_group][trg_global_node_id.item()]
-        if edge_index_dict_tmp.get(edge_str) is  None:
-
+        if edge_index_dict_tmp.get(edge_str) is None:
             edge_index_dict_tmp[edge_str] = []
 
         edge_index_dict_tmp[edge_str].append((src_local_node_id, trg_local_node_id))
@@ -548,4 +547,4 @@ def graph_to_hetero_dataset(edge_index, hetero_dataset, all_node_types, sem_grou
             e_index[1][i] = trg_node_id
         hetero_dataset[src_sem_group, rel_id, trg_sem_group].edge_index = e_index
 
-    return hetero_dataset
+    return hetero_dataset, local_node_id2batch_node_id_grouped_by_sem_group
