@@ -23,14 +23,14 @@ class HeterogeneousGraphSAGE(torch.nn.Module):
     def forward(self, x_dict, edge_index_dict):
         # logging.info(f"x {type(x)}, {x}")
         # logging.info(f"edge_index {type(edge_index)}, {edge_index}")
-        logging.info(f"x {type(x_dict)}")
-        logging.info(f"edge_index {type(edge_index_dict)}")
+        # logging.info(f"x {type(x_dict)}")
+        # logging.info(f"edge_index {type(edge_index_dict)}")
         for i, conv in enumerate(self.convs):
-            logging.info(f"i {i} x {type(x_dict)}, edge_index {type(edge_index_dict)} ")
+            # logging.info(f"i {i} x {type(x_dict)}, edge_index {type(edge_index_dict)} ")
             x_dict = conv(x_dict, edge_index_dict).relu()
             if i != len(self.convs) - 1:
                 x_dict = F.dropout(x_dict, p=self.dropout_p, training=self.training)
-        logging.info("Forward is finished")
+        # logging.info("Forward is finished")
         return x_dict
 
 
