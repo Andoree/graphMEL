@@ -46,7 +46,6 @@ python ../../scripts/self_alignment_pretraining/train_hetero_graphsage_dgi_sapbe
 --graphsage_hidden_channels=768 \
 --graphsage_dropout_p=0.2 \
 --dgi_loss_weight=0.01 \
---dgi_loss_weight=1e-4 \
 --remove_selfloops \
 --max_length=32 \
 --use_cuda \
@@ -74,7 +73,6 @@ python ../../scripts/self_alignment_pretraining/train_hetero_graphsage_dgi_sapbe
 --graphsage_hidden_channels=768 \
 --graphsage_dropout_p=0.2 \
 --dgi_loss_weight=0.01 \
---dgi_loss_weight=1e-4 \
 --remove_selfloops \
 --max_length=32 \
 --use_cuda \
