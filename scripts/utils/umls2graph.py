@@ -192,6 +192,7 @@ def filter_hierarchical_semantic_type_nodes(node_id2children: Dict[int, List[int
             del node_id2_terms[node_id]
     logging.info(f"Finished removing semantic type nodes. {len(nodes_deleted)} nodes have been deleted.")
 
+
 def get_unique_sem_group_edge_rel_combinations(node_id2sem_group: Dict[int, int], edge_tuples):
     unique_edge_strings: Set[str] = set()
     combs: List[Tuple[str, str, int]] = []
@@ -214,3 +215,29 @@ def get_unique_sem_group_edge_rel_combinations(node_id2sem_group: Dict[int, int]
         combs.append((src_sem_group, trg_sem_group, rel_id))
 
     return combs
+
+
+def filter_edges(edge_tuples: List[Tuple[int, int, int, int]], rel2id: Dict[str, int]) \
+        -> List[Tuple[int, int, int, int]]:
+    logging.info(f"Starting filtering edges by relation type. There are {len(edge_tuples)} edges.")
+    id2rel = {i: rel for rel, i in rel2id.items()}
+    KEEP_RELATIONS = ('CHD', 'PAR', 'RN', 'RB')
+    chd_rel_id = rel2id["CHD"]
+    par_rel_id = rel2id["PAR"]
+    new_edge_tuples = []
+    for t in edge_tuples:
+        src_node_id = t[0]
+        trg_node_id = t[1]
+        rel_id = t[2]
+        rela_id = t[3]
+        rel_str = id2rel[rel_id]
+        if rel_str not in KEEP_RELATIONS:
+            continue
+        else:
+            if rel_str == 'RN':
+                rel_id = chd_rel_id
+            if rel_str == 'RB':
+                rel_id = par_rel_id
+            new_edge_tuples.append((src_node_id, trg_node_id, rel_id, rela_id))
+    logging.info(f"Finished filtering edges by relation type. There are {len(new_edge_tuples)} edges.")
+    return new_edge_tuples

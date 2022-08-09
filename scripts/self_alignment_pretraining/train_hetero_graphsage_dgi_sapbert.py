@@ -30,7 +30,7 @@ from graphmel.scripts.utils.io import save_dict, load_dict
 
 # import wandb
 # wandb.init(project="sapbert")
-from graphmel.scripts.utils.umls2graph import get_unique_sem_group_edge_rel_combinations
+from graphmel.scripts.utils.umls2graph import get_unique_sem_group_edge_rel_combinations, filter_edges
 
 
 def parse_args():
@@ -123,7 +123,7 @@ def heterogeneous_graphsage_dgi_sapbert_train_step(model: HeteroGraphSAGESapMetr
                                              src_node_sem_groups=src_semantic_groups,
                                              trg_node_sem_groups=trg_semantic_groups, rel_types=rel_types)
 
-    dgi_loss_1 = model.dgi_loss(x_dict=hetero_dataset.x_dict, edge_index_dict=hetero_dataset.edge_index_dict,)
+    dgi_loss_1 = model.dgi_loss(x_dict=hetero_dataset.x_dict, edge_index_dict=hetero_dataset.edge_index_dict, )
     hetero_dataset = graph_to_hetero_dataset(edge_index=edge_index, node_features=term_2_node_features,
                                              hetero_dataset=hetero_dataset,
                                              src_node_sem_groups=src_semantic_groups,
@@ -252,7 +252,9 @@ def main(args):
 
     node2terms_path = os.path.join(args.train_dir, "node_id2terms_list")
     node_id2sem_group = os.path.join(args.train_dir, f"node_id2sem_group")
+    rel2id_path = os.path.join(args.train_dir, f"rel2id")
     edges_path = os.path.join(args.train_dir, "edges")
+    rel2id = {rel: int(i) for rel, i in load_dict(rel2id_path).items()}
 
     bert_encoder, bert_tokenizer, node_id2token_ids_dict, edge_tuples, _, _ = \
         load_data_and_bert_model(train_node2terms_path=node2terms_path,
@@ -262,7 +264,7 @@ def main(args):
                                  text_encoder_seq_length=args.max_length, drop_relations_info=False)
 
     del _
-
+    edge_tuples = filter_edges(edge_tuples=edge_tuples, rel2id=rel2id)
     edge_index, edge_rel_ids = \
         convert_edges_tuples_to_oriented_edge_index_with_relations(edge_tuples, use_rel_or_rela='rel',
                                                                    remove_selfloops=args.remove_selfloops)
@@ -338,8 +340,8 @@ def main(args):
     all_node_types = list(set(node_id2sem_group.values()))
     # all_edge_types = list(set((t.item() for t in edge_rel_ids)))
     model, hetero_dataset = initialize_hetero_graph_sapbert_model(model=model, all_node_types=all_node_types,
-                                                  sem_group_rel_combs=unique_sem_group_rel_combinations,
-                                                  emb_size=bert_encoder.config.hidden_size)
+                                                                  sem_group_rel_combs=unique_sem_group_rel_combinations,
+                                                                  emb_size=bert_encoder.config.hidden_size)
     model = model.to(device)
     train_pos_pair_sampler.hetero_dataset = hetero_dataset
     hetero_dataset.all_node_types = all_node_types
