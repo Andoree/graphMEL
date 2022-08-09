@@ -59,6 +59,7 @@ def parse_args():
     parser.add_argument('--graphsage_dropout_p', type=float, )
     parser.add_argument('--dgi_loss_weight', type=float)
     parser.add_argument('--remove_selfloops', action="store_true")
+    parser.add_argument('--filter_rel_types', action="store_true")
 
     # Tokenizer settings
     parser.add_argument('--max_length', default=25, type=int)
@@ -239,8 +240,9 @@ def main(args):
     print(args)
     output_dir = args.output_dir
     output_subdir = f"graphsage_n-{args.graphsage_num_neighbors}_l-{args.num_graphsage_layers}_" \
-                    f"c-{args.graphsage_hidden_channels}_p-{args.graphsage_dropout_p}_dgi_{args.dgi_loss_weight}" \
-                    f"lr_{args.learning_rate}_b_{args.batch_size}"
+                    f"c-{args.graphsage_hidden_channels}_p-{args.graphsage_dropout_p}_" \
+                    f"filt_rel_{args.filter_rel_types}_dgi_{args.dgi_loss_weight}_lr_{args.learning_rate}_" \
+                    f"b_{args.batch_size}"
     output_dir = os.path.join(output_dir, output_subdir)
     if not os.path.exists(output_dir) and output_dir != '':
         os.makedirs(output_dir)
@@ -270,7 +272,8 @@ def main(args):
                                  text_encoder_seq_length=args.max_length, drop_relations_info=False)
 
     del _
-    edge_tuples = filter_edges(edge_tuples=edge_tuples, rel2id=rel2id)
+    if args.filter_rel_types:
+        edge_tuples = filter_edges(edge_tuples=edge_tuples, rel2id=rel2id)
     edge_index, edge_rel_ids = \
         convert_edges_tuples_to_oriented_edge_index_with_relations(edge_tuples, use_rel_or_rela='rel',
                                                                    remove_selfloops=args.remove_selfloops)
