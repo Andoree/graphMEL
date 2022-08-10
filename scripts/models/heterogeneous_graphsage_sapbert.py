@@ -102,8 +102,8 @@ class HeteroGraphSAGESapMetricLearning(nn.Module):
     def x_dict_to_tensor(self, x_dict, batch_size, local_id2batch_id: Dict[str, Dict[int, int]]):
         # logging.info(f"batch_size {batch_size}")
         # logging.info(f"batch_size {batch_size}")
-        embs = torch.zeros((batch_size, self.graphsage_hidden_channels), dtype=torch.float32).to(self.device)
-        weights = torch.zeros((batch_size, 1), dtype=torch.float32).to(self.device)
+        embs = torch.zeros((batch_size, self.graphsage_hidden_channels), dtype=torch.float32).to('cuda:0')
+        weights = torch.zeros((batch_size, 1), dtype=torch.float32).to('cuda:0')
         for sem_gr, x in x_dict.items():
             for i in range(x.size(0)):
                 x_i = x[i]
