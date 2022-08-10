@@ -282,8 +282,11 @@ def main(args):
     assert edge_index.size()[1] == len(edge_rel_ids)
 
     num_edges = edge_index.size()[1]
-    num_nodes = len(set(node_id2token_ids_dict.keys()))
+
     node_id2sem_group = {int(node_id): sem_group for node_id, sem_group in load_dict(node_id2sem_group).items()}
+    node_id2token_ids_dict = {node_id: token_ids for node_id, token_ids in node_id2token_ids_dict.items()
+                              if node_id2sem_group.get(node_id) is not None}
+    num_nodes = len(set(node_id2token_ids_dict.keys()))
     unique_sem_group_rel_combinations = get_unique_sem_group_edge_rel_combinations(node_id2sem_group, edge_tuples)
     del edge_tuples
 
