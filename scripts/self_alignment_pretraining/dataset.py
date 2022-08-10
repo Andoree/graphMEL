@@ -488,14 +488,14 @@ class HeterogeneousPositivePairNeighborSampler(RawNeighborSampler):
 
 
 def graph_to_hetero_dataset(edge_index, hetero_dataset, all_node_types, sem_group_rel_combs,
-                            node_features, src_node_sem_groups, trg_node_sem_groups, rel_types):
+                            node_features, src_node_sem_groups, trg_node_sem_groups, rel_types, emb_size):
     # hetero_dataset = HeteroData()
     unique_nodes_grouped_by_sem_type = {}
     node2id_grouped_by_sem_group = {}
     num_batch_nodes = edge_index.size(1)
 
     for node_type in all_node_types:
-        hetero_dataset[node_type].x = torch.zeros((1, 768), dtype=torch.float)
+        hetero_dataset[node_type].x = torch.zeros((1, emb_size), dtype=torch.float32)
     for (node_type_1, node_type_2, rel_id) in sem_group_rel_combs:
         hetero_dataset[node_type_1, str(rel_id), node_type_2].edge_index = torch.zeros((2, 0), dtype=torch.long)
 

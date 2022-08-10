@@ -99,11 +99,10 @@ class HeteroGraphSAGESapMetricLearning(nn.Module):
     def summary_fn(self, x, ):
         return torch.sigmoid(torch.mean(x, dim=0))
 
-    def x_dict_to_tensor(self, x_dict, batch_size, local_id2batch_id: Dict[str, Dict[int, int]]):
-        # logging.info(f"batch_size {batch_size}")
-        # logging.info(f"batch_size {batch_size}")
-        embs = torch.zeros((batch_size, self.graphsage_hidden_channels), dtype=torch.float32).to('cuda:0')
-        weights = torch.zeros((batch_size, 1), dtype=torch.float32).to('cuda:0')
+    def x_dict_to_tensor(self, x_dict, batch_size, local_id2batch_id: Dict[str, Dict[int, int]], device):
+
+        embs = torch.zeros((batch_size, self.graphsage_hidden_channels), dtype=torch.float32).to(device)
+        weights = torch.zeros((batch_size, 1), dtype=torch.float32).to(device)
         for sem_gr, x in x_dict.items():
             for i in range(x.size(0)):
                 x_i = x[i]
@@ -126,18 +125,24 @@ class HeteroGraphSAGESapMetricLearning(nn.Module):
     def bert_encode(self, input_ids, att_masks):
         emb = self.bert_encoder(input_ids, attention_mask=att_masks,
                                 return_dict=True)['last_hidden_state'][:, 0]
+        # logging.info(f"emb {emb.dtype}")
         return emb
 
-    def dgi_loss(self, x_dict, edge_index_dict, batch_size, local_id2batch_id, ):
+    @autocast()
+    def dgi_loss(self, x_dict, edge_index_dict, batch_size, local_id2batch_id, device):
         # pos_embs, neg_embs, summary = self.dgi(x_dict, edge_index_dict)
         pos_embs_dict = self.hetero_graphsage(x_dict=x_dict, edge_index_dict=edge_index_dict, )
 
         cor_x_dict = self.corruption_fn(x_dict=x_dict, )
+
         neg_embs_dict = self.hetero_graphsage(x_dict=cor_x_dict, edge_index_dict=edge_index_dict, )
 
-        pos_embs = self.x_dict_to_tensor(pos_embs_dict, batch_size=batch_size, local_id2batch_id=local_id2batch_id)
+        pos_embs = self.x_dict_to_tensor(pos_embs_dict, batch_size=batch_size, local_id2batch_id=local_id2batch_id,
+                                         device=device)
+
         summary = self.summary_fn(pos_embs, )
-        neg_embs = self.x_dict_to_tensor(neg_embs_dict, batch_size=batch_size, local_id2batch_id=local_id2batch_id)
+        neg_embs = self.x_dict_to_tensor(neg_embs_dict, batch_size=batch_size, local_id2batch_id=local_id2batch_id,
+                                         device=device)
 
         dgi_loss = self.dgi.loss(pos_embs, neg_embs, summary)
 
