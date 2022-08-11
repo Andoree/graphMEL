@@ -17,7 +17,7 @@ import random
 from torch_geometric.data import HeteroData
 from torch_geometric.nn import to_hetero
 from tqdm import tqdm
-
+import torch_geometric.transforms as T
 from graphmel.scripts.models.heterogeneous_graphsage_sapbert import HeteroGraphSAGESapMetricLearning
 from graphmel.scripts.self_alignment_pretraining.dataset import PositivePairNeighborSampler, \
     PositiveRelationalNeighborSampler, HeterogeneousPositivePairNeighborSampler, graph_to_hetero_dataset
@@ -125,6 +125,7 @@ def heterogeneous_graphsage_dgi_sapbert_train_step(model: HeteroGraphSAGESapMetr
                                                                 trg_node_sem_groups=trg_semantic_groups,
                                                                 rel_types=rel_types,
                                                                 emb_size=model.graphsage_hidden_channels)
+    hetero_dataset = T.AddSelfLoops()(hetero_dataset)
     hetero_dataset = hetero_dataset.to(device)
 
     dgi_loss_1 = model.dgi_loss(x_dict=hetero_dataset.x_dict, edge_index_dict=hetero_dataset.edge_index_dict,
@@ -137,6 +138,7 @@ def heterogeneous_graphsage_dgi_sapbert_train_step(model: HeteroGraphSAGESapMetr
                                                                 trg_node_sem_groups=trg_semantic_groups,
                                                                 rel_types=rel_types,
                                                                 emb_size=model.graphsage_hidden_channels)
+    hetero_dataset = T.AddSelfLoops()(hetero_dataset)
     hetero_dataset = hetero_dataset.to(device)
     dgi_loss_2 = model.dgi_loss(hetero_dataset.x_dict, hetero_dataset.edge_index_dict,
                                 batch_size=batch_size, local_id2batch_id=local_id2batch_id, device=device)
@@ -148,9 +150,9 @@ def heterogeneous_graphsage_dgi_sapbert_train_step(model: HeteroGraphSAGESapMetr
     else:
         sapbert_loss = model(query_embed1=term_1_node_features, query_embed2=term_2_node_features,
                              concept_ids=concept_ids, batch_size=batch_size)
-    # logging.info(f"sapbert_loss {sapbert_loss.item()}")
-    # logging.info(f"dgi_loss_1 {dgi_loss_1.item()}")
-    # logging.info(f"dgi_loss_2 {dgi_loss_2.item()}")
+    logging.info(f"sapbert_loss {sapbert_loss.item()}")
+    logging.info(f"dgi_loss_1 {dgi_loss_1.item()}")
+    logging.info(f"dgi_loss_2 {dgi_loss_2.item()}")
     loss = sapbert_loss + (dgi_loss_1 + dgi_loss_2) * model.dgi_loss_weight
     # logging.info(f"loss {loss.item()}")
     return loss
