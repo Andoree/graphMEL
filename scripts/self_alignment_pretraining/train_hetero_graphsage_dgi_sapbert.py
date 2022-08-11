@@ -108,10 +108,10 @@ def heterogeneous_graphsage_dgi_sapbert_train_step(model: HeteroGraphSAGESapMetr
     term_2_input_ids, term_2_att_masks = batch["term_2_input"]
     term_2_input_ids, term_2_att_masks = term_2_input_ids.to(device), term_2_att_masks.to(device)
     edge_index = batch["edge_index"].to(device)
-    n_ids = batch["n_id"]
     src_semantic_groups = batch["src_semantic_groups"]
     trg_semantic_groups = batch["trg_semantic_groups"]
     batch_size = batch["batch_size"]
+    n_ids = batch["n_id"][:batch_size]
     concept_ids = batch["concept_ids"].to(device)
     rel_types = batch["rel_ids_list"]
 

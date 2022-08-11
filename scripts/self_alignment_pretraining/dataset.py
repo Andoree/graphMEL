@@ -512,7 +512,8 @@ def graph_to_hetero_dataset(edge_index, hetero_dataset, all_node_types, sem_grou
         unique_nodes_grouped_by_sem_type[src_sem_group].add(src_node_id.item())
         unique_nodes_grouped_by_sem_type[trg_sem_group].add(trg_node_id.item())
     for node_id in n_ids:
-        sem_gr = node_id2sem_group[node_id]
+        # logging.info(f"AA {node_id} {node_id.item()}")
+        sem_gr = node_id2sem_group[node_id.item()]
         if unique_nodes_grouped_by_sem_type.get(sem_gr) is None:
             unique_nodes_grouped_by_sem_type[sem_gr] = set()
         unique_nodes_grouped_by_sem_type[sem_gr].add(node_id.item())
