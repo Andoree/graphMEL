@@ -102,7 +102,7 @@ def parse_args():
 
 
 def heterogeneous_graphsage_dgi_sapbert_train_step(model: HeteroGraphSAGESapMetricLearning, hetero_dataset: HeteroData,
-                                                   batch, amp, device):
+                                                   node_id2sem_group, batch, amp, device):
     term_1_input_ids, term_1_att_masks = batch["term_1_input"]
     term_1_input_ids, term_1_att_masks = term_1_input_ids.to(device), term_1_att_masks.to(device)
     term_2_input_ids, term_2_att_masks = batch["term_2_input"]
@@ -125,7 +125,7 @@ def heterogeneous_graphsage_dgi_sapbert_train_step(model: HeteroGraphSAGESapMetr
                                                                 src_node_sem_groups=src_semantic_groups,
                                                                 trg_node_sem_groups=trg_semantic_groups,
                                                                 rel_types=rel_types, n_ids=n_ids,
-                                                                node_id2sem_group=hetero_dataset.node_id2sem_group,
+                                                                node_id2sem_group=node_id2sem_group,
                                                                 emb_size=model.graphsage_hidden_channels)
     hetero_dataset = T.AddSelfLoops()(hetero_dataset)
     hetero_dataset = hetero_dataset.to(device)
@@ -139,7 +139,7 @@ def heterogeneous_graphsage_dgi_sapbert_train_step(model: HeteroGraphSAGESapMetr
                                                                 sem_group_rel_combs=hetero_dataset.sem_group_rel_combs,
                                                                 trg_node_sem_groups=trg_semantic_groups,
                                                                 rel_types=rel_types, n_ids=n_ids,
-                                                                node_id2sem_group=hetero_dataset.node_id2sem_group,
+                                                                node_id2sem_group=node_id2sem_group,
                                                                 emb_size=model.graphsage_hidden_channels)
     hetero_dataset = T.AddSelfLoops()(hetero_dataset)
     hetero_dataset = hetero_dataset.to(device)
@@ -191,6 +191,7 @@ def train_heterogeneous_graphsage_dgi_sapbert(model: HeteroGraphSAGESapMetricLea
     for batch in tqdm(train_loader, miniters=len(train_loader) // 100, total=len(train_loader)):
         optimizer.zero_grad()
         loss = heterogeneous_graphsage_dgi_sapbert_train_step(model=model, hetero_dataset=train_loader.hetero_dataset,
+                                                              node_id2sem_group=train_loader.node_id2sem_group,
                                                               batch=batch, amp=amp, device=device)
         if amp:
             scaler.scale(loss).backward()
