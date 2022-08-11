@@ -467,6 +467,7 @@ class HeterogeneousPositivePairNeighborSampler(RawNeighborSampler):
             "term_1_input": term_1_input, "term_2_input": term_2_input, "edge_index": edge_index,
             "src_semantic_groups": src_semantic_groups, "trg_semantic_groups": trg_semantic_groups,
             "batch_size": batch_size, "concept_ids": triplet_concept_ids, "rel_ids_list": rel_ids_list,
+            "n_id" : n_id
         }
         return batch_dict
 
@@ -487,8 +488,9 @@ class HeterogeneousPositivePairNeighborSampler(RawNeighborSampler):
         return src_sem_groups_list, trg_sem_groups_list
 
 
-def graph_to_hetero_dataset(edge_index, hetero_dataset, all_node_types, sem_group_rel_combs,
-                            node_features, src_node_sem_groups, trg_node_sem_groups, rel_types, emb_size):
+def graph_to_hetero_dataset(edge_index, hetero_dataset, all_node_types, sem_group_rel_combs, n_ids,
+                            node_id2sem_group, node_features, src_node_sem_groups, trg_node_sem_groups,
+                            rel_types, emb_size):
     # hetero_dataset = HeteroData()
     unique_nodes_grouped_by_sem_type = {}
     node2id_grouped_by_sem_group = {}
@@ -509,6 +511,12 @@ def graph_to_hetero_dataset(edge_index, hetero_dataset, all_node_types, sem_grou
 
         unique_nodes_grouped_by_sem_type[src_sem_group].add(src_node_id.item())
         unique_nodes_grouped_by_sem_type[trg_sem_group].add(trg_node_id.item())
+    for node_id in n_ids:
+        sem_gr = node_id2sem_group[node_id]
+        if unique_nodes_grouped_by_sem_type.get(sem_gr) is None:
+            unique_nodes_grouped_by_sem_type[sem_gr] = set()
+        unique_nodes_grouped_by_sem_type[sem_gr].add(node_id.item())
+
 
     for sem_gr, sem_gr_node_ids in unique_nodes_grouped_by_sem_type.items():
         node2id_grouped_by_sem_group[sem_gr] = {orig_node_id: i for i, orig_node_id in enumerate(sem_gr_node_ids)}

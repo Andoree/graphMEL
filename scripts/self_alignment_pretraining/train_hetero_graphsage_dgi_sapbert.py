@@ -108,6 +108,7 @@ def heterogeneous_graphsage_dgi_sapbert_train_step(model: HeteroGraphSAGESapMetr
     term_2_input_ids, term_2_att_masks = batch["term_2_input"]
     term_2_input_ids, term_2_att_masks = term_2_input_ids.to(device), term_2_att_masks.to(device)
     edge_index = batch["edge_index"].to(device)
+    n_ids = batch["n_id"]
     src_semantic_groups = batch["src_semantic_groups"]
     trg_semantic_groups = batch["trg_semantic_groups"]
     batch_size = batch["batch_size"]
@@ -123,7 +124,8 @@ def heterogeneous_graphsage_dgi_sapbert_train_step(model: HeteroGraphSAGESapMetr
                                                                 sem_group_rel_combs=hetero_dataset.sem_group_rel_combs,
                                                                 src_node_sem_groups=src_semantic_groups,
                                                                 trg_node_sem_groups=trg_semantic_groups,
-                                                                rel_types=rel_types,
+                                                                rel_types=rel_types, n_ids=n_ids,
+                                                                node_id2sem_group=hetero_dataset.node_id2sem_group,
                                                                 emb_size=model.graphsage_hidden_channels)
     hetero_dataset = T.AddSelfLoops()(hetero_dataset)
     hetero_dataset = hetero_dataset.to(device)
@@ -136,7 +138,8 @@ def heterogeneous_graphsage_dgi_sapbert_train_step(model: HeteroGraphSAGESapMetr
                                                                 all_node_types=hetero_dataset.all_node_types,
                                                                 sem_group_rel_combs=hetero_dataset.sem_group_rel_combs,
                                                                 trg_node_sem_groups=trg_semantic_groups,
-                                                                rel_types=rel_types,
+                                                                rel_types=rel_types, n_ids=n_ids,
+                                                                node_id2sem_group=hetero_dataset.node_id2sem_group,
                                                                 emb_size=model.graphsage_hidden_channels)
     hetero_dataset = T.AddSelfLoops()(hetero_dataset)
     hetero_dataset = hetero_dataset.to(device)
