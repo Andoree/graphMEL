@@ -31,25 +31,25 @@ python ../../Fair-Evaluation-BERT/eval_bert_ranking.py --model_dir $MODEL \
     --vocab "/home/etutubalina/classification_transfer_learning/graphmel/data/medical_crossing_data/data_medical_crossing/vocabs/mantra_es_dict_DISO.txt"
 
 
-echo "dataset mantra/de/ SPLIT DISO-fair_exact_vocab"
-echo VOCAB "mantra_de_dict_DISO.txt"
+echo "dataset mantra/nl/ SPLIT DISO-fair_exact_vocab"
+echo VOCAB "mantra_nl_dict_DISO.txt"
 python ../../Fair-Evaluation-BERT/eval_bert_ranking.py --model_dir $MODEL \
-    --data_folder "/home/etutubalina/classification_transfer_learning/graphmel/data/medical_crossing_data/data_medical_crossing/datasets/mantra/de/DISO-fair_exact_vocab" \
-    --vocab "/home/etutubalina/classification_transfer_learning/graphmel/data/medical_crossing_data/data_medical_crossing/vocabs/mantra_de_dict_DISO.txt"
+    --data_folder "/home/etutubalina/classification_transfer_learning/graphmel/data/medical_crossing_data/data_medical_crossing/datasets/mantra/nl/DISO-fair_exact_vocab" \
+    --vocab "/home/etutubalina/classification_transfer_learning/graphmel/data/medical_crossing_data/data_medical_crossing/vocabs/mantra_nl_dict_DISO.txt"
 
 
-echo "dataset mantra/de/ SPLIT DISO"
-echo VOCAB "/home/etutubalina/classification_transfer_learning/graphmel/data/medical_crossing_data/data_medical_crossing/vocabs/mantra_de_dict_DISO.txt"
+echo "dataset mantra/nl/ SPLIT DISO"
+echo VOCAB "/home/etutubalina/classification_transfer_learning/graphmel/data/medical_crossing_data/data_medical_crossing/vocabs/mantra_nl_dict_DISO.txt"
 python ../../Fair-Evaluation-BERT/eval_bert_ranking.py --model_dir $MODEL \
-    --data_folder "/home/etutubalina/classification_transfer_learning/graphmel/data/medical_crossing_data/data_medical_crossing/datasets/mantra/de/DISO" \
-    --vocab "/home/etutubalina/classification_transfer_learning/graphmel/data/medical_crossing_data/data_medical_crossing/vocabs/mantra_de_dict_DISO.txt"
+    --data_folder "/home/etutubalina/classification_transfer_learning/graphmel/data/medical_crossing_data/data_medical_crossing/datasets/mantra/nl/DISO" \
+    --vocab "/home/etutubalina/classification_transfer_learning/graphmel/data/medical_crossing_data/data_medical_crossing/vocabs/mantra_nl_dict_DISO.txt"
 
 
-echo "dataset mantra/de/ SPLIT DISO-fair_levenshtein_0.2"
-echo VOCAB "/home/etutubalina/classification_transfer_learning/graphmel/data/medical_crossing_data/data_medical_crossing/vocabs/mantra_de_dict_DISO.txt"
+echo "dataset mantra/nl/ SPLIT DISO-fair_levenshtein_0.2"
+echo VOCAB "/home/etutubalina/classification_transfer_learning/graphmel/data/medical_crossing_data/data_medical_crossing/vocabs/mantra_nl_dict_DISO.txt"
 python ../../Fair-Evaluation-BERT/eval_bert_ranking.py --model_dir $MODEL \
-    --data_folder "/home/etutubalina/classification_transfer_learning/graphmel/data/medical_crossing_data/data_medical_crossing/datasets/mantra/de/DISO-fair_levenshtein_0.2" \
-    --vocab "/home/etutubalina/classification_transfer_learning/graphmel/data/medical_crossing_data/data_medical_crossing/vocabs/mantra_de_dict_DISO.txt"
+    --data_folder "/home/etutubalina/classification_transfer_learning/graphmel/data/medical_crossing_data/data_medical_crossing/datasets/mantra/nl/DISO-fair_levenshtein_0.2" \
+    --vocab "/home/etutubalina/classification_transfer_learning/graphmel/data/medical_crossing_data/data_medical_crossing/vocabs/mantra_nl_dict_DISO.txt"
 
 
 echo "dataset mantra/fr/ SPLIT DISO-fair_exact_vocab"
