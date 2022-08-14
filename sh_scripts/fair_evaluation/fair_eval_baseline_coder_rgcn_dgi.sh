@@ -7,7 +7,7 @@
 #SBATCH --gpus=1
 
 export CUDA_VISIBLE_DEVICES=0
-MODEL = "/home/etutubalina/classification_transfer_learning/graphmel/models/GanjinZero/coder_all"
+MODEL="/home/etutubalina/classification_transfer_learning/graphmel/models/GanjinZero/coder_all"
 
 
 echo "dataset mantra/es/ SPLIT DISO-fair_exact_vocab"

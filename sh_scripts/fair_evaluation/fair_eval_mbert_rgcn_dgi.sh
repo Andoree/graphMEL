@@ -7,7 +7,7 @@
 #SBATCH --gpus=1
 
 export CUDA_VISIBLE_DEVICES=0
-MODEL = "/home/etutubalina/classification_transfer_learning/graphmel/pretrained_graph_sapbert_encoders/2020AB/RGCN_DGI_SapBERT/MULTILINGUAL_FULL/dgi_0.001_rgcn_[5]_768--None-96_rellr_2e-05_b_128_rgcn_conv/checkpoint_e_1_steps_159512.pth"
+MODEL="/home/etutubalina/classification_transfer_learning/graphmel/pretrained_graph_sapbert_encoders/2020AB/RGCN_DGI_SapBERT/MULTILINGUAL_FULL/dgi_0.001_rgcn_[5]_768--None-96_rellr_2e-05_b_128_rgcn_conv/checkpoint_e_1_steps_159512.pth"
 
 
 echo "dataset mantra/es/ SPLIT DISO-fair_exact_vocab"
