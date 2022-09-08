@@ -7,29 +7,29 @@ import argparse
 import torch
 from torch.cuda.amp import autocast
 from torch.cuda.amp import GradScaler
-
+import torch.nn as nn
 import logging
 import time
 import os
 import random
 from tqdm import tqdm
-from transformers import AutoTokenizer, AutoModel
+from transformers import AutoModel
 
 from graphmel.scripts.evaluation.evaluate_all_checkpoints_in_dir import evaluate_single_checkpoint_acc1_acc5
 from graphmel.scripts.evaluation.utils import read_dataset, read_vocab
 from graphmel.scripts.self_alignment_pretraining.dataset import PositivePairNeighborSampler, \
     PositiveRelationalNeighborSampler
-from graphmel.scripts.self_alignment_pretraining.graph_sapbert_models import RGCNDGISapMetricLearning, \
-    RGCNDGISapMetricLearningV2
+from graphmel.scripts.self_alignment_pretraining.graph_sapbert_models import GATv2DGISapMetricLearning, \
+    GATv2DGISapMetricLearningV2
 from graphmel.scripts.self_alignment_pretraining.sapbert_training import train_graph_sapbert_model
 from graphmel.scripts.training.data.dataset import load_positive_pairs, map_terms2term_id, \
     create_term_id2tokenizer_output, load_data_and_bert_model, convert_edges_tuples_to_edge_index, \
     convert_edges_tuples_to_oriented_edge_index_with_relations
 from graphmel.scripts.utils.io import save_dict, load_dict, save_encoder_from_checkpoint
 
-
 # import wandb
 # wandb.init(project="sapbert")
+from graphmel.scripts.utils.umls2graph import add_loops_to_edges_list
 
 
 def parse_args():
@@ -51,18 +51,19 @@ def parse_args():
     parser.add_argument('--output_dir', type=str, required=True,
                         help='Directory for output')
 
-    # GCN encoder configuration
-    # parser.add_argument('--rgcn_num_hidden_channels', type=int)
-    # parser.add_argument('--rgcn_num_bases', type=int)
-    # parser.add_argument('--rgcn_num_blocks', type=int)
+    # GAT and DGI  configuration
+    # parser.add_argument('--gat_num_layers', type=int)
+    # parser.add_argument('--gat_num_hidden_channels', type=int)
+    # parser.add_argument('--gat_num_neighbors', type=int, nargs='+')
+    # parser.add_argument('--gat_num_att_heads', type=int)
+    # parser.add_argument('--gat_dropout_p', type=float)
+    # parser.add_argument('--gat_attention_dropout_p', type=float)
+    # parser.add_argument('--gat_use_relation_features', action="store_true")
+    #
     # parser.add_argument('--use_rel_or_rela', type=str, choices=['rel', 'rela', ])
-    # parser.add_argument('--rgcn_use_fast_conv', action="store_true")
-    # parser.add_argument('--rgcn_num_neighbors', type=int, nargs='+')
-    # parser.add_argument('--rgcn_num_layers', type=int, )
-    # parser.add_argument('--rgcn_dropout_p', type=float, )
+    # parser.add_argument('--gat_edge_dim', type=int, required=False, default=None)
     # parser.add_argument('--dgi_loss_weight', type=float)
     # parser.add_argument('--remove_selfloops', action="store_true")
-
 
     # Evaluation data path
     parser.add_argument('--data_folder', help='Path to the directory containing BioSyn format dataset', type=str,
@@ -81,9 +82,9 @@ def parse_args():
     parser.add_argument('--weight_decay',
                         help='weight decay',
                         default=0.01, type=float)
-    # parser.add_argument('--batch_size',
-    #                     help='train batch size',
-    #                     default=240, type=int)
+    parser.add_argument('--batch_size',
+                        help='train batch size',
+                        default=240, type=int)
     parser.add_argument('--num_epochs',
                         help='epoch to train',
                         default=3, type=int)
@@ -110,7 +111,7 @@ def parse_args():
     return args
 
 
-def rgcn_dgi_sapbert_train_step(model: RGCNDGISapMetricLearning, batch, amp, device):
+def gatv2_dgi_sapbert_train_step(model: GATv2DGISapMetricLearning, batch, amp, device):
     term_1_input_ids, term_1_att_masks = batch["term_1_input"]
     term_1_input_ids, term_1_att_masks = term_1_input_ids.to(device), term_1_att_masks.to(device)
     term_2_input_ids, term_2_att_masks = batch["term_2_input"]
@@ -118,8 +119,7 @@ def rgcn_dgi_sapbert_train_step(model: RGCNDGISapMetricLearning, batch, amp, dev
     adjs = batch["adjs"]
     rel_ids_list = batch["rel_ids_list"]
     if len(rel_ids_list) > 1 or len(adjs) > 1:
-        raise ValueError(
-            "To make model more lightweighted, RGCN+DGI+SapBert does not support k-hop neighbors for k > 1 ")
+        raise ValueError("To make model more lightweighted, GATv2+DGI+SapBert does not support multiple GATv2 layers")
     edge_index = adjs[0].edge_index.to(device)
     edge_type = rel_ids_list[0].to(device)
     batch_size = batch["batch_size"]
@@ -138,7 +138,7 @@ def rgcn_dgi_sapbert_train_step(model: RGCNDGISapMetricLearning, batch, amp, dev
     return loss
 
 
-def rgcn_dgi_sapbert_eval_step(model: RGCNDGISapMetricLearning, batch, amp, device):
+def gatv2_dgi_sapbert_eval_step(model: GATv2DGISapMetricLearning, batch, amp, device):
     term_1_input_ids, term_1_att_masks = batch["term_1_input"]
     term_1_input_ids, term_1_att_masks = term_1_input_ids.to(device), term_1_att_masks.to(device)
     term_2_input_ids, term_2_att_masks = batch["term_2_input"]
@@ -159,14 +159,14 @@ def rgcn_dgi_sapbert_eval_step(model: RGCNDGISapMetricLearning, batch, amp, devi
     return sapbert_loss
 
 
-def train_rgcn_dgi_sapbert(model: RGCNDGISapMetricLearning, train_loader: PositivePairNeighborSampler,
-                           optimizer: torch.optim.Optimizer, scaler, amp, device):
+def train_gatv2_dgi_sapbert(model: GATv2DGISapMetricLearning, train_loader: PositivePairNeighborSampler,
+                            optimizer: torch.optim.Optimizer, scaler, amp, device):
     model.train()
     total_loss = 0
     num_steps = 0
     for batch in tqdm(train_loader, miniters=len(train_loader) // 100, total=len(train_loader)):
         optimizer.zero_grad()
-        loss = rgcn_dgi_sapbert_train_step(model=model, batch=batch, amp=amp, device=device)
+        loss = gatv2_dgi_sapbert_train_step(model=model, batch=batch, amp=amp, device=device)
         if amp:
             scaler.scale(loss).backward()
             scaler.step(optimizer)
@@ -177,20 +177,19 @@ def train_rgcn_dgi_sapbert(model: RGCNDGISapMetricLearning, train_loader: Positi
         num_steps += 1
         total_loss += float(loss)
         # wandb.log({"Train loss": loss.item()})
-        # logging.info(f"num_steps  {num_steps}, Train step loss: {loss}")
+        # logging.info(f"num_steps {num_steps}, Step loss {loss}")
     total_loss /= (num_steps + 1e-9)
-    print("total_loss", total_loss)
     return total_loss, num_steps
 
 
-def val_rgcn_dgi_sapbert(model: RGCNDGISapMetricLearning, val_loader: PositivePairNeighborSampler,
-                         amp, device):
+def val_gatv2_dgi_sapbert(model: GATv2DGISapMetricLearning, val_loader: PositivePairNeighborSampler,
+                          amp, device):
     model.eval()
     total_loss = 0
     num_steps = 0
     with torch.no_grad():
         for batch in tqdm(val_loader, miniters=len(val_loader) // 100, total=len(val_loader)):
-            loss = rgcn_dgi_sapbert_eval_step(model=model, batch=batch, amp=amp, device=device)
+            loss = gatv2_dgi_sapbert_eval_step(model=model, batch=batch, amp=amp, device=device)
             num_steps += 1
             total_loss += float(loss)
             # wandb.log({"Val loss": loss.item()})
@@ -199,16 +198,18 @@ def val_rgcn_dgi_sapbert(model: RGCNDGISapMetricLearning, val_loader: PositivePa
 
 
 def main(args):
-
+    print(args)
     param_grid = {
-        "model_class" : (RGCNDGISapMetricLearning, RGCNDGISapMetricLearningV2),
-        "rgcn_num_hidden_channels": (256, 768),
-        "rgcn_num_blocks": (96, 16),
-        "rgcn_num_neighbors": (2, 3),
-        "rgcn_num_layers": (1, 3, 5),
-        "rgcn_dropout_p": (0.1, 0.3),
+        "model_class": (GATv2DGISapMetricLearning, GATv2DGISapMetricLearningV2),
+        "gat_num_neighbors": (2, 3),
+        "gat_num_hidden_channels": (256, 768),
+        "gat_num_layers": (1, 3, 5),
+        "gat_dropout_p": (0.1, 0.3),
+        "gat_num_att_heads": (1, 2),
+        "gat_attention_dropout_p": (0.1, 0.3),
+        "gat_use_relation_features": (False, True),
+        "gat_edge_dim": (16, 32),
         "dgi_loss_weight": (1., 0.1, 0.01),
-        "rgcn_use_fast_conv": (True,),
         "batch_size": (128, 96),
     }
 
@@ -223,9 +224,11 @@ def main(args):
                                  val_node2terms_path=node2terms_path,
                                  val_edges_path=edges_path, text_encoder_name=args.text_encoder,
                                  text_encoder_seq_length=args.max_length, drop_relations_info=False)
+
     del _
-    rel2id = load_dict(rel2id_path)
-    rela2id = load_dict(rela2id_path)
+
+    rel2id = {rel: int(i) for rel, i in load_dict(rel2id_path).items()}
+    rela2id = {rela: int(i) for rela, i in load_dict(rela2id_path).items()}
 
     if args.use_rel_or_rela == "rel":
         num_relations = len(rel2id.keys())
@@ -233,7 +236,9 @@ def main(args):
         num_relations = len(rela2id.keys())
     else:
         raise ValueError(f"Invalid 'use_rel_or_rela' parameter: {args.use_rel_or_rela}")
-
+    if not args.remove_selfloops:
+        add_loops_to_edges_list(node_id2terms_list=node_id2token_ids_dict, rel2rel_id=rel2id, rela2rela_id=rela2id,
+                                edges=edges_tuples)
     edge_index, edge_rel_ids = \
         convert_edges_tuples_to_oriented_edge_index_with_relations(edges_tuples, args.use_rel_or_rela,
                                                                    remove_selfloops=True)
@@ -254,6 +259,7 @@ def main(args):
                                                             tokenizer=bert_tokenizer)
     del train_pos_pairs_term_1_list
     del train_pos_pairs_term_2_list
+
     train_pos_pairs_term_1_id_list = np.array(train_pos_pairs_term_1_id_list)
     train_pos_pairs_term_2_id_list = np.array(train_pos_pairs_term_2_id_list)
     assert len(train_pos_pairs_term_1_id_list) == len(train_pos_pairs_term_2_id_list) \
@@ -287,27 +293,28 @@ def main(args):
         best_params_dict[vocab]["acc_1"] = -1.
         best_params_dict[vocab]["acc_5"] = -1.
 
-
     for param_name, param_values_list in param_grid.items():
         for model_setup in itertools.product(*param_values_list):
             param_dict = {name: val for name, val in zip(param_name, model_setup)}
             model_class = param_dict["model_class"]
-            rgcn_num_hidden_channels = param_dict["rgcn_num_hidden_channels"]
-            rgcn_num_blocks = param_dict["rgcn_num_blocks"]
-            rgcn_num_neighbors = list(param_dict["rgcn_num_neighbors"])
-            rgcn_num_layers = param_dict["rgcn_num_layers"]
-            rgcn_dropout_p = param_dict["rgcn_dropout_p"]
+            gat_num_neighbors = list(param_dict["gat_num_neighbors"])
+            gat_num_hidden_channels = param_dict["gat_num_hidden_channels"]
+            gat_num_layers = param_dict["gat_num_layers"]
+            gat_dropout_p = param_dict["gat_dropout_p"]
+            gat_num_att_heads = param_dict["gat_num_att_heads"]
+            gat_attention_dropout_p = param_dict["gat_attention_dropout_p"]
+            gat_edge_dim = param_dict["gat_edge_dim"]
+            gat_use_relation_features = param_dict["gat_use_relation_features"]
             dgi_loss_weight = param_dict["dgi_loss_weight"]
-            rgcn_use_fast_conv = param_dict["rgcn_use_fast_conv"]
             batch_size = param_dict["batch_size"]
 
-            base_dir = args.output_dir
-            conv_type = "fast_rgcn_conv" if rgcn_use_fast_conv else "rgcn_conv"
-            output_subdir = f"dgi_{dgi_loss_weight}_rgcn_{rgcn_num_layers}_{rgcn_num_neighbors}_" \
-                            f"{rgcn_dropout_p}_{rgcn_num_hidden_channels}-" \
-                            f"{rgcn_num_blocks}_rel_lr_{args.learning_rate}_b_{batch_size}" \
-                            f"_{conv_type}"
-            output_dir = os.path.join(base_dir, output_subdir)
+            output_dir = args.output_dir
+            output_subdir = f"gatv2_{'.'.join((str(x) for x in gat_num_neighbors))}_{gat_num_hidden_channels}" \
+                            f"_{gat_num_layers}_{gat_dropout_p}_" \
+                            f"{gat_num_att_heads}_{gat_attention_dropout_p}_{args.gat_use_relation_features}_" \
+                            f"rel_{gat_edge_dim}_remove_loops_True_" \
+                            f"dgi_{dgi_loss_weight}_lr_{args.learning_rate}_b_{batch_size}"
+            output_dir = os.path.join(output_dir, output_subdir)
             if not os.path.exists(output_dir) and output_dir != '':
                 os.makedirs(output_dir)
             model_descr_path = os.path.join(output_dir, "model_description.tsv")
@@ -321,14 +328,12 @@ def main(args):
             torch.cuda.random.manual_seed(args.random_seed)
             torch.cuda.random.manual_seed_all(args.random_seed)
             torch.backends.cudnn.deterministic = True
-            # tokenizer = AutoTokenizer.from_pretrained(args.text_encoder, do_lower_case=True, use_fast=True)
-            bert_encoder = AutoModel.from_pretrained(args.text_encoder, )
 
             train_pos_pair_sampler = PositiveRelationalNeighborSampler(
                 pos_pairs_term_1_id_list=train_pos_pairs_term_1_id_list,
                 pos_pairs_term_2_id_list=train_pos_pairs_term_2_id_list,
                 pos_pairs_concept_ids_list=train_pos_pairs_concept_ids,
-                sizes=rgcn_num_neighbors, edge_index=edge_index,
+                sizes=gat_num_neighbors, edge_index=edge_index,
                 term_id2tokenizer_output=train_term_id2tok_out,
                 rel_ids=edge_rel_ids, node_idx=train_pos_pairs_idx,
                 node_id2token_ids_dict=node_id2token_ids_dict,
@@ -341,16 +346,18 @@ def main(args):
             else:
                 scaler = None
 
-            model = model_class(bert_encoder, num_rgcn_channels=rgcn_num_hidden_channels,
-                                             dgi_loss_weight=dgi_loss_weight, rgcn_dropout_p=rgcn_dropout_p,
-                                             num_relations=num_relations, num_bases=None,
-                                             num_blocks=rgcn_num_blocks, use_fast_conv=rgcn_use_fast_conv,
-                                             num_rgcn_layers=rgcn_num_layers, use_cuda=args.use_cuda, loss=args.loss,
-                                             multigpu_flag=args.parallel, use_miner=args.use_miner,
-                                             miner_margin=args.miner_margin,
-                                             type_of_triplets=args.type_of_triplets, agg_mode=args.agg_mode).to(device)
+            model = model_class(bert_encoder, gat_num_hidden_channels=gat_num_hidden_channels,
+                                gat_num_att_heads=gat_num_att_heads, gat_num_layers=gat_num_layers,
+                                gat_attention_dropout_p=gat_attention_dropout_p,
+                                gat_edge_dim=gat_edge_dim, gat_dropout_p=gat_dropout_p,
+                                gat_use_relation_features=gat_use_relation_features,
+                                num_relations=num_relations, dgi_loss_weight=dgi_loss_weight,
+                                use_cuda=args.use_cuda, loss=args.loss,
+                                multigpu_flag=args.parallel, use_miner=args.use_miner,
+                                miner_margin=args.miner_margin,
+                                type_of_triplets=args.type_of_triplets, agg_mode=args.agg_mode).to(device)
             start = time.time()
-            train_graph_sapbert_model(model=model, train_epoch_fn=train_rgcn_dgi_sapbert, val_epoch_fn=val_epoch_fn,
+            train_graph_sapbert_model(model=model, train_epoch_fn=train_gatv2_dgi_sapbert, val_epoch_fn=val_epoch_fn,
                                       train_loader=train_pos_pair_sampler,
                                       val_loader=val_pos_pair_sampler,
                                       learning_rate=args.learning_rate, weight_decay=args.weight_decay,
@@ -395,7 +402,6 @@ def main(args):
                 with codecs.open(grid_search_log_path, 'a+', encoding="utf-8") as log_file:
                     log_file.write(f"{s}\n")
                 logging.info(f"Dataset: {dataset_name}, Acc@1: {acc_1}, Acc@5 : {acc_5}")
-
     for dataset_name in best_accs_dict.keys():
         logging.info(f"DATASET {dataset_name}")
         best_param_dict_acc_1 = best_params_dict[dataset_name]["acc_1"]
@@ -411,7 +417,6 @@ def main(args):
         logging.info(f"BEST ACC@5 SETUP:")
         for k, v in best_param_dict_acc_5:
             logging.info(f"\t{k}={v}")
-
 
 
 if __name__ == '__main__':
