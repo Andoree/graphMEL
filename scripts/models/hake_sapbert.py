@@ -182,15 +182,15 @@ class HakeSapMetricLearning(nn.Module):
         pos_child_emb = self.bert_encoder(pos_child_input_ids.squeeze(1), attention_mask=pos_child_att_mask.squeeze(1),
                                           return_dict=True)['last_hidden_state'][:, 0].unsqueeze(1)
         neg_child_rel_corr_h_emb = \
-        self.bert_encoder(neg_child_rel_corr_h_input_ids.view((-1, child_negative_seq_length)),
-                          attention_mask=neg_child_rel_corr_h_input_ids.view((-1, child_negative_seq_length)),
-                          return_dict=True)['last_hidden_state'][:, 0] \
-            .view((child_batch_size, child_negative_sample_size, -1))
+            self.bert_encoder(neg_child_rel_corr_h_input_ids.view((-1, child_negative_seq_length)),
+                              attention_mask=neg_child_rel_corr_h_input_ids.view((-1, child_negative_seq_length)),
+                              return_dict=True)['last_hidden_state'][:, 0] \
+                .view((child_batch_size, child_negative_sample_size, -1))
         neg_child_rel_corr_t_emb = \
-        self.bert_encoder(neg_child_rel_corr_t_input_ids.view((-1, child_negative_seq_length)),
-                          attention_mask=neg_child_rel_corr_t_att_mask.view((-1, child_negative_seq_length)),
-                          return_dict=True)['last_hidden_state'][:, 0] \
-            .view((child_batch_size, child_negative_sample_size, -1))
+            self.bert_encoder(neg_child_rel_corr_t_input_ids.view((-1, child_negative_seq_length)),
+                              attention_mask=neg_child_rel_corr_t_att_mask.view((-1, child_negative_seq_length)),
+                              return_dict=True)['last_hidden_state'][:, 0] \
+                .view((child_batch_size, child_negative_sample_size, -1))
 
         mean_query = torch.mean(torch.stack((query_embed1, query_embed2)), dim=0).unsqueeze(1)
 
@@ -242,11 +242,11 @@ class HakeSapMetricLearning(nn.Module):
         weights_sum = hierarchical_sample_weight.sum()
         positive_parent_loss = - (hierarchical_sample_weight * score_pos_parent).sum() / weights_sum
         negative_parent_loss = - (hierarchical_sample_weight * (score_neg_parent_corrupted_head +
-                                                                score_neg_parent_corrupted_tail)).sum() / weights_sum
+                                                                score_neg_parent_corrupted_tail) / 2).sum() / weights_sum
 
         positive_child_loss = - (hierarchical_sample_weight * score_pos_child).sum() / weights_sum
         negative_child_loss = - (hierarchical_sample_weight * (score_neg_child_corrupted_head +
-                                                               score_neg_child_corrupted_tail)).sum() / weights_sum
+                                                               score_neg_child_corrupted_tail) / 2).sum() / weights_sum
 
         hake_loss = (positive_parent_loss + negative_parent_loss + positive_child_loss + negative_child_loss) / 4
 

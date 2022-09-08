@@ -51,6 +51,8 @@ def parse_args():
     parser.add_argument('--use_rel_or_rela', type=str, choices=['rel', 'rela', ])
     parser.add_argument('--rgcn_use_fast_conv', action="store_true")
     parser.add_argument('--rgcn_num_neighbors', type=int, nargs='+')
+    parser.add_argument('--rgcn_num_layers', type=int, )
+    parser.add_argument('--rgcn_dropout_p', type=float, )
     parser.add_argument('--dgi_loss_weight', type=float)
     parser.add_argument('--remove_selfloops', action="store_true")
 
@@ -102,7 +104,8 @@ def rgcn_dgi_sapbert_train_step(model: RGCNDGISapMetricLearning, batch, amp, dev
     adjs = batch["adjs"]
     rel_ids_list = batch["rel_ids_list"]
     if len(rel_ids_list) > 1 or len(adjs) > 1:
-        raise ValueError("To make model more lightweighted, RGCN+DGI+SapBert does not support multiple RGCN layers")
+        raise ValueError(
+            "To make model more lightweighted, RGCN+DGI+SapBert does not support k-hop neighbors for k > 1 ")
     edge_index = adjs[0].edge_index.to(device)
     edge_type = rel_ids_list[0].to(device)
     batch_size = batch["batch_size"]
@@ -185,9 +188,10 @@ def main(args):
     print(args)
     output_dir = args.output_dir
     conv_type = "fast_rgcn_conv" if args.rgcn_use_fast_conv else "rgcn_conv"
-    output_subdir = f"dgi_{args.dgi_loss_weight}_rgcn_{args.rgcn_num_neighbors}_{args.rgcn_num_hidden_channels}-" \
-                    f"-{args.rgcn_num_bases}-{args.rgcn_num_blocks}_{args.use_rel_or_rela}" \
-                    f"lr_{args.learning_rate}_b_{args.batch_size}_{conv_type}"
+    output_subdir = f"dgi_{args.dgi_loss_weight}_rgcn_{args.rgcn_num_layers}_{args.rgcn_num_neighbors}_" \
+                    f"{args.rgcn_dropout_p}_{args.rgcn_num_hidden_channels}--{args.rgcn_num_bases}-" \
+                    f"{args.rgcn_num_blocks}_{args.use_rel_or_rela}_lr_{args.learning_rate}_b_{args.batch_size}" \
+                    f"_{conv_type}"
     output_dir = os.path.join(output_dir, output_subdir)
     if not os.path.exists(output_dir) and output_dir != '':
         os.makedirs(output_dir)
@@ -291,11 +295,12 @@ def main(args):
         scaler = GradScaler()
     else:
         scaler = None
+
     model = RGCNDGISapMetricLearning(bert_encoder, num_rgcn_channels=args.rgcn_num_hidden_channels,
-                                     dgi_loss_weight=args.dgi_loss_weight,
+                                     dgi_loss_weight=args.dgi_loss_weight, rgcn_dropout_p=args.rgcn_dropout_p,
                                      num_relations=num_relations, num_bases=args.rgcn_num_bases,
                                      num_blocks=args.rgcn_num_blocks, use_fast_conv=args.rgcn_use_fast_conv,
-                                     use_cuda=args.use_cuda, loss=args.loss,
+                                     num_rgcn_layers=args.rgcn_num_layers, use_cuda=args.use_cuda, loss=args.loss,
                                      multigpu_flag=args.parallel, use_miner=args.use_miner,
                                      miner_margin=args.miner_margin,
                                      type_of_triplets=args.type_of_triplets, agg_mode=args.agg_mode).to(device)

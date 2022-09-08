@@ -45,11 +45,14 @@ def parse_args():
                         help='Directory for output')
 
     # GAT and DGI  configuration
+    parser.add_argument('--gat_num_layers', type=int)
     parser.add_argument('--gat_num_hidden_channels', type=int)
     parser.add_argument('--gat_num_neighbors', type=int, nargs='+')
     parser.add_argument('--gat_num_att_heads', type=int)
+    parser.add_argument('--gat_dropout_p', type=float)
     parser.add_argument('--gat_attention_dropout_p', type=float)
     parser.add_argument('--gat_use_relation_features', action="store_true")
+
     parser.add_argument('--use_rel_or_rela', type=str, choices=['rel', 'rela', ])
     parser.add_argument('--gat_edge_dim', type=int, required=False, default=None)
     parser.add_argument('--dgi_loss_weight', type=float)
@@ -184,7 +187,8 @@ def val_gatv2_dgi_sapbert(model: GATv2DGISapMetricLearning, val_loader: Positive
 def main(args):
     print(args)
     output_dir = args.output_dir
-    output_subdir = f"gatv2_{'.'.join((str(x) for x in args.gat_num_neighbors))}_{args.gat_num_hidden_channels}_" \
+    output_subdir = f"gatv2_{'.'.join((str(x) for x in args.gat_num_neighbors))}_{args.gat_num_hidden_channels}" \
+                    f"_{args.gat_num_layers}_{args.gat_dropout_p}_" \
                     f"{args.gat_num_att_heads}_{args.gat_attention_dropout_p}_{args.gat_use_relation_features}_" \
                     f"{args.use_rel_or_rela}_{args.gat_edge_dim}_remove_loops_{args.remove_selfloops}_" \
                     f"dgi_{args.dgi_loss_weight}_lr_{args.learning_rate}_b_{args.batch_size}"
@@ -293,10 +297,11 @@ def main(args):
         scaler = GradScaler()
     else:
         scaler = None
+
     model = GATv2DGISapMetricLearning(bert_encoder, gat_num_hidden_channels=args.gat_num_hidden_channels,
-                                      gat_num_att_heads=args.gat_num_att_heads,
+                                      gat_num_att_heads=args.gat_num_att_heads, gat_num_layers=args.gat_num_layers,
                                       gat_attention_dropout_p=args.gat_attention_dropout_p,
-                                      gat_edge_dim=args.gat_edge_dim,
+                                      gat_edge_dim=args.gat_edge_dim, gat_dropout_p=args.gat_dropout_p,
                                       gat_use_relation_features=args.gat_use_relation_features,
                                       num_relations=num_relations, dgi_loss_weight=args.dgi_loss_weight,
                                       use_cuda=args.use_cuda, loss=args.loss,

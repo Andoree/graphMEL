@@ -19,7 +19,7 @@ from graphmel.scripts.self_alignment_pretraining.dataset import SapMetricLearnin
 from graphmel.scripts.self_alignment_pretraining.sapbert_training import train_graph_sapbert_model
 from graphmel.scripts.training.data.dataset import load_positive_pairs, map_terms2term_id, \
     create_term_id2tokenizer_output, load_tree_dataset_and_bert_model
-from graphmel.scripts.utils.io import save_dict
+from graphmel.scripts.utils.io import save_dict, read_mrsty
 
 
 # import wandb
@@ -54,7 +54,8 @@ def parse_args():
     parser.add_argument('--hake_loss_weight', type=float)
     parser.add_argument('--filter_transitive_relations', action="store_true")
     parser.add_argument('--filter_semantic_type_nodes', action="store_true")
-    parser.add_argument('--node_id_lower_bound_filtering', type=int, required=False)
+    # parser.add_argument('--node_id_lower_bound_filtering', type=int, required=False)
+    parser.add_argument('--mrsty', type=str, required=False)
 
     # Tokenizer settings
     parser.add_argument('--max_length', default=25, type=int)
@@ -239,16 +240,23 @@ def main(args):
                                          parent_children_adjacency_list_path=parent_children_adjacency_list_path,
                                          child_parents_adjacency_list_path=child_parents_adjacency_list_path,
                                          text_encoder_seq_length=args.max_length, )
+
     if args.filter_transitive_relations:
+        parent_children_adjacency_list = {i: set(lst) for i, lst in parent_children_adjacency_list.items()}
+        child_parents_adjacency_list = {i: set(lst) for i, lst in child_parents_adjacency_list.items()}
         filter_transitive_hierarchical_relations(node_id2children=parent_children_adjacency_list,
                                                  node_id2parents=child_parents_adjacency_list)
+        parent_children_adjacency_list = {i: list(s) for i, s in parent_children_adjacency_list.items()}
+        child_parents_adjacency_list = {i: list(s) for i, s in child_parents_adjacency_list.items()}
+
     if args.filter_semantic_type_nodes:
-        node_id_lower_bound_filtering = args.node_id_lower_bound_filtering
+        # node_id_lower_bound_filtering = args.node_id_lower_bound_filtering
+        mrsty_df = read_mrsty(args.mrsty)
         filter_hierarchical_semantic_type_nodes(node_id2children=parent_children_adjacency_list,
                                                 node_id2parents=child_parents_adjacency_list,
                                                 node_id2_terms=node_id2token_ids_dict,
-                                                node_id_lower_bound_filtering=node_id_lower_bound_filtering)
-
+                                                mrsty_df=mrsty_df)
+        del mrsty_df
 
     train_positive_pairs_path = os.path.join(args.train_dir, f"train_pos_pairs")
     train_pos_pairs_term_1_list, train_pos_pairs_term_2_list, train_pos_pairs_concept_ids = \
@@ -261,7 +269,6 @@ def main(args):
     del train_pos_pairs_term_1_list
     del train_pos_pairs_term_2_list
     del train_term2id
-
 
     train_dataset = SapMetricLearningHierarchicalDataset(pos_pairs_term_1_id_list=train_pos_pairs_term_1_id_list,
                                                          pos_pairs_term_2_id_list=train_pos_pairs_term_2_id_list,

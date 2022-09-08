@@ -232,7 +232,7 @@ class GCNDGISapMetricLearning(nn.Module):
             self.bert_encoder = bert_encoder
 
         self.gcn_conv = GCNLayer(self.bert_hidden_dim, num_gcn_channels, add_self_loops=add_self_loops)
-        self.dgi = DeepGraphInfomax(
+        self.dgi = Float32DeepGraphInfomax(
             hidden_channels=num_gcn_channels, encoder=self.gcn_conv,
             summary=lambda z, *args, **kwargs: torch.sigmoid(z.mean(dim=0)),
             corruption=self.corruption_fn)
@@ -331,26 +331,74 @@ class GCNDGISapMetricLearning(nn.Module):
         return loss, in_topk
 
 
-class RGCNLayer(nn.Module):
-    def __init__(self, in_channels, num_hidden_channels, use_fast_conv: bool, num_bases: int, num_blocks: int,
-                 num_relations: int):
+class RGCNEncoder(nn.Module):
+    def __init__(self, in_channels, num_layers: int, num_hidden_channels, dropout_p: float,
+                 use_fast_conv: bool, num_bases: int, num_blocks: int, num_relations: int):
         super().__init__()
         RGCNConvClass = FastRGCNConv if use_fast_conv else RGCNConv
-        self.rgcn_conv = RGCNConvClass(in_channels=in_channels, out_channels=num_hidden_channels,
-                                       num_relations=num_relations, num_bases=num_bases,
-                                       num_blocks=num_blocks, )
+        self.convs = nn.ModuleList()
+        self.num_layers = num_layers
+        self.num_hidden_channels = num_hidden_channels
+        self.dropout_p = dropout_p
+
+        for i in range(num_layers):
+            in_channels = in_channels if i == 0 else num_hidden_channels
+
+            rgcn_conv = RGCNConvClass(in_channels=in_channels, out_channels=num_hidden_channels,
+                                      num_relations=num_relations, num_bases=num_bases,
+                                      num_blocks=num_blocks, )
+            self.convs.append(rgcn_conv)
+
         self.prelu = nn.PReLU(num_hidden_channels)
 
-    def forward(self, x, edge_index, edge_type):
-        x = self.rgcn_conv(x, edge_index=edge_index, edge_type=edge_type)
-        x = self.prelu(x)
+    def forward(self, x, edge_index, edge_type, batch_size):
+        for i, conv in enumerate(self.convs):
+            x = conv(x, edge_index=edge_index, edge_type=edge_type)
+            x = self.prelu(x)
+            if i != self.num_layers - 1:
+                x = F.dropout(x, p=self.dropout_p, training=self.training)
+                x_target = x[:batch_size]
+                x = (x, x_target)
+
+        return x
+
+
+class GATv2Encoder(nn.Module):
+    def __init__(self, in_channels, num_layers: int, num_hidden_channels, dropout_p: float,
+                 num_att_heads: int, attention_dropout_p: float, edge_dim: int, ):
+        super().__init__()
+
+        self.convs = nn.ModuleList()
+        self.num_layers = num_layers
+        self.num_hidden_channels = num_hidden_channels
+        self.dropout_p = dropout_p
+
+        for i in range(num_layers):
+            in_channels = in_channels if i == 0 else num_hidden_channels
+            gat_conv = GATv2Conv(in_channels=in_channels, out_channels=num_hidden_channels,
+                                 heads=num_att_heads, dropout=attention_dropout_p,
+                                 add_self_loops=False, edge_dim=edge_dim, share_weights=True)
+            self.convs.append(gat_conv)
+
+        self.prelu = nn.PReLU(num_hidden_channels)
+
+    def forward(self, x, edge_index, edge_type, batch_size):
+        for i, conv in enumerate(self.convs):
+            x = conv(x, edge_index=edge_index, edge_type=edge_type)
+            x = self.prelu(x)
+            if i != self.num_layers - 1:
+                x = F.dropout(x, p=self.dropout_p, training=self.training)
+                x_target = x[:batch_size]
+                x = (x, x_target)
+
         return x
 
 
 class RGCNDGISapMetricLearning(nn.Module):
-    def __init__(self, bert_encoder, num_rgcn_channels: int, dgi_loss_weight: float,
-                 num_relations: int, num_bases: int, num_blocks: int, use_fast_conv: bool, use_cuda, loss,
-                 multigpu_flag, use_miner=True, miner_margin=0.2, type_of_triplets="all", agg_mode="cls"):
+    def __init__(self, bert_encoder, num_rgcn_layers: int, num_rgcn_channels: int, rgcn_dropout_p: float,
+                 dgi_loss_weight: float, num_relations: int, num_bases: int, num_blocks: int, use_fast_conv: bool,
+                 use_cuda, loss, multigpu_flag, use_miner=True, miner_margin=0.2, type_of_triplets="all",
+                 agg_mode="cls"):
 
         logging.info(
             "Sap_Metric_Learning! use_cuda={} loss={} use_miner={} miner_margin={} type_of_triplets={} agg_mode={}".format(
@@ -368,9 +416,10 @@ class RGCNDGISapMetricLearning(nn.Module):
             self.bert_encoder = nn.DataParallel(bert_encoder)
         else:
             self.bert_encoder = bert_encoder
-        self.rgcn_conv = RGCNLayer(in_channels=self.bert_hidden_dim, num_hidden_channels=num_rgcn_channels,
-                                   use_fast_conv=use_fast_conv, num_bases=num_bases, num_blocks=num_blocks,
-                                   num_relations=num_relations)
+        self.rgcn_conv = RGCNEncoder(in_channels=self.bert_hidden_dim, num_layers=num_rgcn_layers,
+                                     dropout_p=rgcn_dropout_p, num_hidden_channels=num_rgcn_channels,
+                                     use_fast_conv=use_fast_conv, num_bases=num_bases, num_blocks=num_blocks,
+                                     num_relations=num_relations)
         self.dgi = Float32DeepGraphInfomax(
             hidden_channels=num_rgcn_channels, encoder=self.rgcn_conv,
             summary=self.summary_fn, corruption=self.corruption_fn)
@@ -478,7 +527,7 @@ class RGCNDGISapMetricLearning(nn.Module):
 
 
 class GATv2DGISapMetricLearning(nn.Module):
-    def __init__(self, bert_encoder, gat_num_hidden_channels: int, gat_num_att_heads: int,
+    def __init__(self, bert_encoder, gat_num_layers: int, gat_dropout_p: float, gat_num_hidden_channels: int, gat_num_att_heads: int,
                  gat_attention_dropout_p: float, gat_edge_dim: Union[int, None],
                  gat_use_relation_features, num_relations: Union[int, None],
                  dgi_loss_weight: float, use_cuda, loss, multigpu_flag, use_miner=True, miner_margin=0.2,
@@ -507,11 +556,13 @@ class GATv2DGISapMetricLearning(nn.Module):
             self.rel_emb = torch.nn.Embedding(num_embeddings=num_relations, embedding_dim=gat_edge_dim, )
         else:
             assert num_relations is None and gat_edge_dim is None
-        self.gat_v2_conv = GATv2Conv(in_channels=self.bert_hidden_dim, out_channels=gat_num_hidden_channels,
-                                     heads=gat_num_att_heads, dropout=gat_attention_dropout_p,
-                                     add_self_loops=False, edge_dim=gat_edge_dim, share_weights=True)
+
+        self.gat_encoder = GATv2Encoder(in_channels=self.bert_hidden_dim, num_layers=gat_num_layers,
+                                        num_hidden_channels=gat_num_hidden_channels, dropout_p=gat_dropout_p,
+                                        num_att_heads=gat_num_att_heads, attention_dropout_p=gat_attention_dropout_p,
+                                        edge_dim=gat_edge_dim)
         self.dgi = Float32DeepGraphInfomax(
-            hidden_channels=gat_num_att_heads * gat_num_hidden_channels, encoder=self.gat_v2_conv,
+            hidden_channels=gat_num_att_heads * gat_num_hidden_channels, encoder=self.gat_encoder,
             summary=self.summary_fn, corruption=self.corruption_fn)
         self.dgi_loss_weight = dgi_loss_weight
 
@@ -612,3 +663,103 @@ class GATv2DGISapMetricLearning(nn.Module):
             targets = targets.cuda()
         loss, in_topk = self.criterion(outputs, targets)
         return loss, in_topk
+
+
+class RGCNDGISapMetricLearningV2(RGCNDGISapMetricLearning):
+    def __init__(self, *args, **kwargs):
+        super(RGCNDGISapMetricLearningV2, self).__init__(*args, **kwargs)
+
+    def corruption_fn(self, x, edge_index, edge_type):
+        (x_source, x_target) = x
+        x = (x_source, x_target[torch.randperm(x_target.size(0))])
+        return x, edge_index, edge_type
+
+    @autocast()
+    def forward(self, term_1_input_ids, term_1_att_masks, term_2_input_ids, term_2_att_masks, concept_ids,
+                edge_index, edge_type, batch_size):
+        """
+        query : (N, h), candidates : (N, topk, h)
+
+        output : (N, topk)
+        """
+        query_embed1 = self.bert_encoder(term_1_input_ids, attention_mask=term_1_att_masks,
+                                         return_dict=True)['last_hidden_state'][:, 0]
+        query_embed2 = self.bert_encoder(term_2_input_ids, attention_mask=term_2_att_masks,
+                                         return_dict=True)['last_hidden_state'][:, 0]
+        q1_target_node_embs = query_embed1[:batch_size]
+        q2_target_node_embs = query_embed2[:batch_size]
+        query_embed_mean = torch.mean(torch.stack((query_embed1, query_embed2)), dim=0)
+        target_node_embs = torch.mean(torch.stack((q1_target_node_embs, q2_target_node_embs)), dim=0)
+
+        node_emb_tuple = (query_embed_mean, target_node_embs)
+
+        pos_embs, neg_embs, summary = self.dgi(node_emb_tuple, edge_index=edge_index, edge_type=edge_type)
+
+        assert pos_embs.size()[0] == neg_embs.size()[0] == batch_size
+
+        query_embed = torch.cat([q1_target_node_embs, q2_target_node_embs], dim=0)
+        labels = torch.cat([concept_ids, concept_ids], dim=0)
+
+        if self.use_miner:
+            hard_pairs = self.miner(query_embed, labels)
+            sapbert_loss = self.loss(query_embed, labels, hard_pairs)
+        else:
+            sapbert_loss = self.loss(query_embed, labels)
+
+        dgi_loss = self.dgi.loss(pos_embs, neg_embs, summary)
+
+        return sapbert_loss + dgi_loss * self.dgi_loss_weight
+
+
+class GATv2DGISapMetricLearningV2(GATv2DGISapMetricLearning):
+    def __init__(self, *args, **kwargs):
+        super(GATv2DGISapMetricLearningV2, self).__init__(*args, **kwargs)
+
+    def summary_fn(self, z, *args, **kwargs):
+        return torch.sigmoid(z.mean(dim=0))
+
+    def corruption_fn(self, x, edge_index, edge_attr):
+        (x_source, x_target) = x
+        x = (x_source, x_target[torch.randperm(x_target.size(0))])
+        return x, edge_index, edge_attr
+
+    @autocast()
+    def forward(self, term_1_input_ids, term_1_att_masks, term_2_input_ids, term_2_att_masks, concept_ids,
+                edge_index, edge_type, batch_size):
+        """
+        query : (N, h), candidates : (N, topk, h)
+
+        output : (N, topk)
+        """
+        query_embed1 = self.bert_encoder(term_1_input_ids, attention_mask=term_1_att_masks,
+                                         return_dict=True)['last_hidden_state'][:, 0]
+        query_embed2 = self.bert_encoder(term_2_input_ids, attention_mask=term_2_att_masks,
+                                         return_dict=True)['last_hidden_state'][:, 0]
+        if self.gat_use_relation_features:
+            edge_attr = self.rel_emb(edge_type)
+        else:
+            edge_attr = None
+
+        q1_target_node_embs = query_embed1[:batch_size]
+        q2_target_node_embs = query_embed2[:batch_size]
+        query_embed_mean = torch.mean(torch.stack((query_embed1, query_embed2)), dim=0)
+        target_node_embs = torch.mean(torch.stack((q1_target_node_embs, q2_target_node_embs)), dim=0)
+
+        node_emb_tuple = (query_embed_mean, target_node_embs)
+
+        pos_embs, neg_embs, summary = self.dgi(node_emb_tuple, edge_index=edge_index, edge_attr=edge_attr)
+
+        assert pos_embs.size()[0] == pos_embs.size()[0] == batch_size
+
+        query_embed = torch.cat([q1_target_node_embs, q2_target_node_embs], dim=0)
+        labels = torch.cat([concept_ids, concept_ids], dim=0)
+
+        if self.use_miner:
+            hard_pairs = self.miner(query_embed, labels)
+            sapbert_loss = self.loss(query_embed, labels, hard_pairs)
+        else:
+            sapbert_loss = self.loss(query_embed, labels)
+
+        dgi_loss = self.dgi.loss(pos_embs, neg_embs, summary)
+
+        return sapbert_loss + dgi_loss * self.dgi_loss_weight

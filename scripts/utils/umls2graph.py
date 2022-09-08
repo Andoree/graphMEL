@@ -113,27 +113,56 @@ def add_loops_to_edges_list(node_id2terms_list: Dict[int, List[str]], rel2rel_id
     logging.info(f"Finished adding self-loops to the list of edge tuples. There are {len(edges)} edges")
 
 
-def transitive_relations_filtering_recursive_call(all_ancestors_parents: Set[int], current_node_id: int,
-                                                  nodeid2parents: Dict[int, List[int]],
-                                                  nodeid2children: Dict[int, List[int]],
-                                                  deleted_edges_counter: int):
-    all_ancestors_parents_copy = all_ancestors_parents.copy()
-    current_node_parent_nodes = nodeid2parents.get(current_node_id)
-    if current_node_parent_nodes is not None:
-        all_ancestors_parents_copy.update(current_node_parent_nodes)
+# def transitive_relations_filtering_recursive_call(all_ancestors_parents: Set[int], current_node_id: int,
+#                                                   nodeid2parents: Dict[int, List[int]],
+#                                                   nodeid2children: Dict[int, List[int]],
+#                                                   deleted_edges_counter: int):
+#     all_ancestors_parents_copy = all_ancestors_parents.copy()
+#     current_node_parent_nodes = nodeid2parents.get(current_node_id)
+#     if current_node_parent_nodes is not None:
+#         all_ancestors_parents_copy.update(current_node_parent_nodes)
+#
+#     current_node_child_nodes = nodeid2children.get(current_node_id)
+#     if current_node_child_nodes is not None:
+#         for child_node in current_node_child_nodes:
+#             child_node_parents = nodeid2parents.get(child_node)
+#             if child_node_parents is not None:
+#                 # Filtering parent nodes there are the parents of parents
+#                 new_child_node_parents = [p for p in child_node_parents if p not in all_ancestors_parents]
+#                 nodeid2parents[child_node] = new_child_node_parents
+#                 deleted_edges_counter += len(new_child_node_parents) - len(child_node_parents)
+#         for child_node in current_node_child_nodes:
+#             deleted_edges_counter = transitive_relations_filtering_recursive_call(
+#                 all_ancestors_parents=all_ancestors_parents_copy,
+#                 current_node_id=child_node,
+#                 nodeid2parents=nodeid2parents,
+#                 nodeid2children=nodeid2children,
+#                 deleted_edges_counter=deleted_edges_counter)
+#     return deleted_edges_counter
 
+def transitive_relations_filtering_recursive_call(all_ancestors_parents: Set[int], current_node_id: int,
+                                                  nodeid2parents: Dict[int, Set[int]],
+                                                  nodeid2children: Dict[int, Set[int]],
+                                                  deleted_edges_counter: int):
+    current_node_parent_nodes_set = set(nodeid2parents.get(current_node_id))
+
+    curr_node_parents_ancestor_parents_difference = current_node_parent_nodes_set.difference(all_ancestors_parents)
+    curr_node_parents_ancestor_parents_intersection = current_node_parent_nodes_set.intersection(all_ancestors_parents)
+
+    # Filtering nodeid2parents edges
+    nodeid2parents[current_node_id] = curr_node_parents_ancestor_parents_difference
+
+    # Filtering nodeid2children edges
+    for n_id in curr_node_parents_ancestor_parents_intersection:
+        nodeid2children[n_id].remove(current_node_id)
+    deleted_edges_counter += len(curr_node_parents_ancestor_parents_intersection)
+
+    curr_node_all_ancestors = current_node_parent_nodes_set.union(all_ancestors_parents)
     current_node_child_nodes = nodeid2children.get(current_node_id)
     if current_node_child_nodes is not None:
         for child_node in current_node_child_nodes:
-            child_node_parents = nodeid2parents.get(child_node)
-            if child_node_parents is not None:
-                # Filtering parent nodes there are the parents of parents
-                new_child_node_parents = [p for p in child_node_parents if p not in all_ancestors_parents]
-                nodeid2parents[child_node] = new_child_node_parents
-                deleted_edges_counter += len(new_child_node_parents) - len(child_node_parents)
-        for child_node in current_node_child_nodes:
             deleted_edges_counter = transitive_relations_filtering_recursive_call(
-                all_ancestors_parents=all_ancestors_parents_copy,
+                all_ancestors_parents=curr_node_all_ancestors,
                 current_node_id=child_node,
                 nodeid2parents=nodeid2parents,
                 nodeid2children=nodeid2children,
@@ -141,8 +170,8 @@ def transitive_relations_filtering_recursive_call(all_ancestors_parents: Set[int
     return deleted_edges_counter
 
 
-def filter_transitive_hierarchical_relations(node_id2children: Dict[int, List[int]],
-                                             node_id2parents: Dict[int, List[int]]):
+def filter_transitive_hierarchical_relations(node_id2children: Dict[int, Set[int]],
+                                             node_id2parents: Dict[int, Set[int]]):
     logging.info("Starting filtering transitive hierarchical relations. Finding root nodes.")
     root_node_ids = set(node_id2children.keys())
     for potential_root_node_id in node_id2children.keys():
@@ -164,30 +193,35 @@ def filter_transitive_hierarchical_relations(node_id2children: Dict[int, List[in
 
 def filter_hierarchical_semantic_type_nodes(node_id2children: Dict[int, List[int]],
                                             node_id2parents: Dict[int, List[int]],
-                                            node_id2_terms: Dict, node_id_lower_bound_filtering: int):
+                                            node_id2_terms: Dict, mrsty_df: pd.DataFrame):
     logging.info("Removing semantic type nodes")
+    possible_sty_values = set(mrsty_df["STY"].unique())
+    possible_sty_values = set(map(lambda s: s.lower(), map(lambda s: s.strip(), possible_sty_values)))
     nodes_deleted = set()
     for node_id in list(node_id2children.keys()):
-        if node_id >= node_id_lower_bound_filtering:
-            assert type(node_id) is int
+        node_terms = node_id2_terms[node_id]
+        assert isinstance(node_terms, list)
+        if len(node_terms) == 1 and node_terms[0] in possible_sty_values:
+            assert isinstance(node_terms[0], str)
             nodes_deleted.add(node_id)
-            logging.info(f"AA node_id {node_id} node_id_lower_bound_filtering {node_id_lower_bound_filtering}")
             del node_id2children[node_id]
         else:
-            node_id2children[node_id] = [p for p in node_id2children[node_id] if p < node_id_lower_bound_filtering]
+            node_id2children[node_id] = [p for p in node_id2children[node_id] if not (p in possible_sty_values)]
 
     for node_id in list(node_id2parents.keys()):
-        assert type(node_id) is int
-        if node_id >= node_id_lower_bound_filtering:
+        node_terms = node_id2_terms[node_id]
+        assert isinstance(node_terms, list)
+        if len(node_terms) == 1 and node_terms[0] in possible_sty_values:
+            assert isinstance(node_terms[0], str)
             nodes_deleted.add(node_id)
-            logging.info(f"BB node_id {node_id} node_id_lower_bound_filtering {node_id_lower_bound_filtering}")
             del node_id2parents[node_id]
         else:
-            node_id2parents[node_id] = [p for p in node_id2parents[node_id] if p < node_id_lower_bound_filtering]
+            node_id2parents[node_id] = [p for p in node_id2parents[node_id] if not (p in possible_sty_values)]
 
     for node_id in list(node_id2_terms.keys()):
-        if node_id >= node_id_lower_bound_filtering:
-            logging.info(f"ddd node_id {node_id} node_id_lower_bound_filtering {node_id_lower_bound_filtering}")
+        node_terms = node_id2_terms[node_id]
+        assert isinstance(node_terms, list)
+        if len(node_terms) == 1 and node_terms[0] in possible_sty_values:
             nodes_deleted.add(node_id)
             del node_id2_terms[node_id]
     logging.info(f"Finished removing semantic type nodes. {len(nodes_deleted)} nodes have been deleted.")
