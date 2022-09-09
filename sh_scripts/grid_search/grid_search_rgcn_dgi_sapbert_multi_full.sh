@@ -8,13 +8,22 @@
 #SBATCH --constraint=type_c|type_b|type_a
 
 #--train_dir="../../data/umls_graph/2020AB_pos_pairs_datasets/ENG_FRE_GER_SPA_DUT_RUS_pos_pairs_multilingual_FULL" \
-
+export CUDA_VISIBLE_DEVICES=0,1,2,3
 nvidia-smi
+
 python ../../scripts/grid_search/rgcn_dgi_sapbert_grid_search.py --train_dir="../../data/umls_graph/2020AB_pos_pairs_datasets/RUS_pos_pairs_russian_FULL" \
 --validate \
 --text_encoder="../../models/bert-base-multilingual-uncased/" \
 --dataloader_num_workers=4 \
 --max_length=32 \
+--rgcn_num_hidden_channels 768 \
+--rgcn_num_blocks 16 64 \
+--rgcn_num_neighbors 2 3 4 \
+--rgcn_num_layers 1 3 5 \
+--rgcn_dropout_p 0.1 0.3 \
+--dgi_loss_weight 1. 0.1 0.01 \
+--rgcn_use_fast_conv \
+--batch_size 96 128 \
 --use_cuda \
 --learning_rate=2e-5 \
 --weight_decay=0.01  \
