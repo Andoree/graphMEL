@@ -7,7 +7,7 @@ import argparse
 import torch
 from torch.cuda.amp import autocast
 from torch.cuda.amp import GradScaler
-import torch.nn as nn
+
 import logging
 import time
 import os
@@ -52,19 +52,19 @@ def parse_args():
                         help='Directory for output')
 
     # GAT and DGI  configuration
-    # parser.add_argument('--gat_num_layers', type=int)
-    # parser.add_argument('--gat_num_hidden_channels', type=int)
-    # parser.add_argument('--gat_num_neighbors', type=int, nargs='+')
-    # parser.add_argument('--gat_num_att_heads', type=int)
-    # parser.add_argument('--gat_dropout_p', type=float)
-    # parser.add_argument('--gat_attention_dropout_p', type=float)
-    # parser.add_argument('--gat_use_relation_features', action="store_true")
-    #
-    # parser.add_argument('--use_rel_or_rela', type=str, choices=['rel', 'rela', ])
-    # parser.add_argument('--gat_edge_dim', type=int, required=False, default=None)
-    # parser.add_argument('--dgi_loss_weight', type=float)
-    # parser.add_argument('--remove_selfloops', action="store_true")
+    parser.add_argument('--gat_num_neighbors', type=int, nargs='+')
+    parser.add_argument('--gat_num_hidden_channels', type=int, nargs='+')
+    parser.add_argument('--gat_num_layers', type=int, nargs='+')
+    parser.add_argument('--gat_dropout_p', type=float, nargs='+')
+    parser.add_argument('--gat_num_att_heads', type=int, nargs='+')
+    parser.add_argument('--gat_attention_dropout_p', type=float, nargs='+')
+    parser.add_argument('--gat_use_relation_features', type=bool, nargs='+')
+    parser.add_argument('--gat_edge_dim', type=int, nargs='+')
+    parser.add_argument('--dgi_loss_weight', type=float, nargs='+')
+    parser.add_argument('--batch_size', type=int, nargs='+')
+    parser.add_argument('--remove_selfloops', action="store_true")
 
+    parser.add_argument('--train_subset_ratio', type=float, )
     # Evaluation data path
     parser.add_argument('--data_folder', help='Path to the directory containing BioSyn format dataset', type=str,
                         nargs='+')
@@ -82,9 +82,9 @@ def parse_args():
     parser.add_argument('--weight_decay',
                         help='weight decay',
                         default=0.01, type=float)
-    parser.add_argument('--batch_size',
-                        help='train batch size',
-                        default=240, type=int)
+    # parser.add_argument('--batch_size',
+    #                     help='train batch size',
+    #                     default=240, type=int)
     parser.add_argument('--num_epochs',
                         help='epoch to train',
                         default=3, type=int)
@@ -201,16 +201,16 @@ def main(args):
     print(args)
     param_grid = {
         "model_class": (GATv2DGISapMetricLearning, GATv2DGISapMetricLearningV2),
-        "gat_num_neighbors": (2, 3),
-        "gat_num_hidden_channels": (256, 768),
-        "gat_num_layers": (1, 3, 5),
-        "gat_dropout_p": (0.1, 0.3),
-        "gat_num_att_heads": (1, 2),
-        "gat_attention_dropout_p": (0.1, 0.3),
-        "gat_use_relation_features": (False, True),
-        "gat_edge_dim": (16, 32),
-        "dgi_loss_weight": (1., 0.1, 0.01),
-        "batch_size": (128, 96),
+        "gat_num_neighbors": args.gat_num_neighbors,
+        "gat_num_hidden_channels": args.gat_num_hidden_channels,
+        "gat_num_layers": args.gat_num_layers,
+        "gat_dropout_p": args.gat_dropout_p,
+        "gat_num_att_heads": args.gat_num_att_heads,
+        "gat_attention_dropout_p": args.gat_attention_dropout_p,
+        "gat_use_relation_features": args.gat_use_relation_features,
+        "gat_edge_dim": args.gat_edge_dim,
+        "dgi_loss_weight": args.dgi_loss_weight,
+        "batch_size": args.batch_size,
     }
 
     node2terms_path = os.path.join(args.train_dir, "node_id2terms_list")
@@ -230,18 +230,14 @@ def main(args):
     rel2id = {rel: int(i) for rel, i in load_dict(rel2id_path).items()}
     rela2id = {rela: int(i) for rela, i in load_dict(rela2id_path).items()}
 
-    if args.use_rel_or_rela == "rel":
-        num_relations = len(rel2id.keys())
-    elif args.use_rel_or_rela == "rela":
-        num_relations = len(rela2id.keys())
-    else:
-        raise ValueError(f"Invalid 'use_rel_or_rela' parameter: {args.use_rel_or_rela}")
+    num_relations = len(rel2id.keys())
+
     if not args.remove_selfloops:
         add_loops_to_edges_list(node_id2terms_list=node_id2token_ids_dict, rel2rel_id=rel2id, rela2rela_id=rela2id,
                                 edges=edges_tuples)
     edge_index, edge_rel_ids = \
-        convert_edges_tuples_to_oriented_edge_index_with_relations(edges_tuples, args.use_rel_or_rela,
-                                                                   remove_selfloops=True)
+        convert_edges_tuples_to_oriented_edge_index_with_relations(edges_tuples, "rel",
+                                                                   remove_selfloops=args.remove_selfloops)
     assert edge_index.size()[1] == len(edge_rel_ids)
 
     num_edges = edge_index.size()[1]
@@ -267,8 +263,9 @@ def main(args):
     overall_num_pos_pairs = len(train_pos_pairs_term_1_id_list)
     perm = np.random.permutation(overall_num_pos_pairs)
 
-    TRAIN_SUBSET_SIZE = int(overall_num_pos_pairs * 0.0001)
-    selected_pos_pair_ids = perm[:TRAIN_SUBSET_SIZE]
+    train_subset_ratio = args.train_subset_ratio
+    train_subset_size = int(overall_num_pos_pairs * train_subset_ratio)
+    selected_pos_pair_ids = perm[:train_subset_size]
 
     train_pos_pairs_term_1_id_list = train_pos_pairs_term_1_id_list[selected_pos_pair_ids]
     train_pos_pairs_term_2_id_list = train_pos_pairs_term_1_id_list[selected_pos_pair_ids]
@@ -284,124 +281,132 @@ def main(args):
     device = torch.device('cuda:0' if args.use_cuda else 'cpu')
 
     best_accs_dict = {}
-    for vocab in zip(args.vocab):
-        best_accs_dict[vocab]["acc_1"] = -1.
-        best_accs_dict[vocab]["acc_5"] = -1.
+
+    for dataset_name in args.eval_dataset_name:
+        best_accs_dict[dataset_name] = {
+            "acc_1": -1.,
+            "acc_5": -1.,
+        }
 
     best_params_dict = {}
-    for vocab in zip(args.vocab):
-        best_params_dict[vocab]["acc_1"] = -1.
-        best_params_dict[vocab]["acc_5"] = -1.
+    for dataset_name in args.eval_dataset_name:
+        best_params_dict[dataset_name] = {
+            "acc_1": {},
+            "acc_5": {},
+        }
+    param_names = sorted(param_grid.keys())
+    param_values_list = [param_grid[p_name] for p_name in param_names]
 
-    for param_name, param_values_list in param_grid.items():
-        for model_setup in itertools.product(*param_values_list):
-            param_dict = {name: val for name, val in zip(param_name, model_setup)}
-            model_class = param_dict["model_class"]
-            gat_num_neighbors = list(param_dict["gat_num_neighbors"])
-            gat_num_hidden_channels = param_dict["gat_num_hidden_channels"]
-            gat_num_layers = param_dict["gat_num_layers"]
-            gat_dropout_p = param_dict["gat_dropout_p"]
-            gat_num_att_heads = param_dict["gat_num_att_heads"]
-            gat_attention_dropout_p = param_dict["gat_attention_dropout_p"]
-            gat_edge_dim = param_dict["gat_edge_dim"]
-            gat_use_relation_features = param_dict["gat_use_relation_features"]
-            dgi_loss_weight = param_dict["dgi_loss_weight"]
-            batch_size = param_dict["batch_size"]
+    for model_setup in itertools.product(*param_values_list):
+        param_dict = {name: val for name, val in zip(param_names, model_setup)}
+        model_class = param_dict["model_class"]
+        gat_num_neighbors = (param_dict["gat_num_neighbors"],)
+        gat_num_hidden_channels = param_dict["gat_num_hidden_channels"]
+        gat_num_layers = param_dict["gat_num_layers"]
+        gat_dropout_p = param_dict["gat_dropout_p"]
+        gat_num_att_heads = param_dict["gat_num_att_heads"]
+        gat_attention_dropout_p = param_dict["gat_attention_dropout_p"]
+        gat_edge_dim = param_dict["gat_edge_dim"]
+        gat_use_relation_features = param_dict["gat_use_relation_features"]
+        dgi_loss_weight = param_dict["dgi_loss_weight"]
+        batch_size = param_dict["batch_size"]
 
-            output_dir = args.output_dir
-            output_subdir = f"gatv2_{'.'.join((str(x) for x in gat_num_neighbors))}_{gat_num_hidden_channels}" \
-                            f"_{gat_num_layers}_{gat_dropout_p}_" \
-                            f"{gat_num_att_heads}_{gat_attention_dropout_p}_{args.gat_use_relation_features}_" \
-                            f"rel_{gat_edge_dim}_remove_loops_True_" \
-                            f"dgi_{dgi_loss_weight}_lr_{args.learning_rate}_b_{batch_size}"
-            output_dir = os.path.join(output_dir, output_subdir)
-            if not os.path.exists(output_dir) and output_dir != '':
-                os.makedirs(output_dir)
-            model_descr_path = os.path.join(output_dir, "model_description.tsv")
-            save_dict(save_path=model_descr_path, dictionary=vars(args), )
-            torch.manual_seed(args.random_seed)
-            torch.manual_seed(args.random_seed)
-            torch.random.manual_seed(args.random_seed)
-            os.environ['PYTHONHASHSEED'] = str(args.random_seed)
-            random.seed(args.random_seed)
-            np.random.seed(args.random_seed)
-            torch.cuda.random.manual_seed(args.random_seed)
-            torch.cuda.random.manual_seed_all(args.random_seed)
-            torch.backends.cudnn.deterministic = True
+        base_dir = args.output_dir
+        output_subdir = f"gatv2_{'.'.join((str(x) for x in gat_num_neighbors))}_{gat_num_hidden_channels}" \
+                        f"_{gat_num_layers}_{gat_dropout_p}_" \
+                        f"{gat_num_att_heads}_{gat_attention_dropout_p}_{args.gat_use_relation_features}_" \
+                        f"rel_{gat_edge_dim}_remove_loops_True_" \
+                        f"dgi_{dgi_loss_weight}_lr_{args.learning_rate}_b_{batch_size}"
+        output_dir = os.path.join(base_dir, output_subdir)
+        if not os.path.exists(output_dir) and output_dir != '':
+            os.makedirs(output_dir)
+        model_descr_path = os.path.join(output_dir, "model_description.tsv")
+        save_dict(save_path=model_descr_path, dictionary=vars(args), )
+        torch.manual_seed(args.random_seed)
+        torch.manual_seed(args.random_seed)
+        torch.random.manual_seed(args.random_seed)
+        os.environ['PYTHONHASHSEED'] = str(args.random_seed)
+        random.seed(args.random_seed)
+        np.random.seed(args.random_seed)
+        torch.cuda.random.manual_seed(args.random_seed)
+        torch.cuda.random.manual_seed_all(args.random_seed)
+        torch.backends.cudnn.deterministic = True
+        bert_encoder = AutoModel.from_pretrained(args.text_encoder, )
 
-            train_pos_pair_sampler = PositiveRelationalNeighborSampler(
-                pos_pairs_term_1_id_list=train_pos_pairs_term_1_id_list,
-                pos_pairs_term_2_id_list=train_pos_pairs_term_2_id_list,
-                pos_pairs_concept_ids_list=train_pos_pairs_concept_ids,
-                sizes=gat_num_neighbors, edge_index=edge_index,
-                term_id2tokenizer_output=train_term_id2tok_out,
-                rel_ids=edge_rel_ids, node_idx=train_pos_pairs_idx,
-                node_id2token_ids_dict=node_id2token_ids_dict,
-                seq_max_length=args.max_length,
-                batch_size=batch_size,
-                num_workers=args.dataloader_num_workers, shuffle=True, )
+        train_pos_pair_sampler = PositiveRelationalNeighborSampler(
+            pos_pairs_term_1_id_list=train_pos_pairs_term_1_id_list,
+            pos_pairs_term_2_id_list=train_pos_pairs_term_2_id_list,
+            pos_pairs_concept_ids_list=train_pos_pairs_concept_ids,
+            sizes=gat_num_neighbors, edge_index=edge_index,
+            term_id2tokenizer_output=train_term_id2tok_out,
+            rel_ids=edge_rel_ids, node_idx=train_pos_pairs_idx,
+            node_id2token_ids_dict=node_id2token_ids_dict,
+            seq_max_length=args.max_length,
+            batch_size=batch_size,
+            num_workers=args.dataloader_num_workers, shuffle=True, )
 
-            if args.amp:
-                scaler = GradScaler()
-            else:
-                scaler = None
+        if args.amp:
+            scaler = GradScaler()
+        else:
+            scaler = None
 
-            model = model_class(bert_encoder, gat_num_hidden_channels=gat_num_hidden_channels,
-                                gat_num_att_heads=gat_num_att_heads, gat_num_layers=gat_num_layers,
-                                gat_attention_dropout_p=gat_attention_dropout_p,
-                                gat_edge_dim=gat_edge_dim, gat_dropout_p=gat_dropout_p,
-                                gat_use_relation_features=gat_use_relation_features,
-                                num_relations=num_relations, dgi_loss_weight=dgi_loss_weight,
-                                use_cuda=args.use_cuda, loss=args.loss,
-                                multigpu_flag=args.parallel, use_miner=args.use_miner,
-                                miner_margin=args.miner_margin,
-                                type_of_triplets=args.type_of_triplets, agg_mode=args.agg_mode).to(device)
-            start = time.time()
-            train_graph_sapbert_model(model=model, train_epoch_fn=train_gatv2_dgi_sapbert, val_epoch_fn=val_epoch_fn,
-                                      train_loader=train_pos_pair_sampler,
-                                      val_loader=val_pos_pair_sampler,
-                                      learning_rate=args.learning_rate, weight_decay=args.weight_decay,
-                                      num_epochs=args.num_epochs, output_dir=output_dir,
-                                      save_chkpnt_epoch_interval=args.save_every_N_epoch,
-                                      amp=args.amp, scaler=scaler, device=device,
-                                      chkpnt_path=args.model_checkpoint_path)
-            end = time.time()
-            training_time = end - start
-            training_hour = int(training_time / 60 / 60)
-            training_minute = int(training_time / 60 % 60)
-            training_second = int(training_time % 60)
-            logging.info(
-                f"Training Time took {training_hour} hours {training_minute} minutes {training_second} seconds")
-            checkpoint_path = os.path.join(output_subdir, "final_checkpoint/")
-            bert = AutoModel.from_pretrained(args.text_encoder, )
-            bert.load_state_dict(model.bert_encoder.module.state_dict())
-            save_encoder_from_checkpoint(bert_encoder=bert_encoder, bert_tokenizer=bert_tokenizer,
-                                         save_path=output_dir)
-            logging.info(f"Processing checkpoint: {checkpoint_path}")
+        model = model_class(bert_encoder, gat_num_hidden_channels=gat_num_hidden_channels,
+                            gat_num_att_heads=gat_num_att_heads, gat_num_layers=gat_num_layers,
+                            gat_attention_dropout_p=gat_attention_dropout_p,
+                            gat_edge_dim=gat_edge_dim, gat_dropout_p=gat_dropout_p,
+                            gat_use_relation_features=gat_use_relation_features,
+                            num_relations=num_relations, dgi_loss_weight=dgi_loss_weight,
+                            use_cuda=args.use_cuda, loss=args.loss,
+                            multigpu_flag=args.parallel, use_miner=args.use_miner,
+                            miner_margin=args.miner_margin,
+                            type_of_triplets=args.type_of_triplets, agg_mode=args.agg_mode).to(device)
+        start = time.time()
+        train_graph_sapbert_model(model=model, train_epoch_fn=train_gatv2_dgi_sapbert, val_epoch_fn=val_epoch_fn,
+                                  train_loader=train_pos_pair_sampler,
+                                  val_loader=val_pos_pair_sampler,
+                                  learning_rate=args.learning_rate, weight_decay=args.weight_decay,
+                                  num_epochs=args.num_epochs, output_dir=output_dir,
+                                  save_chkpnt_epoch_interval=args.save_every_N_epoch,
+                                  amp=args.amp, scaler=scaler, device=device,
+                                  chkpnt_path=args.model_checkpoint_path)
+        end = time.time()
+        training_time = end - start
+        training_hour = int(training_time / 60 / 60)
+        training_minute = int(training_time / 60 % 60)
+        training_second = int(training_time % 60)
+        logging.info(
+            f"Training Time took {training_hour} hours {training_minute} minutes {training_second} seconds")
+        checkpoint_path = os.path.join(output_dir, "final_checkpoint/")
+        bert = AutoModel.from_pretrained(args.text_encoder, )
 
-            for data_folder, vocab, dataset_name in zip(args.data_folder, args.vocab, args.eval_dataset_name):
-                entities = read_dataset(args.data_folder)
-                ################
-                entity_texts = [e['entity_text'].lower() for e in entities]
-                labels = [e['label'] for e in entities]
-                ##################
-                vocab = read_vocab(args.vocab)
+        bert.load_state_dict(model.bert_encoder.module.state_dict())
+        save_encoder_from_checkpoint(bert_encoder=bert_encoder, bert_tokenizer=bert_tokenizer,
+                                     save_path=checkpoint_path)
+        logging.info(f"Processing checkpoint: {checkpoint_path}")
 
-                acc_1, acc_5 = evaluate_single_checkpoint_acc1_acc5(checkpoint_path=checkpoint_path, vocab=vocab,
-                                                                    entity_texts=entity_texts, labels=labels)
+        for data_folder, vocab, dataset_name in zip(args.data_folder, args.vocab, args.eval_dataset_name):
+            entities = read_dataset(data_folder)
+            ################
+            entity_texts = [e['entity_text'].lower() for e in entities]
+            labels = [e['label'] for e in entities]
+            ##################
+            vocab = read_vocab(vocab)
 
-                s = ','.join((f"{k}={v}" for k, v in param_dict.items()))
-                s = f"{acc_1},{acc_5}\t{s}"
-                grid_search_log_path = os.path.join(args.output_dir, f'grid_search_{dataset_name}.log')
-                if acc_1 > best_accs_dict[dataset_name]["acc_1"]:
-                    best_accs_dict[dataset_name]["acc_1"] = acc_1
-                    best_params_dict[dataset_name]["acc_1"] = param_dict
-                if acc_5 > best_accs_dict[dataset_name]["acc_5"]:
-                    best_accs_dict[dataset_name]["acc_5"] = acc_5
-                    best_params_dict[dataset_name]["acc_5"] = param_dict
-                with codecs.open(grid_search_log_path, 'a+', encoding="utf-8") as log_file:
-                    log_file.write(f"{s}\n")
-                logging.info(f"Dataset: {dataset_name}, Acc@1: {acc_1}, Acc@5 : {acc_5}")
+            acc_1, acc_5 = evaluate_single_checkpoint_acc1_acc5(checkpoint_path=checkpoint_path, vocab=vocab,
+                                                                entity_texts=entity_texts, labels=labels)
+
+            s = ','.join((f"{k}={v}" for k, v in param_dict.items()))
+            s = f"{acc_1},{acc_5}\t{s}"
+            grid_search_log_path = os.path.join(args.output_dir, f'grid_search_{dataset_name}.log')
+            if acc_1 > best_accs_dict[dataset_name]["acc_1"]:
+                best_accs_dict[dataset_name]["acc_1"] = acc_1
+                best_params_dict[dataset_name]["acc_1"] = param_dict
+            if acc_5 > best_accs_dict[dataset_name]["acc_5"]:
+                best_accs_dict[dataset_name]["acc_5"] = acc_5
+                best_params_dict[dataset_name]["acc_5"] = param_dict
+            with codecs.open(grid_search_log_path, 'a+', encoding="utf-8") as log_file:
+                log_file.write(f"{s}\n")
+            logging.info(f"Dataset: {dataset_name}, Acc@1: {acc_1}, Acc@5 : {acc_5}")
     for dataset_name in best_accs_dict.keys():
         logging.info(f"DATASET {dataset_name}")
         best_param_dict_acc_1 = best_params_dict[dataset_name]["acc_1"]
@@ -412,10 +417,10 @@ def main(args):
         logging.info(f"BEST ACC@1 : {best_acc_1}")
         logging.info(f"BEST ACC@5 : {best_acc_5}")
         logging.info(f"BEST ACC@1 SETUP:")
-        for k, v in best_param_dict_acc_1:
+        for k, v in best_param_dict_acc_1.items():
             logging.info(f"\t{k}={v}")
         logging.info(f"BEST ACC@5 SETUP:")
-        for k, v in best_param_dict_acc_5:
+        for k, v in best_param_dict_acc_5.items():
             logging.info(f"\t{k}={v}")
 
 

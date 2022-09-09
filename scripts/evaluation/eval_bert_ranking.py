@@ -2,9 +2,12 @@ from argparse import ArgumentParser
 import numpy as np
 from tqdm import tqdm
 
-from utils import read_vocab, read_dataset
-from bert_ranker import BERTRanker
+
+
 from typing import List
+
+from graphmel.scripts.evaluation.bert_ranker import BERTRanker
+from graphmel.scripts.evaluation.utils import read_dataset, read_vocab
 
 
 def check_label(predicted_cui: str, golden_cui: str) -> int:

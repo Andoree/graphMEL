@@ -352,13 +352,14 @@ class RGCNEncoder(nn.Module):
         self.prelu = nn.PReLU(num_hidden_channels)
 
     def forward(self, x, edge_index, edge_type, batch_size):
+        (x_src, _) = x
         for i, conv in enumerate(self.convs):
             x = conv(x, edge_index=edge_index, edge_type=edge_type)
             x = self.prelu(x)
             if i != self.num_layers - 1:
                 x = F.dropout(x, p=self.dropout_p, training=self.training)
                 x_target = x[:batch_size]
-                x = (x, x_target)
+                x = (x_src, x_target)
 
         return x
 
@@ -382,14 +383,15 @@ class GATv2Encoder(nn.Module):
 
         self.prelu = nn.PReLU(num_hidden_channels)
 
-    def forward(self, x, edge_index, edge_type, batch_size):
+    def forward(self, x, edge_index, edge_attr, batch_size):
+        (x_src, _) = x
         for i, conv in enumerate(self.convs):
-            x = conv(x, edge_index=edge_index, edge_type=edge_type)
+            x = conv(x, edge_index=edge_index, edge_attr=edge_attr)
             x = self.prelu(x)
             if i != self.num_layers - 1:
                 x = F.dropout(x, p=self.dropout_p, training=self.training)
                 x_target = x[:batch_size]
-                x = (x, x_target)
+                x = (x_src, x_target)
 
         return x
 
@@ -448,7 +450,7 @@ class RGCNDGISapMetricLearning(nn.Module):
     def summary_fn(self, z, *args, **kwargs):
         return torch.sigmoid(z.mean(dim=0))
 
-    def corruption_fn(self, x, edge_index, edge_type):
+    def corruption_fn(self, x, edge_index, edge_type, batch_size):
         (x_source, x_target) = x
         num_target_nodes = x_target.size(0)
         overall_num_nodes = x_source.size(0)
@@ -458,7 +460,7 @@ class RGCNDGISapMetricLearning(nn.Module):
         x_overall_perm = torch.cat((x_target_perm, x_non_target_perm), dim=0)
         assert x_overall_perm.dim() == 1 and x_overall_perm.size(0) == overall_num_nodes
         x = (x_source[x_overall_perm], x_target[x_target_perm])
-        return x, edge_index, edge_type
+        return x, edge_index, edge_type, batch_size
 
     @autocast()
     def forward(self, term_1_input_ids, term_1_att_masks, term_2_input_ids, term_2_att_masks, concept_ids,
@@ -476,8 +478,10 @@ class RGCNDGISapMetricLearning(nn.Module):
         q1_node_emb_tuple = (query_embed1, q1_target_nodes)
         q2_target_nodes = query_embed2[:batch_size]
         q2_node_emb_tuple = (query_embed2, q2_target_nodes)
-        q1_pos_embs, q1_neg_embs, q1_summary = self.dgi(q1_node_emb_tuple, edge_index=edge_index, edge_type=edge_type)
-        q2_pos_embs, q2_neg_embs, q2_summary = self.dgi(q2_node_emb_tuple, edge_index=edge_index, edge_type=edge_type)
+        q1_pos_embs, q1_neg_embs, q1_summary = self.dgi(q1_node_emb_tuple, edge_index=edge_index, edge_type=edge_type,
+                                                        batch_size=batch_size)
+        q2_pos_embs, q2_neg_embs, q2_summary = self.dgi(q2_node_emb_tuple, edge_index=edge_index, edge_type=edge_type,
+                                                        batch_size=batch_size)
 
         assert q1_pos_embs.size()[0] == q2_pos_embs.size()[0] == batch_size
         assert q1_neg_embs.size()[0] == q2_neg_embs.size()[0] == batch_size
@@ -527,7 +531,8 @@ class RGCNDGISapMetricLearning(nn.Module):
 
 
 class GATv2DGISapMetricLearning(nn.Module):
-    def __init__(self, bert_encoder, gat_num_layers: int, gat_dropout_p: float, gat_num_hidden_channels: int, gat_num_att_heads: int,
+    def __init__(self, bert_encoder, gat_num_layers: int, gat_dropout_p: float, gat_num_hidden_channels: int,
+                 gat_num_att_heads: int,
                  gat_attention_dropout_p: float, gat_edge_dim: Union[int, None],
                  gat_use_relation_features, num_relations: Union[int, None],
                  dgi_loss_weight: float, use_cuda, loss, multigpu_flag, use_miner=True, miner_margin=0.2,
@@ -589,10 +594,10 @@ class GATv2DGISapMetricLearning(nn.Module):
     def summary_fn(self, z, *args, **kwargs):
         return torch.sigmoid(z.mean(dim=0))
 
-    def corruption_fn(self, x, edge_index, edge_attr):
+    def corruption_fn(self, x, edge_index, edge_attr, batch_size):
         (x_source, x_target) = x
         x = (x_source[torch.randperm(x_source.size(0))], x_target[torch.randperm(x_target.size(0))])
-        return x, edge_index, edge_attr
+        return x, edge_index, edge_attr, batch_size
 
     @autocast()
     def forward(self, term_1_input_ids, term_1_att_masks, term_2_input_ids, term_2_att_masks, concept_ids,
@@ -615,8 +620,10 @@ class GATv2DGISapMetricLearning(nn.Module):
         q1_node_emb_tuple = (query_embed1, q1_target_nodes)
         q2_target_nodes = query_embed2[:batch_size]
         q2_node_emb_tuple = (query_embed2, q2_target_nodes)
-        q1_pos_embs, q1_neg_embs, q1_summary = self.dgi(q1_node_emb_tuple, edge_index=edge_index, edge_attr=edge_attr)
-        q2_pos_embs, q2_neg_embs, q2_summary = self.dgi(q2_node_emb_tuple, edge_index=edge_index, edge_attr=edge_attr)
+        q1_pos_embs, q1_neg_embs, q1_summary = self.dgi(q1_node_emb_tuple, edge_index=edge_index, edge_attr=edge_attr,
+                                                        batch_size=batch_size)
+        q2_pos_embs, q2_neg_embs, q2_summary = self.dgi(q2_node_emb_tuple, edge_index=edge_index, edge_attr=edge_attr,
+                                                        batch_size=batch_size)
 
         assert q1_pos_embs.size()[0] == q2_pos_embs.size()[0] == batch_size
         assert q1_neg_embs.size()[0] == q2_neg_embs.size()[0] == batch_size
@@ -693,7 +700,8 @@ class RGCNDGISapMetricLearningV2(RGCNDGISapMetricLearning):
 
         node_emb_tuple = (query_embed_mean, target_node_embs)
 
-        pos_embs, neg_embs, summary = self.dgi(node_emb_tuple, edge_index=edge_index, edge_type=edge_type)
+        pos_embs, neg_embs, summary = self.dgi(node_emb_tuple, edge_index=edge_index, edge_type=edge_type,
+                                               batch_size=batch_size)
 
         assert pos_embs.size()[0] == neg_embs.size()[0] == batch_size
 
@@ -718,10 +726,10 @@ class GATv2DGISapMetricLearningV2(GATv2DGISapMetricLearning):
     def summary_fn(self, z, *args, **kwargs):
         return torch.sigmoid(z.mean(dim=0))
 
-    def corruption_fn(self, x, edge_index, edge_attr):
+    def corruption_fn(self, x, edge_index, edge_attr, batch_size):
         (x_source, x_target) = x
         x = (x_source, x_target[torch.randperm(x_target.size(0))])
-        return x, edge_index, edge_attr
+        return x, edge_index, edge_attr, batch_size
 
     @autocast()
     def forward(self, term_1_input_ids, term_1_att_masks, term_2_input_ids, term_2_att_masks, concept_ids,
@@ -747,7 +755,8 @@ class GATv2DGISapMetricLearningV2(GATv2DGISapMetricLearning):
 
         node_emb_tuple = (query_embed_mean, target_node_embs)
 
-        pos_embs, neg_embs, summary = self.dgi(node_emb_tuple, edge_index=edge_index, edge_attr=edge_attr)
+        pos_embs, neg_embs, summary = self.dgi(node_emb_tuple, edge_index=edge_index, edge_attr=edge_attr,
+                                               batch_size=batch_size)
 
         assert pos_embs.size()[0] == pos_embs.size()[0] == batch_size
 
