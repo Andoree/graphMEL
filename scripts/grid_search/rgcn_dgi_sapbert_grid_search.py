@@ -259,7 +259,7 @@ def main(args):
     selected_pos_pair_ids = perm[:train_subset_size]
 
     train_pos_pairs_term_1_id_list = train_pos_pairs_term_1_id_list[selected_pos_pair_ids]
-    train_pos_pairs_term_2_id_list = train_pos_pairs_term_1_id_list[selected_pos_pair_ids]
+    train_pos_pairs_term_2_id_list = train_pos_pairs_term_2_id_list[selected_pos_pair_ids]
 
     logging.info(f"There are {num_nodes} nodes and {num_edges} edges in graph.")
     train_num_pos_pairs = len(train_pos_pairs_term_1_id_list)
