@@ -371,7 +371,7 @@ def main(args):
                                   learning_rate=args.learning_rate, weight_decay=args.weight_decay,
                                   num_epochs=args.num_epochs, output_dir=output_dir,
                                   save_chkpnt_epoch_interval=args.save_every_N_epoch, parallel=args.parallel,
-                                  amp=args.amp, scaler=scaler, device=device,
+                                  amp=args.amp, scaler=scaler, device=device, save_chkpnts=False,
                                   chkpnt_path=args.model_checkpoint_path)
         end = time.time()
         training_time = end - start
