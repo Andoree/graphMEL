@@ -11,7 +11,6 @@ nvidia-smi
 # --remove_selfloops \
 export CUDA_VISIBLE_DEVICES=0,1,2,3
 python ../../scripts/self_alignment_pretraining/gatv2_dgi_sapbert_grid_search.py --train_dir="../../data/umls_graph/2020AB_pos_pairs_datasets/RUS_pos_pairs_russian_SPLIT" \
---validate \
 --text_encoder="../../models/bert-base-multilingual-uncased/" \
 --dataloader_num_workers=4 \
 --data_folder "/home/etutubalina/classification_transfer_learning/graphmel/data/medical_crossing_data/data_medical_crossing/datasets/mantra/de/DISO" "/home/etutubalina/classification_transfer_learning/graphmel/data/medical_crossing_data/data_medical_crossing/datasets/mantra/es/DISO" "/home/etutubalina/classification_transfer_learning/graphmel/data/medical_crossing_data/data_medical_crossing/datasets/mantra/nl/DISO" "/home/etutubalina/classification_transfer_learning/graphmel/data/medical_crossing_data/data_medical_crossing/datasets/mantra/fr/DISO" \

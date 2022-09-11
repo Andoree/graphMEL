@@ -383,7 +383,13 @@ def main(args):
         checkpoint_path = os.path.join(output_dir, "final_checkpoint/")
         bert = AutoModel.from_pretrained(args.text_encoder, )
 
-        bert.load_state_dict(model.bert_encoder.module.state_dict())
+        if args.parallel:
+            bert.load_state_dict(model.bert_encoder.module.state_dict())
+        else:
+            bert.load_state_dict(model.bert_encoder.state_dict())
+
+        model = model.cpu()
+        del model
         save_encoder_from_checkpoint(bert_encoder=bert_encoder, bert_tokenizer=bert_tokenizer,
                                      save_path=checkpoint_path)
         logging.info(f"Processing checkpoint: {checkpoint_path}")
@@ -411,8 +417,7 @@ def main(args):
             with codecs.open(grid_search_log_path, 'a+', encoding="utf-8") as log_file:
                 log_file.write(f"{s}\n")
             logging.info(f"Dataset: {dataset_name}, Acc@1: {acc_1}, Acc@5 : {acc_5}")
-        model = model.cpu()
-        del model
+
     for dataset_name in best_accs_dict.keys():
         logging.info(f"DATASET {dataset_name}")
         best_param_dict_acc_1 = best_params_dict[dataset_name]["acc_1"]
