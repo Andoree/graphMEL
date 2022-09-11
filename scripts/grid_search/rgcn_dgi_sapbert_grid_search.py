@@ -351,14 +351,20 @@ def main(args):
                                          miner_margin=args.miner_margin,
                                          type_of_triplets=args.type_of_triplets, agg_mode=args.agg_mode).to(device)
         start = time.time()
-        train_graph_sapbert_model(model=model, train_epoch_fn=train_rgcn_dgi_sapbert, val_epoch_fn=val_epoch_fn,
-                                  train_loader=train_pos_pair_sampler,
-                                  val_loader=val_pos_pair_sampler,
-                                  learning_rate=args.learning_rate, weight_decay=args.weight_decay,
-                                  num_epochs=args.num_epochs, output_dir=output_dir,
-                                  save_chkpnt_epoch_interval=args.save_every_N_epoch, parallel=args.parallel,
-                                  amp=args.amp, scaler=scaler, device=device,
-                                  chkpnt_path=args.model_checkpoint_path, save_chkpnts=False,)
+        try:
+            train_graph_sapbert_model(model=model, train_epoch_fn=train_rgcn_dgi_sapbert, val_epoch_fn=val_epoch_fn,
+                                      train_loader=train_pos_pair_sampler,
+                                      val_loader=val_pos_pair_sampler,
+                                      learning_rate=args.learning_rate, weight_decay=args.weight_decay,
+                                      num_epochs=args.num_epochs, output_dir=output_dir,
+                                      save_chkpnt_epoch_interval=args.save_every_N_epoch, parallel=args.parallel,
+                                      amp=args.amp, scaler=scaler, device=device,
+                                      chkpnt_path=args.model_checkpoint_path, save_chkpnts=False,)
+        except Exception:
+            model = model.cpu()
+            del model
+            torch.cuda.empty_cache()
+            continue
         end = time.time()
         training_time = end - start
         training_hour = int(training_time / 60 / 60)
@@ -373,10 +379,10 @@ def main(args):
             bert.load_state_dict(model.bert_encoder.module.state_dict())
         else:
             bert.load_state_dict(model.bert_encoder.state_dict())
+        save_encoder_from_checkpoint(bert_encoder=bert, bert_tokenizer=bert_tokenizer,
+                                     save_path=checkpoint_path)
         model = model.cpu()
         del model
-        save_encoder_from_checkpoint(bert_encoder=bert_encoder, bert_tokenizer=bert_tokenizer,
-                                     save_path=checkpoint_path)
         logging.info(f"Processing checkpoint: {checkpoint_path}")
 
         for data_folder, vocab, dataset_name in zip(args.data_folder, args.vocab, args.eval_dataset_name):
