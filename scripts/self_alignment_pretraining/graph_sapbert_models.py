@@ -721,10 +721,10 @@ class RGCNDGISapMetricLearningV2(RGCNDGISapMetricLearning):
     def __init__(self, *args, **kwargs):
         super(RGCNDGISapMetricLearningV2, self).__init__(*args, **kwargs)
 
-    def corruption_fn(self, x, edge_index, edge_type):
+    def corruption_fn(self, x, edge_index, edge_type, batch_size):
         (x_source, x_target) = x
         x = (x_source, x_target[torch.randperm(x_target.size(0))])
-        return x, edge_index, edge_type
+        return x, edge_index, edge_type, batch_size
 
     @autocast()
     def forward(self, term_1_input_ids, term_1_att_masks, term_2_input_ids, term_2_att_masks, concept_ids,
