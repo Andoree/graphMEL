@@ -147,7 +147,7 @@ def gatv2_dgi_sapbert_eval_step(model: GATv2DGISapMetricLearning, batch, amp, de
 
 
 def train_gatv2_dgi_sapbert(model: GATv2DGISapMetricLearning, train_loader: PositivePairNeighborSampler,
-                            optimizer: torch.optim.Optimizer, scaler, amp, device):
+                            optimizer: torch.optim.Optimizer, scaler, amp, device, **kwargs):
     model.train()
     total_loss = 0
     num_steps = 0
@@ -170,7 +170,7 @@ def train_gatv2_dgi_sapbert(model: GATv2DGISapMetricLearning, train_loader: Posi
 
 
 def val_gatv2_dgi_sapbert(model: GATv2DGISapMetricLearning, val_loader: PositivePairNeighborSampler,
-                          amp, device):
+                          amp, device, **kwargs):
     model.eval()
     total_loss = 0
     num_steps = 0

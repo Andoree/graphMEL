@@ -136,7 +136,7 @@ def gcn_dgi_sapbert_eval_step(model: GCNDGISapMetricLearning, batch, amp, device
 
 
 def train_gcn_dgi_sapbert(model: GCNDGISapMetricLearning, train_loader: PositivePairNeighborSampler,
-                          optimizer: torch.optim.Optimizer, scaler, amp, device):
+                          optimizer: torch.optim.Optimizer, scaler, amp, device, **kwargs):
     model.train()
     total_loss = 0
     num_steps = 0
@@ -158,7 +158,7 @@ def train_gcn_dgi_sapbert(model: GCNDGISapMetricLearning, train_loader: Positive
 
 
 def val_gcn_dgi_sapbert(model: GCNDGISapMetricLearning, val_loader: PositivePairNeighborSampler,
-                        amp, device):
+                        amp, device, **kwargs):
     model.eval()
     total_loss = 0
     num_steps = 0

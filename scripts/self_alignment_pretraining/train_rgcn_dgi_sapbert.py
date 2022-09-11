@@ -146,7 +146,7 @@ def rgcn_dgi_sapbert_eval_step(model: RGCNDGISapMetricLearning, batch, amp, devi
 
 
 def train_rgcn_dgi_sapbert(model: RGCNDGISapMetricLearning, train_loader: PositivePairNeighborSampler,
-                           optimizer: torch.optim.Optimizer, scaler, amp, device):
+                           optimizer: torch.optim.Optimizer, scaler, amp, device, **kwargs):
     model.train()
     total_loss = 0
     num_steps = 0
@@ -170,7 +170,7 @@ def train_rgcn_dgi_sapbert(model: RGCNDGISapMetricLearning, train_loader: Positi
 
 
 def val_rgcn_dgi_sapbert(model: RGCNDGISapMetricLearning, val_loader: PositivePairNeighborSampler,
-                         amp, device):
+                         amp, device, **kwargs):
     model.eval()
     total_loss = 0
     num_steps = 0

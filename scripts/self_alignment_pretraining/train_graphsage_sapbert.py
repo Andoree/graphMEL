@@ -125,7 +125,7 @@ def graphsage_sapbert_step(model: GraphSAGESapMetricLearning, batch, amp, device
 
 
 def train_graphsage_sapbert(model: GraphSAGESapMetricLearning, train_loader: PositivePairNeighborSampler,
-                            optimizer: torch.optim.Optimizer, scaler, amp, device):
+                            optimizer: torch.optim.Optimizer, scaler, amp, device, **kwargs):
     model.train()
     total_loss = 0
     num_steps = 0
@@ -147,7 +147,7 @@ def train_graphsage_sapbert(model: GraphSAGESapMetricLearning, train_loader: Pos
 
 
 def val_graphsage_sapbert(model: GraphSAGESapMetricLearning, val_loader: PositivePairNeighborSampler,
-                          amp, device):
+                          amp, device, **kwargs):
     model.eval()
     total_loss = 0
     num_steps = 0

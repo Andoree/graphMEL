@@ -183,7 +183,7 @@ def heterogeneous_graphsage_dgi_sapbert_eval_step(model: HeteroGraphSAGESapMetri
 
 def train_heterogeneous_graphsage_dgi_sapbert(model: HeteroGraphSAGESapMetricLearning,
                                               train_loader: HeterogeneousPositivePairNeighborSampler,
-                                              optimizer: torch.optim.Optimizer, scaler, amp, device):
+                                              optimizer: torch.optim.Optimizer, scaler, amp, device, **kwargs):
     model.train()
     total_loss = 0
     num_steps = 0
@@ -210,7 +210,7 @@ def train_heterogeneous_graphsage_dgi_sapbert(model: HeteroGraphSAGESapMetricLea
 
 def val_heterogeneous_graphsage_dgi_sapbert(model: HeteroGraphSAGESapMetricLearning,
                                             val_loader: HeterogeneousPositivePairNeighborSampler,
-                                            amp, device):
+                                            amp, device, **kwargs):
     model.eval()
     total_loss = 0
     num_steps = 0
