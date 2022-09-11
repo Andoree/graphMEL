@@ -2,7 +2,7 @@
 #SBATCH --job-name=gs_sage          # Название задачи
 #SBATCH --error=../../logs/grid_search/grid_search_multi_full_graphsage_sapbert.err        # Файл для вывода ошибок
 #SBATCH --output=../../logs/grid_search/grid_search_multi_full_graphsage_sapbert.txt       # Файл для вывода результатов
-#SBATCH --time=23:00:59                      # Максимальное время выполнения
+#SBATCH --time=36:00:59                      # Максимальное время выполнения
 #SBATCH --cpus-per-task=4                   # Количество CPU на одну задачу
 #SBATCH --gpus=4                   # Требуемое количество GPU
 #SBATCH --constraint=type_c|type_b|type_a
@@ -18,12 +18,12 @@ python ../../scripts/grid_search/graphsage_sapbert_grid_search.py --train_dir=".
 --num_graphsage_channels 256 768 \
 --num_graphsage_layers 1 2 \
 --num_inner_graphsage_layers 1 2 3 \
---graphsage_dropout_p 0.1 0.3 \
+--graphsage_dropout_p 0.1 \
 --graphsage_num_neighbors 2 3 \
 --graph_loss_weight 1. 0.1 0.01 \
 --remove_selfloops \
---batch_size 128 96 \
---train_subset_ratio 0.0001 \
+--batch_size 128 \
+--train_subset_ratio 0.001 \
 --use_cuda \
 --learning_rate=2e-5 \
 --weight_decay=0.01  \
