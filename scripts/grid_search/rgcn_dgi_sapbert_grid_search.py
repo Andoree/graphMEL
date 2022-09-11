@@ -60,10 +60,7 @@ def parse_args():
     parser.add_argument('--dgi_loss_weight', type=float, nargs='+')
     parser.add_argument('--rgcn_use_fast_conv', action="store_true")
     parser.add_argument('--batch_size', type=int, nargs='+')
-    """
-    "model_class" : (RGCNDGISapMetricLearning, RGCNDGISapMetricLearningV2),
 
-    """
 
     parser.add_argument('--train_subset_ratio', type=float, )
     # Evaluation data path
@@ -162,7 +159,7 @@ def rgcn_dgi_sapbert_eval_step(model: RGCNDGISapMetricLearning, batch, amp, devi
 
 
 def train_rgcn_dgi_sapbert(model: RGCNDGISapMetricLearning, train_loader: PositivePairNeighborSampler,
-                           optimizer: torch.optim.Optimizer, scaler, amp, device):
+                           optimizer: torch.optim.Optimizer, scaler, amp, device, **kwargs):
     model.train()
     total_loss = 0
     num_steps = 0
@@ -186,7 +183,7 @@ def train_rgcn_dgi_sapbert(model: RGCNDGISapMetricLearning, train_loader: Positi
 
 
 def val_rgcn_dgi_sapbert(model: RGCNDGISapMetricLearning, val_loader: PositivePairNeighborSampler,
-                         amp, device):
+                         amp, device, **kwargs):
     model.eval()
     total_loss = 0
     num_steps = 0
@@ -303,7 +300,8 @@ def main(args):
 
         base_dir = args.output_dir
         conv_type = "fast_rgcn_conv" if rgcn_use_fast_conv else "rgcn_conv"
-        output_subdir = f"dgi_{dgi_loss_weight}_rgcn_{rgcn_num_layers}_{rgcn_num_neighbors}_" \
+        model_version = "v1" if model_class is RGCNDGISapMetricLearning else "v2"
+        output_subdir = f"dgi_{dgi_loss_weight}_rgcn_{model_version}_{rgcn_num_layers}_{rgcn_num_neighbors}_" \
                         f"{rgcn_dropout_p}_{rgcn_num_hidden_channels}-" \
                         f"{rgcn_num_blocks}_rel_lr_{args.learning_rate}_b_{batch_size}" \
                         f"_{conv_type}"
@@ -355,7 +353,7 @@ def main(args):
                                   val_loader=val_pos_pair_sampler,
                                   learning_rate=args.learning_rate, weight_decay=args.weight_decay,
                                   num_epochs=args.num_epochs, output_dir=output_dir,
-                                  save_chkpnt_epoch_interval=args.save_every_N_epoch,
+                                  save_chkpnt_epoch_interval=args.save_every_N_epoch, parallel=args.parallel,
                                   amp=args.amp, scaler=scaler, device=device,
                                   chkpnt_path=args.model_checkpoint_path)
         end = time.time()
@@ -396,6 +394,8 @@ def main(args):
             with codecs.open(grid_search_log_path, 'a+', encoding="utf-8") as log_file:
                 log_file.write(f"{s}\n")
             logging.info(f"Dataset: {dataset_name}, Acc@1: {acc_1}, Acc@5 : {acc_5}")
+        model = model.cpu()
+        del model
 
     for dataset_name in best_accs_dict.keys():
         logging.info(f"DATASET {dataset_name}")

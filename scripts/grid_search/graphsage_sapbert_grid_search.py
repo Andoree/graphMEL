@@ -17,19 +17,16 @@ from transformers import AutoModel
 
 from graphmel.scripts.evaluation.evaluate_all_checkpoints_in_dir import evaluate_single_checkpoint_acc1_acc5
 from graphmel.scripts.evaluation.utils import read_dataset, read_vocab
-from graphmel.scripts.self_alignment_pretraining.dataset import PositivePairNeighborSampler, \
-    PositiveRelationalNeighborSampler
-from graphmel.scripts.self_alignment_pretraining.graph_sapbert_models import GATv2DGISapMetricLearning, \
-    GATv2DGISapMetricLearningV2
+from graphmel.scripts.self_alignment_pretraining.dataset import PositivePairNeighborSampler
+from graphmel.scripts.self_alignment_pretraining.graph_sapbert_models import GraphSAGESapMetricLearning
 from graphmel.scripts.self_alignment_pretraining.sapbert_training import train_graph_sapbert_model
 from graphmel.scripts.training.data.dataset import load_positive_pairs, map_terms2term_id, \
-    create_term_id2tokenizer_output, load_data_and_bert_model, convert_edges_tuples_to_edge_index, \
-    convert_edges_tuples_to_oriented_edge_index_with_relations
-from graphmel.scripts.utils.io import save_dict, load_dict, save_encoder_from_checkpoint
+    create_term_id2tokenizer_output, load_data_and_bert_model, convert_edges_tuples_to_edge_index
+from graphmel.scripts.utils.io import save_dict, save_encoder_from_checkpoint
+
 
 # import wandb
 # wandb.init(project="sapbert")
-from graphmel.scripts.utils.umls2graph import add_loops_to_edges_list
 
 
 def parse_args():
@@ -51,18 +48,15 @@ def parse_args():
     parser.add_argument('--output_dir', type=str, required=True,
                         help='Directory for output')
 
-    # GAT and DGI  configuration
-    parser.add_argument('--gat_num_neighbors', type=int, nargs='+')
-    parser.add_argument('--gat_num_hidden_channels', type=int, nargs='+')
-    parser.add_argument('--gat_num_layers', type=int, nargs='+')
-    parser.add_argument('--gat_dropout_p', type=float, nargs='+')
-    parser.add_argument('--gat_num_att_heads', type=int, nargs='+')
-    parser.add_argument('--gat_attention_dropout_p', type=float, nargs='+')
-    parser.add_argument('--gat_use_relation_features', type=bool, nargs='+')
-    parser.add_argument('--gat_edge_dim', type=int, nargs='+')
-    parser.add_argument('--dgi_loss_weight', type=float, nargs='+')
-    parser.add_argument('--batch_size', type=int, nargs='+')
+    # GraphSAGE configuration
+    parser.add_argument('--num_graphsage_channels', type=int, nargs='+')
+    parser.add_argument('--num_graphsage_layers', type=int, nargs='+')
+    parser.add_argument('--num_inner_graphsage_layers', type=int, nargs='+')
+    parser.add_argument('--graphsage_dropout_p', type=float, nargs='+')
+    parser.add_argument('--graphsage_num_neighbors', type=int, nargs='+', )
     parser.add_argument('--remove_selfloops', action="store_true")
+    parser.add_argument('--graph_loss_weight', type=float, nargs='+', )
+    parser.add_argument('--batch_size', type=int, nargs='+', )
 
     parser.add_argument('--train_subset_ratio', type=float, )
     # Evaluation data path
@@ -88,9 +82,14 @@ def parse_args():
     parser.add_argument('--num_epochs',
                         help='epoch to train',
                         default=3, type=int)
+    # parser.add_argument('--save_checkpoint_all', action="store_true")
+    # parser.add_argument('--checkpoint_step', type=int, default=10000000)
     parser.add_argument('--amp', action="store_true",
                         help="automatic mixed precision training")
     parser.add_argument('--parallel', action="store_true")
+    # parser.add_argument('--cased', action="store_true")
+    # parser.add_argument('--pairwise', action="store_true",
+    #                     help="if loading pairwise formatted datasets")
     parser.add_argument('--random_seed',
                         help='',
                         default=1996, type=int)
@@ -111,17 +110,22 @@ def parse_args():
     return args
 
 
-def gatv2_dgi_sapbert_train_step(model: GATv2DGISapMetricLearning, batch, amp, device):
+def graphsage_sapbert_step(model: GraphSAGESapMetricLearning, batch, amp, device):
     term_1_input_ids, term_1_att_masks = batch["term_1_input"]
     term_1_input_ids, term_1_att_masks = term_1_input_ids.to(device), term_1_att_masks.to(device)
     term_2_input_ids, term_2_att_masks = batch["term_2_input"]
     term_2_input_ids, term_2_att_masks = term_2_input_ids.to(device), term_2_att_masks.to(device)
     adjs = batch["adjs"]
-    rel_ids_list = batch["rel_ids_list"]
-    if len(rel_ids_list) > 1 or len(adjs) > 1:
-        raise ValueError("To make model more lightweighted, GATv2+DGI+SapBert does not support multiple GATv2 layers")
-    edge_index = adjs[0].edge_index.to(device)
-    edge_type = rel_ids_list[0].to(device)
+    # print("adjs", type(adjs), adjs)
+    # print('--')
+    # for adj in adjs:
+    #     print("adj", type(adj), adj)
+    # adjs = [adjs,]
+    # adjs = [adj.to(device) for adj in adjs]
+    if not isinstance(adjs, list):
+        adjs = [adjs.to(device), ]
+    else:
+        adjs = [adj.to(device) for adj in adjs]
     batch_size = batch["batch_size"]
     concept_ids = batch["concept_ids"].to(device)
 
@@ -129,44 +133,22 @@ def gatv2_dgi_sapbert_train_step(model: GATv2DGISapMetricLearning, batch, amp, d
         with autocast():
             loss = model(term_1_input_ids=term_1_input_ids, term_1_att_masks=term_1_att_masks,
                          term_2_input_ids=term_2_input_ids, term_2_att_masks=term_2_att_masks,
-                         concept_ids=concept_ids, edge_index=edge_index, edge_type=edge_type, batch_size=batch_size)
+                         concept_ids=concept_ids, adjs=adjs, batch_size=batch_size)
     else:
         loss = model(term_1_input_ids=term_1_input_ids, term_1_att_masks=term_1_att_masks,
                      term_2_input_ids=term_2_input_ids, term_2_att_masks=term_2_att_masks,
-                     concept_ids=concept_ids, edge_index=edge_index, edge_type=edge_type, batch_size=batch_size)
-    # logging.info(f"Train loss: {float(loss)}")
+                     concept_ids=concept_ids, adjs=adjs, batch_size=batch_size)
     return loss
 
 
-def gatv2_dgi_sapbert_eval_step(model: GATv2DGISapMetricLearning, batch, amp, device):
-    term_1_input_ids, term_1_att_masks = batch["term_1_input"]
-    term_1_input_ids, term_1_att_masks = term_1_input_ids.to(device), term_1_att_masks.to(device)
-    term_2_input_ids, term_2_att_masks = batch["term_2_input"]
-    term_2_input_ids, term_2_att_masks = term_2_input_ids.to(device), term_2_att_masks.to(device)
-    concept_ids = batch["concept_ids"].to(device)
-    batch_size = batch["batch_size"]
-
-    if amp:
-        with autocast():
-            sapbert_loss = model.eval_step_loss(term_1_input_ids=term_1_input_ids, term_1_att_masks=term_1_att_masks,
-                                                term_2_input_ids=term_2_input_ids, term_2_att_masks=term_2_att_masks,
-                                                concept_ids=concept_ids, batch_size=batch_size)
-
-    else:
-        sapbert_loss = model.eval_step_loss(term_1_input_ids=term_1_input_ids, term_1_att_masks=term_1_att_masks,
-                                            term_2_input_ids=term_2_input_ids, term_2_att_masks=term_2_att_masks,
-                                            concept_ids=concept_ids, batch_size=batch_size)
-    return sapbert_loss
-
-
-def train_gatv2_dgi_sapbert(model: GATv2DGISapMetricLearning, train_loader: PositivePairNeighborSampler,
+def train_graphsage_sapbert(model: GraphSAGESapMetricLearning, train_loader: PositivePairNeighborSampler,
                             optimizer: torch.optim.Optimizer, scaler, amp, device, **kwargs):
     model.train()
     total_loss = 0
     num_steps = 0
     for batch in tqdm(train_loader, miniters=len(train_loader) // 100, total=len(train_loader)):
         optimizer.zero_grad()
-        loss = gatv2_dgi_sapbert_train_step(model=model, batch=batch, amp=amp, device=device)
+        loss = graphsage_sapbert_step(model=model, batch=batch, amp=amp, device=device)
         if amp:
             scaler.scale(loss).backward()
             scaler.step(optimizer)
@@ -177,19 +159,18 @@ def train_gatv2_dgi_sapbert(model: GATv2DGISapMetricLearning, train_loader: Posi
         num_steps += 1
         total_loss += float(loss)
         # wandb.log({"Train loss": loss.item()})
-        # logging.info(f"num_steps {num_steps}, Step loss {loss}")
     total_loss /= (num_steps + 1e-9)
     return total_loss, num_steps
 
 
-def val_gatv2_dgi_sapbert(model: GATv2DGISapMetricLearning, val_loader: PositivePairNeighborSampler,
+def val_graphsage_sapbert(model: GraphSAGESapMetricLearning, val_loader: PositivePairNeighborSampler,
                           amp, device, **kwargs):
     model.eval()
     total_loss = 0
     num_steps = 0
     with torch.no_grad():
         for batch in tqdm(val_loader, miniters=len(val_loader) // 100, total=len(val_loader)):
-            loss = gatv2_dgi_sapbert_eval_step(model=model, batch=batch, amp=amp, device=device)
+            loss = graphsage_sapbert_step(model=model, batch=batch, amp=amp, device=device)
             num_steps += 1
             total_loss += float(loss)
             # wandb.log({"Val loss": loss.item()})
@@ -198,59 +179,38 @@ def val_gatv2_dgi_sapbert(model: GATv2DGISapMetricLearning, val_loader: Positive
 
 
 def main(args):
-    print(args)
     param_grid = {
-        "model_class": (GATv2DGISapMetricLearning, GATv2DGISapMetricLearningV2),
-        "gat_num_neighbors": args.gat_num_neighbors,
-        "gat_num_hidden_channels": args.gat_num_hidden_channels,
-        "gat_num_layers": args.gat_num_layers,
-        "gat_dropout_p": args.gat_dropout_p,
-        "gat_num_att_heads": args.gat_num_att_heads,
-        "gat_attention_dropout_p": args.gat_attention_dropout_p,
-        "gat_use_relation_features": args.gat_use_relation_features,
-        "gat_edge_dim": args.gat_edge_dim,
-        "dgi_loss_weight": args.dgi_loss_weight,
+        "num_graphsage_channels": args.num_graphsage_channels,
+        "num_graphsage_layers": args.num_graphsage_layers,
+        "num_inner_graphsage_layers": args.num_inner_graphsage_layers,
+        "graphsage_dropout_p": args.graphsage_dropout_p,
+        "graphsage_num_neighbors": args.graphsage_num_neighbors,
+        "graph_loss_weight": args.graph_loss_weight,
         "batch_size": args.batch_size,
     }
 
+    print(args)
+
     node2terms_path = os.path.join(args.train_dir, "node_id2terms_list")
     edges_path = os.path.join(args.train_dir, "edges")
-    rel2id_path = os.path.join(args.train_dir, "rel2id")
-    rela2id_path = os.path.join(args.train_dir, "rela2id")
 
     bert_encoder, bert_tokenizer, node_id2token_ids_dict, edges_tuples, _, _ = \
         load_data_and_bert_model(train_node2terms_path=node2terms_path,
                                  train_edges_path=edges_path, use_fast=True, do_lower_case=True,
                                  val_node2terms_path=node2terms_path,
                                  val_edges_path=edges_path, text_encoder_name=args.text_encoder,
-                                 text_encoder_seq_length=args.max_length, drop_relations_info=False)
+                                 text_encoder_seq_length=args.max_length, drop_relations_info=True)
 
     del _
-
-    rel2id = {rel: int(i) for rel, i in load_dict(rel2id_path).items()}
-    rela2id = {rela: int(i) for rela, i in load_dict(rela2id_path).items()}
-
-    num_relations = len(rel2id.keys())
-
-    if not args.remove_selfloops:
-        add_loops_to_edges_list(node_id2terms_list=node_id2token_ids_dict, rel2rel_id=rel2id, rela2rela_id=rela2id,
-                                edges=edges_tuples)
-    edge_index, edge_rel_ids = \
-        convert_edges_tuples_to_oriented_edge_index_with_relations(edges_tuples, "rel",
-                                                                   remove_selfloops=args.remove_selfloops)
-    assert edge_index.size()[1] == len(edge_rel_ids)
-
-    num_edges = edge_index.size()[1]
+    edge_index = convert_edges_tuples_to_edge_index(edges_tuples=edges_tuples, remove_selfloops=args.remove_selfloops)
     num_nodes = len(set(node_id2token_ids_dict.keys()))
-
+    num_edges = edge_index.size()[1]
     del edges_tuples
-
     train_positive_pairs_path = os.path.join(args.train_dir, f"train_pos_pairs")
     train_pos_pairs_term_1_list, train_pos_pairs_term_2_list, train_pos_pairs_concept_ids = \
         load_positive_pairs(train_positive_pairs_path)
     train_pos_pairs_term_1_id_list, train_pos_pairs_term_2_id_list, train_term2id = map_terms2term_id(
         term_1_list=train_pos_pairs_term_1_list, term_2_list=train_pos_pairs_term_2_list)
-    logging.info(f"There are {len(train_pos_pairs_term_1_id_list)} positive training pairs")
     train_term_id2tok_out = create_term_id2tokenizer_output(term2id=train_term2id, max_length=args.max_length,
                                                             tokenizer=bert_tokenizer)
     del train_pos_pairs_term_1_list
@@ -278,10 +238,9 @@ def main(args):
     val_pos_pair_sampler = None
     val_epoch_fn = None
 
-    device = torch.device('cuda:0' if args.use_cuda else 'cpu')
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     best_accs_dict = {}
-
     for dataset_name in args.eval_dataset_name:
         best_accs_dict[dataset_name] = {
             "acc_1": -1.,
@@ -294,34 +253,31 @@ def main(args):
             "acc_1": {},
             "acc_5": {},
         }
+
     param_names = sorted(param_grid.keys())
     param_values_list = [param_grid[p_name] for p_name in param_names]
 
     for model_setup in itertools.product(*param_values_list):
         param_dict = {name: val for name, val in zip(param_names, model_setup)}
-        model_class = param_dict["model_class"]
-        gat_num_neighbors = (param_dict["gat_num_neighbors"],)
-        gat_num_hidden_channels = param_dict["gat_num_hidden_channels"]
-        gat_num_layers = param_dict["gat_num_layers"]
-        gat_dropout_p = param_dict["gat_dropout_p"]
-        gat_num_att_heads = param_dict["gat_num_att_heads"]
-        gat_attention_dropout_p = param_dict["gat_attention_dropout_p"]
-        gat_edge_dim = param_dict["gat_edge_dim"]
-        gat_use_relation_features = param_dict["gat_use_relation_features"]
-        dgi_loss_weight = param_dict["dgi_loss_weight"]
+
+        num_graphsage_layers = param_dict["num_graphsage_layers"]
+        num_inner_graphsage_layers = param_dict["num_inner_graphsage_layers"]
+        num_graphsage_channels = param_dict["num_graphsage_channels"]
+        graphsage_num_neighbors = (param_dict["graphsage_num_neighbors"],) * num_graphsage_layers
+        graphsage_dropout_p = param_dict["graphsage_dropout_p"]
+        graph_loss_weight = param_dict["graph_loss_weight"]
         batch_size = param_dict["batch_size"]
+        # modalities_aggr_type = param_dict["modalities_aggr_type"]
 
         base_dir = args.output_dir
-        model_version = "v1" if model_class is GATv2DGISapMetricLearning else "v2"
-        output_subdir = f"gatv2_{model_version}_{gat_num_neighbors}_{gat_num_hidden_channels}" \
-                        f"_{gat_num_layers}_{gat_dropout_p}_" \
-                        f"{gat_num_att_heads}_{gat_attention_dropout_p}_{gat_use_relation_features}_" \
-                        f"rel_{gat_edge_dim}_remove_loops_True_" \
-                        f"dgi_{dgi_loss_weight}_lr_{args.learning_rate}_b_{batch_size}"
+        output_subdir = f"gs_{num_graphsage_layers}-{num_graphsage_channels}_{num_inner_graphsage_layers}" \
+                        f"{graphsage_num_neighbors}_{graphsage_dropout_p}_{graph_loss_weight}" \
+                        f"lr_{args.learning_rate}_b_{batch_size}"
         output_dir = os.path.join(base_dir, output_subdir)
         if not os.path.exists(output_dir) and output_dir != '':
             os.makedirs(output_dir)
         model_descr_path = os.path.join(output_dir, "model_description.tsv")
+
         save_dict(save_path=model_descr_path, dictionary=vars(args), )
         torch.manual_seed(args.random_seed)
         torch.manual_seed(args.random_seed)
@@ -332,55 +288,52 @@ def main(args):
         torch.cuda.random.manual_seed(args.random_seed)
         torch.cuda.random.manual_seed_all(args.random_seed)
         torch.backends.cudnn.deterministic = True
-        bert_encoder = AutoModel.from_pretrained(args.text_encoder, )
 
-        train_pos_pair_sampler = PositiveRelationalNeighborSampler(
-            pos_pairs_term_1_id_list=train_pos_pairs_term_1_id_list,
-            pos_pairs_term_2_id_list=train_pos_pairs_term_2_id_list,
-            pos_pairs_concept_ids_list=train_pos_pairs_concept_ids,
-            sizes=gat_num_neighbors, edge_index=edge_index,
-            term_id2tokenizer_output=train_term_id2tok_out,
-            rel_ids=edge_rel_ids, node_idx=train_pos_pairs_idx,
-            node_id2token_ids_dict=node_id2token_ids_dict,
-            seq_max_length=args.max_length,
-            batch_size=batch_size,
-            num_workers=args.dataloader_num_workers, shuffle=True, )
+        train_num_pos_pairs = len(train_pos_pairs_term_1_id_list)
+        train_pos_pairs_idx = torch.LongTensor(range(train_num_pos_pairs))
+        train_pos_pair_sampler = PositivePairNeighborSampler(pos_pairs_term_1_id_list=train_pos_pairs_term_1_id_list,
+                                                             pos_pairs_term_2_id_list=train_pos_pairs_term_2_id_list,
+                                                             pos_pairs_concept_ids_list=train_pos_pairs_concept_ids,
+                                                             sizes=graphsage_num_neighbors, edge_index=edge_index,
+                                                             term_id2tokenizer_output=train_term_id2tok_out,
+                                                             node_idx=train_pos_pairs_idx,
+                                                             node_id2token_ids_dict=node_id2token_ids_dict,
+                                                             seq_max_length=args.max_length, batch_size=batch_size,
+                                                             num_workers=args.dataloader_num_workers, shuffle=True, )
 
         if args.amp:
             scaler = GradScaler()
         else:
             scaler = None
-
-        model = model_class(bert_encoder, gat_num_hidden_channels=gat_num_hidden_channels,
-                            gat_num_att_heads=gat_num_att_heads, gat_num_layers=gat_num_layers,
-                            gat_attention_dropout_p=gat_attention_dropout_p,
-                            gat_edge_dim=gat_edge_dim, gat_dropout_p=gat_dropout_p,
-                            gat_use_relation_features=gat_use_relation_features,
-                            num_relations=num_relations, dgi_loss_weight=dgi_loss_weight,
-                            use_cuda=args.use_cuda, loss=args.loss,
-                            multigpu_flag=args.parallel, use_miner=args.use_miner,
-                            miner_margin=args.miner_margin,
-                            type_of_triplets=args.type_of_triplets, agg_mode=args.agg_mode).to(device)
+        model = GraphSAGESapMetricLearning(bert_encoder=bert_encoder, num_graphsage_channels=num_graphsage_channels,
+                                           num_graphsage_layers=num_graphsage_layers,
+                                           num_inner_graphsage_layers=num_inner_graphsage_layers,
+                                           graphsage_dropout_p=graphsage_dropout_p,
+                                           use_cuda=args.use_cuda, graph_loss_weight=graph_loss_weight,
+                                           loss=args.loss, use_miner=args.use_miner, miner_margin=args.miner_margin,
+                                           type_of_triplets=args.type_of_triplets, agg_mode=args.agg_mode,
+                                           multigpu_flag=args.parallel).to(device)
         start = time.time()
-        train_graph_sapbert_model(model=model, train_epoch_fn=train_gatv2_dgi_sapbert, val_epoch_fn=val_epoch_fn,
+        train_graph_sapbert_model(model=model, train_epoch_fn=train_graphsage_sapbert, val_epoch_fn=val_epoch_fn,
                                   train_loader=train_pos_pair_sampler,
                                   val_loader=val_pos_pair_sampler,
                                   learning_rate=args.learning_rate, weight_decay=args.weight_decay,
                                   num_epochs=args.num_epochs, output_dir=output_dir,
                                   save_chkpnt_epoch_interval=args.save_every_N_epoch, parallel=args.parallel,
-                                  amp=args.amp, scaler=scaler, device=device,
-                                  chkpnt_path=args.model_checkpoint_path)
+                                  amp=args.amp, scaler=scaler, device=device, chkpnt_path=args.model_checkpoint_path)
         end = time.time()
         training_time = end - start
         training_hour = int(training_time / 60 / 60)
         training_minute = int(training_time / 60 % 60)
         training_second = int(training_time % 60)
-        logging.info(
-            f"Training Time took {training_hour} hours {training_minute} minutes {training_second} seconds")
+        logging.info(f"Training Time took {training_hour} hours {training_minute} minutes {training_second} seconds")
         checkpoint_path = os.path.join(output_dir, "final_checkpoint/")
         bert = AutoModel.from_pretrained(args.text_encoder, )
 
-        bert.load_state_dict(model.bert_encoder.module.state_dict())
+        if args.parallel:
+            bert.load_state_dict(model.bert_encoder.module.state_dict())
+        else:
+            bert.load_state_dict(model.bert_encoder.state_dict())
         save_encoder_from_checkpoint(bert_encoder=bert_encoder, bert_tokenizer=bert_tokenizer,
                                      save_path=checkpoint_path)
         logging.info(f"Processing checkpoint: {checkpoint_path}")

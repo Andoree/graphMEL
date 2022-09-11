@@ -13,8 +13,8 @@ from graphmel.scripts.self_alignment_pretraining.dgi import Float32DeepGraphInfo
 
 class GraphSAGESapMetricLearning(nn.Module):
     def __init__(self, bert_encoder, use_cuda, loss, num_graphsage_layers, num_graphsage_channels,
-                 graphsage_dropout_p, multigpu_flag, use_miner=True, miner_margin=0.2, type_of_triplets="all",
-                 agg_mode="cls"):
+                 num_inner_graphsage_layers, graphsage_dropout_p, graph_loss_weight, multigpu_flag,
+                 use_miner=True, miner_margin=0.2, type_of_triplets="all", agg_mode="cls"):
 
         logging.info(
             "Sap_Metric_Learning! use_cuda={} loss={} use_miner={} miner_margin={} type_of_triplets={} agg_mode={}".format(
@@ -28,8 +28,13 @@ class GraphSAGESapMetricLearning(nn.Module):
         self.miner_margin = miner_margin
         self.agg_mode = agg_mode
         self.num_graphsage_layers = num_graphsage_layers
+        self.num_inner_graphsage_layers = num_inner_graphsage_layers
         self.convs = nn.ModuleList()
         self.bert_hidden_dim = bert_encoder.config.hidden_size
+        self.graph_loss_weight = graph_loss_weight
+        # if modalities_aggr_type not in ("base", "mean"):
+        #     raise ValueError(f"Invalid modalities aggregation type: {modalities_aggr_type}")
+        # self.modalities_aggr_type = modalities_aggr_type
 
         if multigpu_flag:
             self.bert_encoder = nn.DataParallel(bert_encoder)
@@ -37,12 +42,20 @@ class GraphSAGESapMetricLearning(nn.Module):
             self.bert_encoder = bert_encoder
         self.graphsage_dropout_p = graphsage_dropout_p
         for i in range(num_graphsage_layers):
-            in_channels = self.bert_hidden_dim if i == 0 else num_graphsage_channels
-            # if multigpu_flag:
-            #    sage_conv = nn.DataParallel(SAGEConv(in_channels, num_graphsage_channels))
-            # else:
-            sage_conv = SAGEConv(in_channels, num_graphsage_channels)
-            self.convs.append(sage_conv)
+            inner_convs = nn.ModuleList()
+            for j in range(num_inner_graphsage_layers):
+                src_dim = self.bert_hidden_dim
+                trg_dim = self.bert_hidden_dim if (j == 0 and i == 0) else num_graphsage_channels
+                # in_channels = self.bert_hidden_dim if (j == 0 and i == 0) or \
+                #                                       (i == num_graphsage_layers - 1
+                #                                        and j == num_inner_graphsage_layers - 1) \
+                #     else num_graphsage_channels
+                # in_channels = self.bert_hidden_dim if (j == 0 and i == 0) else num_graphsage_channels
+                in_channels = (src_dim, trg_dim)
+                sage_conv = SAGEConv(in_channels, num_graphsage_channels)
+                inner_convs.append(sage_conv)
+
+            self.convs.append(inner_convs)
 
         if self.use_miner:
             self.miner = miners.TripletMarginMiner(margin=miner_margin, type_of_triplets=type_of_triplets)
@@ -64,16 +77,18 @@ class GraphSAGESapMetricLearning(nn.Module):
         logging.info(f"Using miner: {self.miner}")
         logging.info(f"Using loss function: {self.loss}")
 
-    def encode_tokens(self, input_ids, attention_mask, adjs):
-        x = self.bert_encoder(input_ids, attention_mask=attention_mask,
-                              return_dict=True)['last_hidden_state'][:, 0]
-        for i, (edge_index, _, size) in enumerate(adjs):
-            x_target = x[:size[1]]  # Target nodes are always placed first.
-            x = self.convs[i]((x, x_target), edge_index)
-            if i != self.num_graphsage_layers - 1:
-                x = x.relu()
-                x = F.dropout(x, p=self.graphsage_dropout_p, training=self.training)
-        return x
+    def encode_tokens(self, embs, adjs):
+
+        for i, ((edge_index, _, size), inner_convs_list) in enumerate(zip(adjs, self.convs)):
+            if i == 0:
+                x_target = embs[:size[1]]
+            for j, conv in enumerate(inner_convs_list):
+                # x_target = x[:size[1]]  # Target nodes are always placed first.
+                x_target = conv((embs, x_target), edge_index)
+                if not (i == self.num_graphsage_layers - 1 and j == self.num_inner_graphsage_layers - 1):
+                    x_target = F.dropout(x_target, p=self.graphsage_dropout_p, training=self.training)
+                x_target = x_target.relu()
+        return x_target
 
     @autocast()
     def forward(self, term_1_input_ids, term_1_att_masks, term_2_input_ids, term_2_att_masks, concept_ids, adjs,
@@ -83,17 +98,30 @@ class GraphSAGESapMetricLearning(nn.Module):
 
         output : (N, topk)
         """
-        query_embed1 = self.encode_tokens(input_ids=term_1_input_ids, attention_mask=term_1_att_masks,
-                                          adjs=adjs)[:batch_size]
-        query_embed2 = self.encode_tokens(input_ids=term_2_input_ids, attention_mask=term_2_att_masks,
-                                          adjs=adjs)[:batch_size]
-        query_embed = torch.cat([query_embed1, query_embed2], dim=0)
+
+        text_embed1 = self.bert_encoder(term_1_input_ids, attention_mask=term_1_att_masks,
+                                        return_dict=True)['last_hidden_state'][:, 0]
+        text_embed2 = self.bert_encoder(term_2_input_ids, attention_mask=term_2_att_masks,
+                                        return_dict=True)['last_hidden_state'][:, 0]
+
+        graph_embed1 = self.encode_tokens(embs=text_embed1, adjs=adjs)[:batch_size]
+        graph_embed2 = self.encode_tokens(embs=text_embed2, adjs=adjs)[:batch_size]
+
+        text_embed = torch.cat([text_embed1[:batch_size], text_embed2[:batch_size]], dim=0)
+        graph_embed = torch.cat([graph_embed1, graph_embed2], dim=0)
         labels = torch.cat([concept_ids, concept_ids], dim=0)
         if self.use_miner:
-            hard_pairs = self.miner(query_embed, labels)
-            return self.loss(query_embed, labels, hard_pairs)
+            hard_pairs_text = self.miner(text_embed, labels)
+            hard_pairs_graph = self.miner(graph_embed, labels)
+            text_loss = self.loss(text_embed, labels, hard_pairs_text)
+            graph_loss = self.loss(graph_embed, labels, hard_pairs_graph)
+            loss = text_loss + self.graph_loss_weight * graph_loss
+            return loss
         else:
-            return self.loss(query_embed, labels)
+            text_loss = self.loss(text_embed, labels, )
+            graph_loss = self.loss(graph_embed, labels, )
+            loss = text_loss + self.graph_loss_weight * graph_loss
+            return loss
 
     def get_loss(self, outputs, targets):
         if self.use_cuda:
@@ -103,7 +131,8 @@ class GraphSAGESapMetricLearning(nn.Module):
 
 
 class RGCNSapMetricLearning(nn.Module):
-    def __init__(self, bert_encoder, num_hidden_channels: int, num_layers: int, rgcn_dropout_p: float,
+    def __init__(self, bert_encoder, num_hidden_channels: int, num_layers: int, num_inner_layers: int,
+                 rgcn_dropout_p: float, graph_loss_weight: float,
                  num_relations: int, num_bases: int, num_blocks: int, use_fast_conv: bool, use_cuda, loss,
                  multigpu_flag, use_miner=True, miner_margin=0.2, type_of_triplets="all", agg_mode="cls"):
 
@@ -114,6 +143,7 @@ class RGCNSapMetricLearning(nn.Module):
         super(RGCNSapMetricLearning, self).__init__()
         self.bert_encoder = bert_encoder
         self.num_layers = num_layers
+        self.num_inner_layers = num_inner_layers
         self.use_cuda = use_cuda
         self.loss = loss
         self.use_miner = use_miner
@@ -126,13 +156,19 @@ class RGCNSapMetricLearning(nn.Module):
             self.bert_encoder = bert_encoder
         RGCNConvClass = FastRGCNConv if use_fast_conv else RGCNConv
         self.rgcn_dropout_p = rgcn_dropout_p
+        self.graph_loss_weight = graph_loss_weight
         self.convs = nn.ModuleList()
+
         for i in range(num_layers):
-            in_channels = self.bert_hidden_dim if i == 0 else num_hidden_channels
-            rgcn_conv = RGCNConvClass(in_channels=in_channels, out_channels=num_hidden_channels,
-                                      num_relations=num_relations, num_bases=num_bases,
-                                      num_blocks=num_blocks, )
-            self.convs.append(rgcn_conv)
+            inner_convs = nn.ModuleList()
+            for j in range(num_inner_layers):
+                src_dim = self.bert_hidden_dim
+                trg_dim = self.bert_hidden_dim if (j == 0 and i == 0) else num_hidden_channels
+                in_channels = (src_dim, trg_dim)
+                rgcn_conv = RGCNConvClass(in_channels=in_channels, out_channels=num_hidden_channels,
+                                          num_relations=num_relations, num_bases=num_bases, num_blocks=num_blocks, )
+                inner_convs.append(rgcn_conv)
+            self.convs.append(inner_convs)
 
         if self.use_miner:
             self.miner = miners.TripletMarginMiner(margin=miner_margin, type_of_triplets=type_of_triplets)
@@ -154,17 +190,17 @@ class RGCNSapMetricLearning(nn.Module):
         logging.info(f"Using miner: {self.miner}")
         logging.info(f"Using loss function: {self.loss}")
 
-    def encode_tokens(self, input_ids, attention_mask, adjs, rel_types):
-        x = self.bert_encoder(input_ids, attention_mask=attention_mask,
-                              return_dict=True)['last_hidden_state'][:, 0]
+    def encode_tokens(self, embs, adjs, rel_types):
 
-        for i, ((edge_index, _, size), rel_type) in enumerate(zip(adjs, rel_types)):
-            x_target = x[:size[1]]  # Target nodes are always placed first.
-            x = self.convs[i]((x, x_target), edge_index=edge_index, edge_type=rel_type)
-            if i != self.num_layers - 1:
-                x = x.relu()
-                x = F.dropout(x, p=self.rgcn_dropout_p, training=self.training)
-        return x
+        for i, ((edge_index, _, size), inner_convs_list, rel_type) in enumerate(zip(adjs, self.convs, rel_types)):
+            if i == 0:
+                x_target = embs[:size[1]]  # Target nodes are always placed first.
+            for j, conv in enumerate(inner_convs_list):
+                x_target = conv((embs, x_target), edge_index=edge_index, edge_type=rel_type)
+                if not (i == self.num_layers - 1 and j == self.num_inner_layers):
+                    x_target = F.dropout(x_target, p=self.rgcn_dropout_p, training=self.training)
+                x_target = x_target.relu()
+        return x_target
 
     @autocast()
     def forward(self, term_1_input_ids, term_1_att_masks, term_2_input_ids, term_2_att_masks, concept_ids,
@@ -174,20 +210,29 @@ class RGCNSapMetricLearning(nn.Module):
 
         output : (N, topk)
         """
+        text_embed1 = self.bert_encoder(term_1_input_ids, attention_mask=term_1_att_masks,
+                                        return_dict=True)['last_hidden_state'][:, 0]
+        text_embed2 = self.bert_encoder(term_2_input_ids, attention_mask=term_2_att_masks,
+                                        return_dict=True)['last_hidden_state'][:, 0]
 
-        query_embed1 = self.encode_tokens(input_ids=term_1_input_ids, attention_mask=term_1_att_masks, adjs=adjs,
-                                          rel_types=rel_types)[:batch_size]
-        query_embed2 = self.encode_tokens(input_ids=term_2_input_ids, attention_mask=term_2_att_masks, adjs=adjs,
-                                          rel_types=rel_types)[:batch_size]
+        graph_embed1 = self.encode_tokens(embs=text_embed1, adjs=adjs, rel_types=rel_types)[:batch_size]
+        graph_embed2 = self.encode_tokens(embs=text_embed2, adjs=adjs, rel_types=rel_types)[:batch_size]
 
-        query_embed = torch.cat([query_embed1, query_embed2], dim=0)
+        text_embed = torch.cat([text_embed1[:batch_size], text_embed2[:batch_size]], dim=0)
+        graph_embed = torch.cat([graph_embed1, graph_embed2], dim=0)
         labels = torch.cat([concept_ids, concept_ids], dim=0)
-
         if self.use_miner:
-            hard_pairs = self.miner(query_embed, labels)
-            return self.loss(query_embed, labels, hard_pairs)
+            hard_pairs_text = self.miner(text_embed, labels)
+            hard_pairs_graph = self.miner(graph_embed, labels)
+            text_loss = self.loss(text_embed, labels, hard_pairs_text)
+            graph_loss = self.loss(graph_embed, labels, hard_pairs_graph)
+            loss = text_loss + self.graph_loss_weight * graph_loss
+            return loss
         else:
-            return self.loss(query_embed, labels)
+            text_loss = self.loss(text_embed, labels, )
+            graph_loss = self.loss(graph_embed, labels, )
+            loss = text_loss + self.graph_loss_weight * graph_loss
+            return loss
 
     def get_loss(self, outputs, targets):
         if self.use_cuda:

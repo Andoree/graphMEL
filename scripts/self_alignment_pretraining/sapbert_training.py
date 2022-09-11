@@ -8,6 +8,7 @@ from graphmel.scripts.utils.io import update_log_file
 def train_graph_sapbert_model(model, train_epoch_fn, val_epoch_fn, train_loader, val_loader, chkpnt_path: str,
                               num_epochs: int, learning_rate: float, weight_decay: float, output_dir: str,
                               save_chkpnt_epoch_interval: int, amp: bool, scaler, device: torch.device, **kwargs):
+    parallel = kwargs["parallel"]
     if chkpnt_path is not None:
         logging.info(f"Successfully loaded checkpoint from: {chkpnt_path}")
         checkpoint = torch.load(chkpnt_path)
@@ -38,9 +39,13 @@ def train_graph_sapbert_model(model, train_epoch_fn, val_epoch_fn, train_loader,
         if i % save_chkpnt_epoch_interval == 0:
             checkpoint = {
                 'epoch': i + 1,
-                'model_state': model.bert_encoder.module.state_dict(),
                 'optimizer': optimizer,
             }
+
+            if parallel:
+                checkpoint['model_state']: model.bert_encoder.module.state_dict()
+            else:
+                checkpoint['model_state']: model.bert_encoder.state_dict()
 
             chkpnt_path = os.path.join(output_dir, f"checkpoint_e_{i + 1}_steps_{global_num_steps}.pth")
             torch.save(checkpoint, chkpnt_path)
@@ -48,8 +53,11 @@ def train_graph_sapbert_model(model, train_epoch_fn, val_epoch_fn, train_loader,
         update_log_file(path=log_file_path, dict_to_log=log_dict)
     checkpoint = {
         'epoch': start_epoch + num_epochs,
-        'model_state': model.bert_encoder.module.state_dict(),
         'optimizer': optimizer,
     }
+    if parallel:
+        checkpoint['model_state']: model.bert_encoder.module.state_dict()
+    else:
+        checkpoint['model_state']: model.bert_encoder.state_dict()
     chkpnt_path = os.path.join(output_dir, f"checkpoint_e_{start_epoch + num_epochs}_steps_{global_num_steps}.pth")
     torch.save(checkpoint, chkpnt_path)
