@@ -11,7 +11,7 @@
 export CUDA_VISIBLE_DEVICES=0,1,2,3
 nvidia-smi
 
-python ../../scripts/grid_search/rgcn_dgi_sapbert_grid_search.py --train_dir="../../data/umls_graph/2020AB_pos_pairs_datasets/RUS_pos_pairs_russian_FULL" \
+python ../../scripts/grid_search/rgcn_dgi_sapbert_grid_search.py --train_dir="../../data/umls_graph/2020AB_pos_pairs_datasets/ENG_FRE_GER_SPA_DUT_RUS_pos_pairs_multilingual_FULL" \
 --text_encoder="../../models/bert-base-multilingual-uncased/" \
 --dataloader_num_workers=4 \
 --max_length=32 \
@@ -23,6 +23,7 @@ python ../../scripts/grid_search/rgcn_dgi_sapbert_grid_search.py --train_dir="..
 --dgi_loss_weight 1. 0.1 0.01 \
 --rgcn_use_fast_conv \
 --batch_size 96 128 \
+--train_subset_ratio 0.0001 \
 --use_cuda \
 --learning_rate=2e-5 \
 --weight_decay=0.01  \
