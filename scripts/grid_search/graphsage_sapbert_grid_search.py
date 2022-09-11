@@ -218,6 +218,7 @@ def main(args):
 
     train_pos_pairs_term_1_id_list = np.array(train_pos_pairs_term_1_id_list)
     train_pos_pairs_term_2_id_list = np.array(train_pos_pairs_term_2_id_list)
+    train_pos_pairs_concept_ids = np.array(train_pos_pairs_concept_ids)
     assert len(train_pos_pairs_term_1_id_list) == len(train_pos_pairs_term_2_id_list) \
            == len(train_pos_pairs_concept_ids)
     overall_num_pos_pairs = len(train_pos_pairs_term_1_id_list)
@@ -229,6 +230,7 @@ def main(args):
 
     train_pos_pairs_term_1_id_list = train_pos_pairs_term_1_id_list[selected_pos_pair_ids]
     train_pos_pairs_term_2_id_list = train_pos_pairs_term_2_id_list[selected_pos_pair_ids]
+    train_pos_pairs_concept_ids = train_pos_pairs_concept_ids[selected_pos_pair_ids]
 
     logging.info(f"There are {num_nodes} nodes and {num_edges} edges in graph.")
     train_num_pos_pairs = len(train_pos_pairs_term_1_id_list)
