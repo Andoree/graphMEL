@@ -315,7 +315,7 @@ def main(args):
                                                                    rel_ids=edge_rel_ids, node_idx=train_pos_pairs_idx,
                                                                    node_id2token_ids_dict=node_id2token_ids_dict,
                                                                    seq_max_length=args.max_length,
-                                                                   batch_size=args.batch_size,
+                                                                   batch_size=batch_size,
                                                                    num_workers=args.dataloader_num_workers, shuffle=True, )
 
 
