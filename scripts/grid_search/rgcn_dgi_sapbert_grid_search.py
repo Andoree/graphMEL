@@ -297,6 +297,9 @@ def main(args):
         dgi_loss_weight = param_dict["dgi_loss_weight"]
         rgcn_use_fast_conv = args.rgcn_use_fast_conv
         batch_size = param_dict["batch_size"]
+        logging.info("Processing configuration:")
+        for k, v in param_dict.items():
+            logging.info(f"{k}={v}")
 
         base_dir = args.output_dir
         conv_type = "fast_rgcn_conv" if rgcn_use_fast_conv else "rgcn_conv"

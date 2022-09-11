@@ -268,6 +268,9 @@ def main(args):
         graph_loss_weight = param_dict["graph_loss_weight"]
         batch_size = param_dict["batch_size"]
         # modalities_aggr_type = param_dict["modalities_aggr_type"]
+        logging.info("Processing configuration:")
+        for k, v in param_dict.items():
+            logging.info(f"{k}={v}")
 
         base_dir = args.output_dir
         output_subdir = f"gs_{num_graphsage_layers}-{num_graphsage_channels}_{num_inner_graphsage_layers}" \

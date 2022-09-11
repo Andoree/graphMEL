@@ -280,6 +280,9 @@ def main(args):
         rgcn_num_neighbors = (param_dict["rgcn_num_neighbors"],) * rgcn_num_layers
         graph_loss_weight = param_dict["graph_loss_weight"]
         batch_size = param_dict["batch_size"]
+        logging.info("Processing configuration:")
+        for k, v in param_dict.items():
+            logging.info(f"{k}={v}")
 
         base_dir = args.output_dir
         conv_type = "fast_rgcn_conv" if args.rgcn_use_fast_conv else "rgcn_conv"

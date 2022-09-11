@@ -310,6 +310,9 @@ def main(args):
         gat_use_relation_features = param_dict["gat_use_relation_features"]
         dgi_loss_weight = param_dict["dgi_loss_weight"]
         batch_size = param_dict["batch_size"]
+        logging.info("Processing configuration:")
+        for k, v in param_dict.items():
+            logging.info(f"{k}={v}")
 
         base_dir = args.output_dir
         model_version = "v1" if model_class is GATv2DGISapMetricLearning else "v2"
