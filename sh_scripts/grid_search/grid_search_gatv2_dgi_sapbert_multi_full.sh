@@ -10,7 +10,7 @@
 nvidia-smi
 # --remove_selfloops \
 export CUDA_VISIBLE_DEVICES=0,1,2,3
-python ../../scripts/self_alignment_pretraining/gatv2_dgi_sapbert_grid_search.py --train_dir="../../data/umls_graph/2020AB_pos_pairs_datasets/RUS_pos_pairs_russian_SPLIT" \
+python ../../scripts/grid_search/gatv2_dgi_sapbert_grid_search.py --train_dir="../../data/umls_graph/2020AB_pos_pairs_datasets/ENG_FRE_GER_SPA_DUT_RUS_pos_pairs_multilingual_FULL" \
 --text_encoder="../../models/bert-base-multilingual-uncased/" \
 --dataloader_num_workers=4 \
 --data_folder "/home/etutubalina/classification_transfer_learning/graphmel/data/medical_crossing_data/data_medical_crossing/datasets/mantra/de/DISO" "/home/etutubalina/classification_transfer_learning/graphmel/data/medical_crossing_data/data_medical_crossing/datasets/mantra/es/DISO" "/home/etutubalina/classification_transfer_learning/graphmel/data/medical_crossing_data/data_medical_crossing/datasets/mantra/nl/DISO" "/home/etutubalina/classification_transfer_learning/graphmel/data/medical_crossing_data/data_medical_crossing/datasets/mantra/fr/DISO" \
@@ -26,6 +26,7 @@ python ../../scripts/self_alignment_pretraining/gatv2_dgi_sapbert_grid_search.py
 --gat_edge_dim 16 32 \
 --dgi_loss_weight 1. 0.1 0.01 \
 --batch_size 128 96 \
+--train_subset_ratio 0.0001 \
 --remove_selfloops \
 --max_length=32 \
 --use_cuda \

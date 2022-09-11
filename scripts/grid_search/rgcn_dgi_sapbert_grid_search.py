@@ -358,7 +358,7 @@ def main(args):
                                   num_epochs=args.num_epochs, output_dir=output_dir,
                                   save_chkpnt_epoch_interval=args.save_every_N_epoch, parallel=args.parallel,
                                   amp=args.amp, scaler=scaler, device=device,
-                                  chkpnt_path=args.model_checkpoint_path)
+                                  chkpnt_path=args.model_checkpoint_path, save_chkpnts=False,)
         end = time.time()
         training_time = end - start
         training_hour = int(training_time / 60 / 60)

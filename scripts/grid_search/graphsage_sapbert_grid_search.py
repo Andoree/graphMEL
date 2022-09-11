@@ -321,7 +321,7 @@ def main(args):
                                   train_loader=train_pos_pair_sampler,
                                   val_loader=val_pos_pair_sampler,
                                   learning_rate=args.learning_rate, weight_decay=args.weight_decay,
-                                  num_epochs=args.num_epochs, output_dir=output_dir,
+                                  num_epochs=args.num_epochs, output_dir=output_dir, save_chkpnts=False,
                                   save_chkpnt_epoch_interval=args.save_every_N_epoch, parallel=args.parallel,
                                   amp=args.amp, scaler=scaler, device=device, chkpnt_path=args.model_checkpoint_path)
         end = time.time()
