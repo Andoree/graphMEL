@@ -310,6 +310,7 @@ def main(args):
             scaler = GradScaler()
         else:
             scaler = None
+        bert_encoder = AutoModel.from_pretrained(args.text_encoder, )
         model = GraphSAGESapMetricLearning(bert_encoder=bert_encoder, num_graphsage_channels=num_graphsage_channels,
                                            num_graphsage_layers=num_graphsage_layers,
                                            num_inner_graphsage_layers=num_inner_graphsage_layers,

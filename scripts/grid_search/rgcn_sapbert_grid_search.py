@@ -325,7 +325,7 @@ def main(args):
             scaler = GradScaler()
         else:
             scaler = None
-
+        bert_encoder = AutoModel.from_pretrained(args.text_encoder, )
         model = RGCNSapMetricLearning(bert_encoder=bert_encoder, num_hidden_channels=rgcn_num_hidden_channels,
                                       num_layers=rgcn_num_layers, num_inner_layers=rgcn_num_inner_layers,
                                       rgcn_dropout_p=rgcn_dropout_p, graph_loss_weight=graph_loss_weight,
