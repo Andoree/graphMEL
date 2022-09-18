@@ -1,22 +1,22 @@
 #!/usr/bin/env python
-import numpy as np
 import argparse
-import torch
-from torch.cuda.amp import autocast
-from torch.cuda.amp import GradScaler
-
 import logging
-import time
 import os
 import random
+import time
+
+import numpy as np
+import torch
+from torch.cuda.amp import GradScaler
+from torch.cuda.amp import autocast
 from tqdm import tqdm
 
 from graphmel.scripts.self_alignment_pretraining.dataset import PositivePairNeighborSampler, \
     PositiveRelationalNeighborSampler
-from graphmel.scripts.self_alignment_pretraining.graph_sapbert_models import RGCNDGISapMetricLearning
+from graphmel.scripts.self_alignment_pretraining.graph_sapbert_models import RGCNDGISapMetricLearningV2
 from graphmel.scripts.self_alignment_pretraining.sapbert_training import train_graph_sapbert_model
 from graphmel.scripts.training.data.dataset import load_positive_pairs, map_terms2term_id, \
-    create_term_id2tokenizer_output, load_data_and_bert_model, convert_edges_tuples_to_edge_index, \
+    create_term_id2tokenizer_output, load_data_and_bert_model, \
     convert_edges_tuples_to_oriented_edge_index_with_relations
 from graphmel.scripts.utils.io import save_dict, load_dict
 
@@ -96,7 +96,7 @@ def parse_args():
     return args
 
 
-def rgcn_dgi_sapbert_train_step(model: RGCNDGISapMetricLearning, batch, amp, device):
+def rgcn_dgi_sapbert_train_step(model: RGCNDGISapMetricLearningV2, batch, amp, device):
     term_1_input_ids, term_1_att_masks = batch["term_1_input"]
     term_1_input_ids, term_1_att_masks = term_1_input_ids.to(device), term_1_att_masks.to(device)
     term_2_input_ids, term_2_att_masks = batch["term_2_input"]
@@ -124,7 +124,7 @@ def rgcn_dgi_sapbert_train_step(model: RGCNDGISapMetricLearning, batch, amp, dev
     return loss
 
 
-def rgcn_dgi_sapbert_eval_step(model: RGCNDGISapMetricLearning, batch, amp, device):
+def rgcn_dgi_sapbert_eval_step(model: RGCNDGISapMetricLearningV2, batch, amp, device):
     term_1_input_ids, term_1_att_masks = batch["term_1_input"]
     term_1_input_ids, term_1_att_masks = term_1_input_ids.to(device), term_1_att_masks.to(device)
     term_2_input_ids, term_2_att_masks = batch["term_2_input"]
@@ -145,7 +145,7 @@ def rgcn_dgi_sapbert_eval_step(model: RGCNDGISapMetricLearning, batch, amp, devi
     return sapbert_loss
 
 
-def train_rgcn_dgi_sapbert(model: RGCNDGISapMetricLearning, train_loader: PositivePairNeighborSampler,
+def train_rgcn_dgi_sapbert(model: RGCNDGISapMetricLearningV2, train_loader: PositivePairNeighborSampler,
                            optimizer: torch.optim.Optimizer, scaler, amp, device, **kwargs):
     model.train()
     total_loss = 0
@@ -169,7 +169,7 @@ def train_rgcn_dgi_sapbert(model: RGCNDGISapMetricLearning, train_loader: Positi
     return total_loss, num_steps
 
 
-def val_rgcn_dgi_sapbert(model: RGCNDGISapMetricLearning, val_loader: PositivePairNeighborSampler,
+def val_rgcn_dgi_sapbert(model: RGCNDGISapMetricLearningV2, val_loader: PositivePairNeighborSampler,
                          amp, device, **kwargs):
     model.eval()
     total_loss = 0
@@ -296,7 +296,7 @@ def main(args):
     else:
         scaler = None
 
-    model = RGCNDGISapMetricLearning(bert_encoder, num_rgcn_channels=args.rgcn_num_hidden_channels,
+    model = RGCNDGISapMetricLearningV2(bert_encoder, num_rgcn_channels=args.rgcn_num_hidden_channels,
                                      dgi_loss_weight=args.dgi_loss_weight, rgcn_dropout_p=args.rgcn_dropout_p,
                                      num_relations=num_relations, num_bases=args.rgcn_num_bases,
                                      num_blocks=args.rgcn_num_blocks, use_fast_conv=args.rgcn_use_fast_conv,
@@ -307,7 +307,7 @@ def main(args):
     start = time.time()
     train_graph_sapbert_model(model=model, train_epoch_fn=train_rgcn_dgi_sapbert, val_epoch_fn=val_epoch_fn,
                               train_loader=train_pos_pair_sampler,
-                              val_loader=val_pos_pair_sampler,
+                              val_loader=val_pos_pair_sampler, parallel=args.parallel,
                               learning_rate=args.learning_rate, weight_decay=args.weight_decay,
                               num_epochs=args.num_epochs, output_dir=output_dir,
                               save_chkpnt_epoch_interval=args.save_every_N_epoch,

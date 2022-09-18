@@ -13,7 +13,7 @@ from tqdm import tqdm
 
 from graphmel.scripts.self_alignment_pretraining.dataset import PositivePairNeighborSampler, \
     PositiveRelationalNeighborSampler
-from graphmel.scripts.self_alignment_pretraining.graph_sapbert_models import GATv2DGISapMetricLearning
+from graphmel.scripts.self_alignment_pretraining.graph_sapbert_models import GATv2DGISapMetricLearningV2
 from graphmel.scripts.self_alignment_pretraining.sapbert_training import train_graph_sapbert_model
 from graphmel.scripts.training.data.dataset import load_positive_pairs, map_terms2term_id, \
     create_term_id2tokenizer_output, load_data_and_bert_model, convert_edges_tuples_to_edge_index, \
@@ -98,7 +98,7 @@ def parse_args():
     return args
 
 
-def gatv2_dgi_sapbert_train_step(model: GATv2DGISapMetricLearning, batch, amp, device):
+def gatv2_dgi_sapbert_train_step(model: GATv2DGISapMetricLearningV2, batch, amp, device):
     term_1_input_ids, term_1_att_masks = batch["term_1_input"]
     term_1_input_ids, term_1_att_masks = term_1_input_ids.to(device), term_1_att_masks.to(device)
     term_2_input_ids, term_2_att_masks = batch["term_2_input"]
@@ -125,7 +125,7 @@ def gatv2_dgi_sapbert_train_step(model: GATv2DGISapMetricLearning, batch, amp, d
     return loss
 
 
-def gatv2_dgi_sapbert_eval_step(model: GATv2DGISapMetricLearning, batch, amp, device):
+def gatv2_dgi_sapbert_eval_step(model: GATv2DGISapMetricLearningV2, batch, amp, device):
     term_1_input_ids, term_1_att_masks = batch["term_1_input"]
     term_1_input_ids, term_1_att_masks = term_1_input_ids.to(device), term_1_att_masks.to(device)
     term_2_input_ids, term_2_att_masks = batch["term_2_input"]
@@ -146,7 +146,7 @@ def gatv2_dgi_sapbert_eval_step(model: GATv2DGISapMetricLearning, batch, amp, de
     return sapbert_loss
 
 
-def train_gatv2_dgi_sapbert(model: GATv2DGISapMetricLearning, train_loader: PositivePairNeighborSampler,
+def train_gatv2_dgi_sapbert(model: GATv2DGISapMetricLearningV2, train_loader: PositivePairNeighborSampler,
                             optimizer: torch.optim.Optimizer, scaler, amp, device, **kwargs):
     model.train()
     total_loss = 0
@@ -169,7 +169,7 @@ def train_gatv2_dgi_sapbert(model: GATv2DGISapMetricLearning, train_loader: Posi
     return total_loss, num_steps
 
 
-def val_gatv2_dgi_sapbert(model: GATv2DGISapMetricLearning, val_loader: PositivePairNeighborSampler,
+def val_gatv2_dgi_sapbert(model: GATv2DGISapMetricLearningV2, val_loader: PositivePairNeighborSampler,
                           amp, device, **kwargs):
     model.eval()
     total_loss = 0
@@ -298,7 +298,7 @@ def main(args):
     else:
         scaler = None
 
-    model = GATv2DGISapMetricLearning(bert_encoder, gat_num_hidden_channels=args.gat_num_hidden_channels,
+    model = GATv2DGISapMetricLearningV2(bert_encoder, gat_num_hidden_channels=args.gat_num_hidden_channels,
                                       gat_num_att_heads=args.gat_num_att_heads, gat_num_layers=args.gat_num_layers,
                                       gat_attention_dropout_p=args.gat_attention_dropout_p,
                                       gat_edge_dim=args.gat_edge_dim, gat_dropout_p=args.gat_dropout_p,
@@ -311,7 +311,7 @@ def main(args):
     start = time.time()
     train_graph_sapbert_model(model=model, train_epoch_fn=train_gatv2_dgi_sapbert, val_epoch_fn=val_epoch_fn,
                               train_loader=train_pos_pair_sampler,
-                              val_loader=val_pos_pair_sampler,
+                              val_loader=val_pos_pair_sampler, parallel=args.parallel,
                               learning_rate=args.learning_rate, weight_decay=args.weight_decay,
                               num_epochs=args.num_epochs, output_dir=output_dir,
                               save_chkpnt_epoch_interval=args.save_every_N_epoch,
