@@ -144,7 +144,9 @@ def transitive_relations_filtering_recursive_call(all_ancestors_parents: Set[int
                                                   nodeid2parents: Dict[int, Set[int]],
                                                   nodeid2children: Dict[int, Set[int]],
                                                   deleted_edges_counter: int):
-    current_node_parent_nodes_set = set(nodeid2parents.get(current_node_id))
+    current_node_parent_nodes_set = nodeid2parents.get(current_node_id)
+    current_node_parent_nodes_set = set() if current_node_parent_nodes_set \
+                                             is None else set(current_node_parent_nodes_set)
 
     curr_node_parents_ancestor_parents_difference = current_node_parent_nodes_set.difference(all_ancestors_parents)
     curr_node_parents_ancestor_parents_intersection = current_node_parent_nodes_set.intersection(all_ancestors_parents)
@@ -160,7 +162,7 @@ def transitive_relations_filtering_recursive_call(all_ancestors_parents: Set[int
     curr_node_all_ancestors = current_node_parent_nodes_set.union(all_ancestors_parents)
     current_node_child_nodes = nodeid2children.get(current_node_id)
     if current_node_child_nodes is not None:
-        for child_node in current_node_child_nodes:
+        for child_node in list(current_node_child_nodes):
             deleted_edges_counter = transitive_relations_filtering_recursive_call(
                 all_ancestors_parents=curr_node_all_ancestors,
                 current_node_id=child_node,
@@ -193,15 +195,18 @@ def filter_transitive_hierarchical_relations(node_id2children: Dict[int, Set[int
 
 def filter_hierarchical_semantic_type_nodes(node_id2children: Dict[int, List[int]],
                                             node_id2parents: Dict[int, List[int]],
-                                            node_id2_terms: Dict, mrsty_df: pd.DataFrame):
+                                            node_id2terms: Dict,
+                                            mrsty_df: pd.DataFrame):
     logging.info("Removing semantic type nodes")
     possible_sty_values = set(mrsty_df["STY"].unique())
     possible_sty_values = set(map(lambda s: s.lower(), map(lambda s: s.strip(), possible_sty_values)))
+    logging.info(f"There are {len(possible_sty_values)} possible semantic types (STYs)")
     nodes_deleted = set()
     for node_id in list(node_id2children.keys()):
-        node_terms = node_id2_terms[node_id]
+        node_terms = node_id2terms[node_id]
         assert isinstance(node_terms, list)
-        if len(node_terms) == 1 and node_terms[0] in possible_sty_values:
+
+        if len(node_terms) == 1 and node_terms[0].strip().lower() in possible_sty_values:
             assert isinstance(node_terms[0], str)
             nodes_deleted.add(node_id)
             del node_id2children[node_id]
@@ -209,27 +214,30 @@ def filter_hierarchical_semantic_type_nodes(node_id2children: Dict[int, List[int
             node_id2children[node_id] = [p for p in node_id2children[node_id] if not (p in possible_sty_values)]
 
     for node_id in list(node_id2parents.keys()):
-        node_terms = node_id2_terms[node_id]
+        node_terms = node_id2terms[node_id]
         assert isinstance(node_terms, list)
-        if len(node_terms) == 1 and node_terms[0] in possible_sty_values:
+        if len(node_terms) == 1 and node_terms[0].strip().lower() in possible_sty_values:
             assert isinstance(node_terms[0], str)
             nodes_deleted.add(node_id)
             del node_id2parents[node_id]
         else:
             node_id2parents[node_id] = [p for p in node_id2parents[node_id] if not (p in possible_sty_values)]
 
-    for node_id in list(node_id2_terms.keys()):
-        node_terms = node_id2_terms[node_id]
+    for node_id in list(node_id2terms.keys()):
+        node_terms = node_id2terms[node_id]
         assert isinstance(node_terms, list)
-        if len(node_terms) == 1 and node_terms[0] in possible_sty_values:
+        if len(node_terms) == 1 and node_terms[0].strip().lower() in possible_sty_values:
             nodes_deleted.add(node_id)
-            del node_id2_terms[node_id]
+            # del node_id2token_ids_dict[node_id]
+            # del node_id2terms[node_id]
     logging.info(f"Finished removing semantic type nodes. {len(nodes_deleted)} nodes have been deleted.")
+    return nodes_deleted
 
 
 def get_unique_sem_group_edge_rel_combinations(node_id2sem_group: Dict[int, int], edge_tuples):
     unique_edge_strings: Set[str] = set()
     combs: List[Tuple[str, str, int]] = []
+    unique_src_sem_group_rel_combinations = set()
     for t in edge_tuples:
         src_node_id = t[0]
         trg_node_id = t[1]
@@ -238,6 +246,11 @@ def get_unique_sem_group_edge_rel_combinations(node_id2sem_group: Dict[int, int]
         src_sem_group = node_id2sem_group[src_node_id]
         trg_sem_group = node_id2sem_group[trg_node_id]
         s = f"{src_sem_group}|{trg_sem_group}|{rel_id}"
+        unique_src_sem_group_rel_combinations.add(f"{src_sem_group}|{rel_id}")
+        unique_edge_strings.add(s)
+    for src_sem_gr_rel_str in unique_src_sem_group_rel_combinations:
+        src_sem_group, rel_id = src_sem_gr_rel_str.split('|')
+        s = f"{src_sem_group}|SRC|{rel_id}"
         unique_edge_strings.add(s)
 
     for s in unique_edge_strings:

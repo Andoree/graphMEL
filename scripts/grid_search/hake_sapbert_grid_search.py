@@ -26,7 +26,7 @@ from graphmel.scripts.self_alignment_pretraining.dataset import SapMetricLearnin
 from graphmel.scripts.self_alignment_pretraining.sapbert_training import train_graph_sapbert_model
 from graphmel.scripts.training.data.dataset import load_positive_pairs, map_terms2term_id, \
     create_term_id2tokenizer_output, load_tree_dataset_and_bert_model
-from graphmel.scripts.utils.io import save_dict, read_mrsty, save_encoder_from_checkpoint
+from graphmel.scripts.utils.io import save_dict, read_mrsty, save_encoder_from_checkpoint, load_node_id2terms_list
 
 
 # import wandb
@@ -66,6 +66,11 @@ def parse_args():
     parser.add_argument('--mrsty', type=str, required=False)
 
     parser.add_argument('--train_subset_ratio', type=float, )
+    # Evaluation data path
+    parser.add_argument('--data_folder', help='Path to the directory containing BioSyn format dataset', type=str,
+                        nargs='+')
+    parser.add_argument('--vocab', help='Path to the vocabulary file in BioSyn format', type=str, nargs='+')
+    parser.add_argument('--eval_dataset_name', type=str, nargs='+')
 
     # Tokenizer settings
     parser.add_argument('--max_length', default=25, type=int)
@@ -110,44 +115,32 @@ def parse_args():
 def hake_sapbert_train_step(model: HakeSapMetricLearning, batch, amp, device):
     term_1_input = (batch["term_1_input_ids"].to(device), batch["term_1_att_mask"].to(device))
     term_2_input = (batch["term_2_input_ids"].to(device), batch["term_2_att_mask"].to(device))
-    concept_ids = batch["anchor_concept_id"].to(device)
-    # pos_parent_mask = batch["pos_parent_mask"].to(device)
+    concept_ids, rel_ids = batch["anchor_concept_id"].to(device), batch["rel_id"].to(device)
+
     pos_parent_input = (batch["pos_parent_input_ids"].to(device), batch["pos_parent_att_mask"].to(device))
-    neg_parent_rel_corr_h_input = (batch["neg_parent_rel_corr_h_input_ids"].to(device),
-                                   batch["neg_parent_rel_corr_h_att_mask"].to(device))
-    neg_parent_rel_corr_t_input = (batch["neg_parent_rel_corr_t_input_ids"].to(device),
-                                   batch["neg_parent_rel_corr_t_att_mask"].to(device))
-    hierarchical_sample_weight = batch["hierarchical_sample_weight"].to(device)
     pos_child_input = (batch["pos_child_input_ids"].to(device), batch["pos_child_att_mask"].to(device))
-    neg_child_rel_corr_h_input = (batch["neg_child_rel_corr_h_input_ids"].to(device),
-                                  batch["neg_child_rel_corr_h_att_mask"].to(device))
-    neg_child_rel_corr_t_input = (batch["neg_child_rel_corr_t_input_ids"].to(device),
-                                  batch["neg_child_rel_corr_t_att_mask"].to(device))
-    parent_rel_id = batch["parent_rel_id"].to(device)
-    child_rel_id = batch["child_rel_id"].to(device)
+    neg_rel_corr_h_input = (batch["neg_rel_corr_h_input_ids"].to(device), batch["neg_rel_corr_h_att_mask"].to(device))
+    neg_rel_corr_t_input = (batch["neg_rel_corr_t_input_ids"].to(device), batch["neg_rel_corr_t_att_mask"].to(device))
+    sample_weight = batch["sample_weight"].to(device)
+
     if amp:
         with autocast():
             sapbert_loss, hake_loss = model(term_1_input=term_1_input, term_2_input=term_2_input,
                                             concept_ids=concept_ids, model_mode="train",
                                             pos_parent_input=pos_parent_input,
-                                            neg_parent_rel_corr_h_input=neg_parent_rel_corr_h_input,
-                                            neg_parent_rel_corr_t_input=neg_parent_rel_corr_t_input,
+                                            neg_rel_corr_h_input=neg_rel_corr_h_input,
+                                            neg_rel_corr_t_input=neg_rel_corr_t_input,
                                             pos_child_input=pos_child_input,
-                                            hierarchical_sample_weight=hierarchical_sample_weight,
-                                            neg_child_rel_corr_h_input=neg_child_rel_corr_h_input,
-                                            neg_child_rel_corr_t_input=neg_child_rel_corr_t_input,
-                                            parent_rel_id=parent_rel_id, child_rel_id=child_rel_id)
+                                            sample_weight=sample_weight, rel_ids=rel_ids)
 
     else:
         sapbert_loss, hake_loss = model(term_1_input=term_1_input, term_2_input=term_2_input,
-                                        concept_ids=concept_ids, model_mode="train", pos_parent_input=pos_parent_input,
-                                        neg_parent_rel_corr_h_input=neg_parent_rel_corr_h_input,
-                                        neg_parent_rel_corr_t_input=neg_parent_rel_corr_t_input,
+                                        concept_ids=concept_ids, model_mode="train",
+                                        pos_parent_input=pos_parent_input,
+                                        neg_rel_corr_h_input=neg_rel_corr_h_input,
+                                        neg_rel_corr_t_input=neg_rel_corr_t_input,
                                         pos_child_input=pos_child_input,
-                                        hierarchical_sample_weight=hierarchical_sample_weight,
-                                        neg_child_rel_corr_h_input=neg_child_rel_corr_h_input,
-                                        neg_child_rel_corr_t_input=neg_child_rel_corr_t_input,
-                                        parent_rel_id=parent_rel_id, child_rel_id=child_rel_id)
+                                        sample_weight=sample_weight, rel_ids=rel_ids)
 
     return sapbert_loss, hake_loss
 
@@ -175,11 +168,10 @@ def train_hake_sapbert(model: HakeSapMetricLearning, train_loader: SapMetricLear
     total_sapbert_loss = 0
     total_hake_loss = 0
     num_steps = 0
-    # hake_loss_weight = torch.FloatTensor([hake_loss_weight,], requires_grad=False)
     for batch in tqdm(train_loader, miniters=len(train_loader) // 100, total=len(train_loader)):
-        # for batch in tqdm(train_loader, ):
         optimizer.zero_grad()
         sapbert_loss, hake_loss = hake_sapbert_train_step(model=model, batch=batch, amp=amp, device=device)
+
         loss = sapbert_loss + hake_loss_weight * hake_loss
         if amp:
             scaler.scale(loss).backward()
@@ -193,7 +185,6 @@ def train_hake_sapbert(model: HakeSapMetricLearning, train_loader: SapMetricLear
         total_sapbert_loss += float(sapbert_loss)
         total_hake_loss += float(hake_loss)
         # wandb.log({"Train loss": loss.item()})
-        # logging.info(f"num_steps {num_steps}, Step loss {loss}")
     total_loss /= (num_steps + 1e-9)
     total_sapbert_loss /= (num_steps + 1e-9)
     total_hake_loss /= (num_steps + 1e-9)
@@ -219,7 +210,6 @@ def val_hake_sapbert(model: HakeSapMetricLearning, val_loader: SapMetricLearning
 
 
 def main(args):
-    # TODO: Работал в этом скрипте, недоработал
     param_grid = {
         "negative_sample_size": args.negative_sample_size,
         "hake_gamma": args.hake_gamma,
@@ -237,11 +227,12 @@ def main(args):
     parent_children_adjacency_list_path = os.path.join(args.train_dir, "parent_childs_adjacency_list")
     child_parents_adjacency_list_path = os.path.join(args.train_dir, "child_parents_adjacency_list")
 
-    bert_encoder, bert_tokenizer, node_id2token_ids_dict, parent_children_adjacency_list_orig, child_parents_adjacency_list_orig = \
+    bert_encoder, bert_tokenizer, node_id2token_ids_dict_orig, parent_children_adjacency_list_orig, child_parents_adjacency_list_orig = \
         load_tree_dataset_and_bert_model(node2terms_path=node2terms_path, text_encoder_name=args.text_encoder,
                                          parent_children_adjacency_list_path=parent_children_adjacency_list_path,
                                          child_parents_adjacency_list_path=child_parents_adjacency_list_path,
                                          text_encoder_seq_length=args.max_length, )
+    node_id2terms = load_node_id2terms_list(dict_path=node2terms_path, )
 
     train_positive_pairs_path = os.path.join(args.train_dir, f"train_pos_pairs")
     train_pos_pairs_term_1_list, train_pos_pairs_term_2_list, train_pos_pairs_concept_ids = \
@@ -255,6 +246,11 @@ def main(args):
     del train_pos_pairs_term_2_list
     del train_term2id
 
+    train_pos_pairs_term_1_id_list = np.array(train_pos_pairs_term_1_id_list)
+    train_pos_pairs_term_2_id_list = np.array(train_pos_pairs_term_2_id_list)
+    train_pos_pairs_concept_ids = np.array(train_pos_pairs_concept_ids)
+    assert len(train_pos_pairs_term_1_id_list) == len(train_pos_pairs_term_2_id_list) \
+           == len(train_pos_pairs_concept_ids)
     overall_num_pos_pairs = len(train_pos_pairs_term_1_id_list)
     perm = np.random.permutation(overall_num_pos_pairs)
 
@@ -264,6 +260,7 @@ def main(args):
 
     train_pos_pairs_term_1_id_list = train_pos_pairs_term_1_id_list[selected_pos_pair_ids]
     train_pos_pairs_term_2_id_list = train_pos_pairs_term_2_id_list[selected_pos_pair_ids]
+    train_pos_pairs_concept_ids = train_pos_pairs_concept_ids[selected_pos_pair_ids]
 
     val_pos_pair_sampler = None
     val_epoch_fn = None
@@ -320,28 +317,69 @@ def main(args):
         torch.cuda.random.manual_seed_all(args.random_seed)
         torch.backends.cudnn.deterministic = True
 
-        parent_children_adjacency_list = deepcopy(parent_children_adjacency_list_orig)
-        child_parents_adjacency_list = deepcopy(child_parents_adjacency_list_orig)
+        parent_children_adjacency_list_filt_trans = {i: set(lst) for i, lst in
+                                                     parent_children_adjacency_list_orig.items()}
+        child_parents_adjacency_list_filt_trans = {i: set(lst) for i, lst in child_parents_adjacency_list_orig.items()}
 
+        filter_transitive_hierarchical_relations(node_id2children=parent_children_adjacency_list_filt_trans,
+                                                 node_id2parents=child_parents_adjacency_list_filt_trans)
+        parent_children_adjacency_list_filt_trans = {i: list(s) for i, s in
+                                                     parent_children_adjacency_list_filt_trans.items()}
+        child_parents_adjacency_list_filt_trans = {i: list(s) for i, s in
+                                                   child_parents_adjacency_list_filt_trans.items()}
 
-        if args.filter_transitive_relations:
-            parent_children_adjacency_list = {i: set(lst) for i, lst in parent_children_adjacency_list.items()}
-            child_parents_adjacency_list = {i: set(lst) for i, lst in child_parents_adjacency_list.items()}
-            filter_transitive_hierarchical_relations(node_id2children=parent_children_adjacency_list,
-                                                     node_id2parents=child_parents_adjacency_list)
-            parent_children_adjacency_list = {i: list(s) for i, s in parent_children_adjacency_list.items()}
-            child_parents_adjacency_list = {i: list(s) for i, s in child_parents_adjacency_list.items()}
+        mrsty_df = read_mrsty(args.mrsty)
+        parent_children_adjacency_list_filt_sem_types = {i: list(lst) for i, lst in
+                                                         parent_children_adjacency_list_orig.items()}
+        child_parents_adjacency_list_filt_sem_types = {i: list(lst) for i, lst in
+                                                       child_parents_adjacency_list_orig.items()}
+        excluded_node_ids = filter_hierarchical_semantic_type_nodes(
+            node_id2children=parent_children_adjacency_list_filt_sem_types,
+            node_id2parents=child_parents_adjacency_list_filt_sem_types,
+            node_id2terms=node_id2terms,
+            mrsty_df=mrsty_df)
 
-        if args.filter_semantic_type_nodes:
-            # node_id_lower_bound_filtering = args.node_id_lower_bound_filtering
-            mrsty_df = read_mrsty(args.mrsty)
-            filter_hierarchical_semantic_type_nodes(node_id2children=parent_children_adjacency_list,
-                                                    node_id2parents=child_parents_adjacency_list,
-                                                    node_id2_terms=node_id2token_ids_dict,
-                                                    mrsty_df=mrsty_df)
-            del mrsty_df
+        node_id2token_ids_dict_filt_sem_types = {node_id: token_ids for node_id, token_ids in
+                                                 node_id2token_ids_dict_orig.items()
+                                                 if node_id not in excluded_node_ids}
 
+        parent_children_adjacency_list_filt_both = {i: set(lst) for i, lst in
+                                                    parent_children_adjacency_list_orig.items()}
+        child_parents_adjacency_list_filt_both = {i: set(lst) for i, lst in child_parents_adjacency_list_orig.items()}
+        filter_transitive_hierarchical_relations(node_id2children=parent_children_adjacency_list_filt_both,
+                                                 node_id2parents=child_parents_adjacency_list_filt_both)
+        parent_children_adjacency_list_filt_both = {i: list(s) for i, s in
+                                                    parent_children_adjacency_list_filt_both.items()}
+        child_parents_adjacency_list_filt_both = {i: list(s) for i, s in
+                                                  child_parents_adjacency_list_filt_both.items()}
 
+        excluded_node_ids = filter_hierarchical_semantic_type_nodes(
+            node_id2children=parent_children_adjacency_list_filt_both,
+            node_id2parents=child_parents_adjacency_list_filt_both,
+            node_id2terms=node_id2terms,
+            mrsty_df=mrsty_df)
+
+        node_id2token_ids_dict_filt_both = {node_id: token_ids for node_id, token_ids in
+                                            node_id2token_ids_dict_orig.items()
+                                            if node_id not in excluded_node_ids}
+
+        del mrsty_df
+        if args.filter_transitive_relations and args.filter_semantic_type_nodes:
+            node_id2token_ids_dict = node_id2token_ids_dict_filt_both
+
+            parent_children_adjacency_list = parent_children_adjacency_list_filt_both
+            child_parents_adjacency_list = child_parents_adjacency_list_filt_both
+        elif args.filter_transitive_relations:
+            parent_children_adjacency_list = parent_children_adjacency_list_filt_trans
+            child_parents_adjacency_list = child_parents_adjacency_list_filt_trans
+        elif args.filter_semantic_type_nodes:
+            node_id2token_ids_dict = node_id2token_ids_dict_filt_sem_types
+            parent_children_adjacency_list = parent_children_adjacency_list_filt_sem_types
+            child_parents_adjacency_list = child_parents_adjacency_list_filt_sem_types
+        else:
+            node_id2token_ids_dict = node_id2token_ids_dict_orig
+            parent_children_adjacency_list = parent_children_adjacency_list_orig
+            child_parents_adjacency_list = child_parents_adjacency_list_orig
 
         train_dataset = SapMetricLearningHierarchicalDataset(pos_pairs_term_1_id_list=train_pos_pairs_term_1_id_list,
                                                              pos_pairs_term_2_id_list=train_pos_pairs_term_2_id_list,
@@ -355,12 +393,11 @@ def main(args):
         train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True,
                                       num_workers=args.dataloader_num_workers, collate_fn=train_dataset.collate_fn)
 
-
         if args.amp:
             scaler = GradScaler()
         else:
             scaler = None
-
+        bert_encoder = AutoModel.from_pretrained(args.text_encoder, )
         model = HakeSapMetricLearning(bert_encoder, hake_gamma=hake_gamma,
                                       hake_modulus_weight=hake_modulus_weight,
                                       hake_phase_weight=hake_phase_weight, num_relation=2, use_cuda=args.use_cuda,
@@ -373,11 +410,12 @@ def main(args):
         try:
             train_graph_sapbert_model(model=model, train_epoch_fn=train_hake_sapbert, val_epoch_fn=val_epoch_fn,
                                       train_loader=train_dataloader,
-                                      val_loader=None, hake_loss_weight=args.hake_loss_weight,
+                                      val_loader=None, hake_loss_weight=hake_loss_weight,
                                       learning_rate=args.learning_rate, weight_decay=args.weight_decay,
                                       num_epochs=args.num_epochs, output_dir=output_dir,
-                                      save_chkpnt_epoch_interval=args.save_every_N_epoch,
-                                      amp=args.amp, scaler=scaler, device=device, chkpnt_path=args.model_checkpoint_path)
+                                      save_chkpnt_epoch_interval=args.save_every_N_epoch, save_chkpnts=False,
+                                      amp=args.amp, scaler=scaler, device=device,
+                                      chkpnt_path=args.model_checkpoint_path, parallel=args.parallel)
         except Exception:
             model = model.cpu()
             del model
@@ -426,7 +464,6 @@ def main(args):
             with codecs.open(grid_search_log_path, 'a+', encoding="utf-8") as log_file:
                 log_file.write(f"{s}\n")
             logging.info(f"Dataset: {dataset_name}, Acc@1: {acc_1}, Acc@5 : {acc_5}")
-
     for dataset_name in best_accs_dict.keys():
         logging.info(f"DATASET {dataset_name}")
         best_param_dict_acc_1 = best_params_dict[dataset_name]["acc_1"]
