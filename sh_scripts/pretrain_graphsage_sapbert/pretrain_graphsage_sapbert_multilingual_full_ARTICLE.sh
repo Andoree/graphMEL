@@ -17,6 +17,7 @@ python ../../scripts/self_alignment_pretraining/train_graphsage_sapbert.py --tra
 --num_inner_graphsage_layers 1 \
 --graphsage_dropout_p=0.1 \
 --graphsage_num_neighbors 2 \
+--graph_loss_weight=1.0 \
 --remove_selfloops \
 --max_length=32 \
 --use_cuda \

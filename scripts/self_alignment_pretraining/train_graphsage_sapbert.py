@@ -47,6 +47,9 @@ def parse_args():
     parser.add_argument('--graphsage_dropout_p', type=float)
     parser.add_argument('--graphsage_num_neighbors', type=int, nargs='+', )
     parser.add_argument('--remove_selfloops', action="store_true")
+    parser.add_argument('--num_inner_graphsage_layers', type=int)
+    parser.add_argument('--graph_loss_weight', type=float)
+
 
     # Tokenizer settings
     parser.add_argument('--max_length', default=25, type=int)
@@ -248,7 +251,8 @@ def main(args):
     model = GraphSAGESapMetricLearning(bert_encoder=bert_encoder, num_graphsage_channels=args.num_graphsage_channels,
                                        num_graphsage_layers=args.num_graphsage_layers,
                                        graphsage_dropout_p=args.graphsage_dropout_p,
-                                       use_cuda=args.use_cuda,
+                                       use_cuda=args.use_cuda, graph_loss_weight=args.graph_loss_weight,
+                                       num_inner_graphsage_layers=args.num_inner_graphsage_layers,
                                        loss=args.loss, use_miner=args.use_miner, miner_margin=args.miner_margin,
                                        type_of_triplets=args.type_of_triplets, agg_mode=args.agg_mode,
                                        multigpu_flag=args.parallel).to(device)
