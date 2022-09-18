@@ -259,7 +259,7 @@ def main(args):
     start = time.time()
     train_graph_sapbert_model(model=model, train_epoch_fn=train_graphsage_sapbert, val_epoch_fn=val_epoch_fn,
                               train_loader=train_pos_pair_sampler,
-                              val_loader=val_pos_pair_sampler,
+                              val_loader=val_pos_pair_sampler, parallel=args.parallel,
                               learning_rate=args.learning_rate, weight_decay=args.weight_decay,
                               num_epochs=args.num_epochs, output_dir=output_dir,
                               save_chkpnt_epoch_interval=args.save_every_N_epoch,

@@ -159,7 +159,7 @@ def hake_sapbert_eval_step(model: HakeSapMetricLearning, batch, amp, device, **k
 
 
 def train_hake_sapbert(model: HakeSapMetricLearning, train_loader: SapMetricLearningHierarchicalDataset,
-                       hake_loss_weight, optimizer: torch.optim.Optimizer, scaler, amp, device):
+                       hake_loss_weight, optimizer: torch.optim.Optimizer, scaler, amp, device, **kwargs):
     model.train()
     total_loss = 0
     total_sapbert_loss = 0
@@ -256,6 +256,7 @@ def main(args):
                                                 node_id2parents=child_parents_adjacency_list,
                                                 node_id2_terms=node_id2token_ids_dict,
                                                 mrsty_df=mrsty_df)
+        # TODO
         del mrsty_df
 
     train_positive_pairs_path = os.path.join(args.train_dir, f"train_pos_pairs")
@@ -330,7 +331,7 @@ def main(args):
                               val_loader=val_dataloader, hake_loss_weight=args.hake_loss_weight,
                               learning_rate=args.learning_rate, weight_decay=args.weight_decay,
                               num_epochs=args.num_epochs, output_dir=output_dir,
-                              save_chkpnt_epoch_interval=args.save_every_N_epoch,
+                              save_chkpnt_epoch_interval=args.save_every_N_epoch, parallel=args.parallel,
                               amp=args.amp, scaler=scaler, device=device, chkpnt_path=args.model_checkpoint_path)
     end = time.time()
     training_time = end - start

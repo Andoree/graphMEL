@@ -56,6 +56,8 @@ def parse_args():
     parser.add_argument('--rgcn_dropout_p', type=float)
     parser.add_argument('--rgcn_num_neighbors', type=int, nargs='+')
     parser.add_argument('--remove_selfloops', action="store_true")
+    parser.add_argument('--rgcn_num_inner_layers', type=int,)
+    parser.add_argument('--graph_loss_weight', type=float,)
 
     # Tokenizer settings
     parser.add_argument('--max_length', default=25, type=int)
@@ -278,11 +280,12 @@ def main(args):
                                   num_blocks=args.rgcn_num_blocks, use_fast_conv=args.rgcn_use_fast_conv,
                                   use_cuda=args.use_cuda, loss=args.loss, miner_margin=args.miner_margin,
                                   type_of_triplets=args.type_of_triplets, agg_mode=args.agg_mode,
-                                  multigpu_flag=args.parallel, ).to(device)
+                                  multigpu_flag=args.parallel, num_inner_layers=args.num_inner_layers,
+                                  graph_loss_weight=args.graph_loss_weight).to(device)
     start = time.time()
     train_graph_sapbert_model(model=model, train_epoch_fn=train_rgcn_sapbert, val_epoch_fn=val_epoch_fn,
                               train_loader=train_pos_pair_sampler,
-                              val_loader=val_pos_pair_sampler,
+                              val_loader=val_pos_pair_sampler, parallel=args.parallel,
                               learning_rate=args.learning_rate, weight_decay=args.weight_decay,
                               num_epochs=args.num_epochs, output_dir=output_dir,
                               save_chkpnt_epoch_interval=args.save_every_N_epoch,
