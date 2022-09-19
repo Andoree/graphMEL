@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=ru_rgcn          # Название задачи
-#SBATCH --error=../../logs/pretrain_heterosage_dgi_sapbert_ru_split/ru_pretrain_heterosage_dgi_sapbert_10.err        # Файл для вывода ошибок
-#SBATCH --output=../../logs/pretrain_heterosage_dgi_sapbert_ru_split/ru_pretrain_heterosage_dgi_sapbert_10.txt       # Файл для вывода результатов
+#SBATCH --job-name=ru_hesage          # Название задачи
+#SBATCH --error=../../logs/pretrain_heterosage_dgi_sapbert_ru_split/ru_pretrain_heterosage_dgi_sapbert_new_1.err        # Файл для вывода ошибок
+#SBATCH --output=../../logs/pretrain_heterosage_dgi_sapbert_ru_split/ru_pretrain_heterosage_dgi_sapbert_new_1.txt       # Файл для вывода результатов
 #SBATCH --time=10:00:59                      # Максимальное время выполнения
 #SBATCH --cpus-per-task=4                   # Количество CPU на одну задачу
 #SBATCH --gpus=4                   # Требуемое количество GPU
@@ -14,8 +14,8 @@ python ../../scripts/self_alignment_pretraining/train_hetero_graphsage_dgi_sapbe
 --validate \
 --text_encoder="../../models/cambridgeltl/SapBERT-UMLS-2020AB-all-lang-from-XLMR/" \
 --dataloader_num_workers=4 \
---graphsage_num_neighbors=2 \
---num_graphsage_layers=3 \
+--graphsage_num_neighbors=3 \
+--num_graphsage_layers=1 \
 --graphsage_hidden_channels=768 \
 --graphsage_dropout_p=0.2 \
 --filter_rel_types \
@@ -42,8 +42,8 @@ python ../../scripts/self_alignment_pretraining/train_hetero_graphsage_dgi_sapbe
 --validate \
 --text_encoder="../../models/cambridgeltl/SapBERT-UMLS-2020AB-all-lang-from-XLMR/" \
 --dataloader_num_workers=4 \
---graphsage_num_neighbors=2 \
---num_graphsage_layers=3 \
+--graphsage_num_neighbors=3 \
+--num_graphsage_layers=1 \
 --graphsage_hidden_channels=768 \
 --graphsage_dropout_p=0.2 \
 --filter_rel_types \
@@ -70,8 +70,8 @@ python ../../scripts/self_alignment_pretraining/train_hetero_graphsage_dgi_sapbe
 --validate \
 --text_encoder="../../models/cambridgeltl/SapBERT-UMLS-2020AB-all-lang-from-XLMR/" \
 --dataloader_num_workers=4 \
---graphsage_num_neighbors=2 \
---num_graphsage_layers=3 \
+--graphsage_num_neighbors=3 \
+--num_graphsage_layers=1 \
 --graphsage_hidden_channels=768 \
 --graphsage_dropout_p=0.2 \
 --filter_rel_types \
