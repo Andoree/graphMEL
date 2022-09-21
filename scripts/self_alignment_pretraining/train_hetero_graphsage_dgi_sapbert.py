@@ -1,33 +1,28 @@
 #!/usr/bin/env python
-import gc
-from itertools import product
+import argparse
+import logging
+import os
+import random
+import time
 from typing import Iterable, Tuple
 
 import numpy as np
-import argparse
 import torch
-from torch.cuda.amp import autocast
+import torch_geometric.transforms as T
 from torch.cuda.amp import GradScaler
-
-import logging
-import time
-import os
-import random
-
+from torch.cuda.amp import autocast
 from torch_geometric.data import HeteroData
 from torch_geometric.nn import to_hetero
 from tqdm import tqdm
-import torch_geometric.transforms as T
-from graphmel.scripts.models.heterogeneous_graphsage_sapbert import HeteroGraphSAGESapMetricLearning
-from graphmel.scripts.self_alignment_pretraining.dataset import PositivePairNeighborSampler, \
-    PositiveRelationalNeighborSampler, HeterogeneousPositivePairNeighborSampler, graph_to_hetero_dataset
-from graphmel.scripts.self_alignment_pretraining.graph_sapbert_models import RGCNDGISapMetricLearning
+
+from graphmel.scripts.models.heterogeneous_graphsage_dgi_sapbert import HeteroGraphSAGESapMetricLearning
+from graphmel.scripts.self_alignment_pretraining.dataset import HeterogeneousPositivePairNeighborSampler, \
+    HeterogeneousPositivePairNeighborSamplerV2
 from graphmel.scripts.self_alignment_pretraining.sapbert_training import train_graph_sapbert_model
 from graphmel.scripts.training.data.dataset import load_positive_pairs, map_terms2term_id, \
-    create_term_id2tokenizer_output, load_data_and_bert_model, convert_edges_tuples_to_edge_index, \
+    create_term_id2tokenizer_output, load_data_and_bert_model, \
     convert_edges_tuples_to_oriented_edge_index_with_relations
 from graphmel.scripts.utils.io import save_dict, load_dict
-
 # import wandb
 # wandb.init(project="sapbert")
 from graphmel.scripts.utils.umls2graph import get_unique_sem_group_edge_rel_combinations, filter_edges
@@ -60,6 +55,7 @@ def parse_args():
     parser.add_argument('--dgi_loss_weight', type=float)
     parser.add_argument('--remove_selfloops', action="store_true")
     parser.add_argument('--filter_rel_types', action="store_true")
+
 
     # Tokenizer settings
     parser.add_argument('--max_length', default=25, type=int)
@@ -101,49 +97,34 @@ def parse_args():
     return args
 
 
-def heterogeneous_graphsage_dgi_sapbert_train_step(model: HeteroGraphSAGESapMetricLearning, hetero_dataset: HeteroData,
-                                                   node_id2sem_group, batch, amp, device):
+def heterogeneous_graphsage_dgi_sapbert_train_step(model: HeteroGraphSAGESapMetricLearning, batch, amp, device,):
     term_1_input_ids, term_1_att_masks = batch["term_1_input"]
     term_1_input_ids, term_1_att_masks = term_1_input_ids.to(device), term_1_att_masks.to(device)
     term_2_input_ids, term_2_att_masks = batch["term_2_input"]
     term_2_input_ids, term_2_att_masks = term_2_input_ids.to(device), term_2_att_masks.to(device)
-    edge_index = batch["edge_index"].to(device)
-    src_semantic_groups = batch["src_semantic_groups"]
-    trg_semantic_groups = batch["trg_semantic_groups"]
-    batch_size = batch["batch_size"]
-    sem_groups = batch["sem_groups"]
-    # n_ids = batch["n_id"][:batch_size]
     concept_ids = batch["concept_ids"].to(device)
-    rel_types = batch["rel_ids_list"]
+    nodes_bert_input = batch["nodes_bert_input"]
+    batch_size = batch["batch_size"]
+    hetero_dataset = batch["hetero_dataset"]
+
+    for node_type, bert_input in nodes_bert_input.items():
+        bert_input_ids, bert_att_masks = bert_input
+        bert_input_ids, bert_att_masks = bert_input_ids.to(device), bert_att_masks.to(device)
+        bert_features = model.bert_encode(input_ids=bert_input_ids, att_masks=bert_att_masks)
+
+        if node_type != "SRC":
+            hetero_dataset[node_type].x = bert_features
 
     term_1_node_features = model.bert_encode(input_ids=term_1_input_ids, att_masks=term_1_att_masks)
     term_2_node_features = model.bert_encode(input_ids=term_2_input_ids, att_masks=term_2_att_masks)
-
-    hetero_dataset, local_id2batch_id = graph_to_hetero_dataset(edge_index=edge_index, hetero_dataset=hetero_dataset,
-                                                                node_features=term_1_node_features,
-                                                                all_node_types=hetero_dataset.all_node_types,
-                                                                sem_group_rel_combs=hetero_dataset.sem_group_rel_combs,
-                                                                src_node_sem_groups=src_semantic_groups,
-                                                                trg_node_sem_groups=trg_semantic_groups,
-                                                                rel_types=rel_types, sem_groups=sem_groups,
-                                                                emb_size=model.graphsage_hidden_channels)
-    hetero_dataset = T.AddSelfLoops()(hetero_dataset)
+    query_embed_mean = torch.mean(torch.stack((term_1_node_features, term_2_node_features)), dim=0)
+    hetero_dataset["SRC"].x = query_embed_mean
+    # if add_self_loops:
+    #     hetero_dataset = T.AddSelfLoops()(hetero_dataset)
     hetero_dataset = hetero_dataset.to(device)
 
-    dgi_loss_1 = model.dgi_loss(x_dict=hetero_dataset.x_dict, edge_index_dict=hetero_dataset.edge_index_dict,
-                                batch_size=batch_size, local_id2batch_id=local_id2batch_id, device=device)
-    hetero_dataset, local_id2batch_id = graph_to_hetero_dataset(edge_index=edge_index, hetero_dataset=hetero_dataset,
-                                                                node_features=term_2_node_features,
-                                                                src_node_sem_groups=src_semantic_groups,
-                                                                all_node_types=hetero_dataset.all_node_types,
-                                                                sem_group_rel_combs=hetero_dataset.sem_group_rel_combs,
-                                                                trg_node_sem_groups=trg_semantic_groups,
-                                                                rel_types=rel_types, sem_groups=sem_groups,
-                                                                emb_size=model.graphsage_hidden_channels)
-    hetero_dataset = T.AddSelfLoops()(hetero_dataset)
-    hetero_dataset = hetero_dataset.to(device)
-    dgi_loss_2 = model.dgi_loss(hetero_dataset.x_dict, hetero_dataset.edge_index_dict,
-                                batch_size=batch_size, local_id2batch_id=local_id2batch_id, device=device)
+    dgi_loss = model.dgi_loss(x_dict=hetero_dataset.x_dict,
+                              edge_index_dict=hetero_dataset.edge_index_dict, batch_size=batch_size, )
 
     if amp:
         with autocast():
@@ -152,11 +133,9 @@ def heterogeneous_graphsage_dgi_sapbert_train_step(model: HeteroGraphSAGESapMetr
     else:
         sapbert_loss = model(query_embed1=term_1_node_features, query_embed2=term_2_node_features,
                              concept_ids=concept_ids, batch_size=batch_size)
-    logging.info(f"sapbert_loss {sapbert_loss.item()}")
-    logging.info(f"dgi_loss_1 {dgi_loss_1.item()}")
-    logging.info(f"dgi_loss_2 {dgi_loss_2.item()}")
-    loss = sapbert_loss + (dgi_loss_1 + dgi_loss_2) * model.dgi_loss_weight
-    # logging.info(f"loss {loss.item()}")
+
+    loss = sapbert_loss + dgi_loss * model.dgi_loss_weight
+
     return loss
 
 
@@ -171,13 +150,13 @@ def heterogeneous_graphsage_dgi_sapbert_eval_step(model: HeteroGraphSAGESapMetri
 
     if amp:
         with autocast():
-            sapbert_loss = model.eval_step_loss(term_1_input_ids=term_1_input_ids, term_1_att_masks=term_1_att_masks,
-                                                term_2_input_ids=term_2_input_ids, term_2_att_masks=term_2_att_masks,
-                                                concept_ids=concept_ids, batch_size=batch_size)
+            sapbert_loss = model.sapbert_loss(term_1_input_ids=term_1_input_ids, term_1_att_masks=term_1_att_masks,
+                                              term_2_input_ids=term_2_input_ids, term_2_att_masks=term_2_att_masks,
+                                              concept_ids=concept_ids, batch_size=batch_size)
     else:
-        sapbert_loss = model.eval_step_loss(term_1_input_ids=term_1_input_ids, term_1_att_masks=term_1_att_masks,
-                                            term_2_input_ids=term_2_input_ids, term_2_att_masks=term_2_att_masks,
-                                            concept_ids=concept_ids, batch_size=batch_size)
+        sapbert_loss = model.sapbert_loss(term_1_input_ids=term_1_input_ids, term_1_att_masks=term_1_att_masks,
+                                          term_2_input_ids=term_2_input_ids, term_2_att_masks=term_2_att_masks,
+                                          concept_ids=concept_ids, batch_size=batch_size)
     return sapbert_loss
 
 
@@ -189,9 +168,7 @@ def train_heterogeneous_graphsage_dgi_sapbert(model: HeteroGraphSAGESapMetricLea
     num_steps = 0
     for batch in tqdm(train_loader, miniters=len(train_loader) // 100, total=len(train_loader)):
         optimizer.zero_grad()
-        loss = heterogeneous_graphsage_dgi_sapbert_train_step(model=model, hetero_dataset=train_loader.hetero_dataset,
-                                                              node_id2sem_group=train_loader.node_id2sem_group,
-                                                              batch=batch, amp=amp, device=device)
+        loss = heterogeneous_graphsage_dgi_sapbert_train_step(model=model, batch=batch, amp=amp, device=device,)
         if amp:
             scaler.scale(loss).backward()
             scaler.step(optimizer)
@@ -201,10 +178,8 @@ def train_heterogeneous_graphsage_dgi_sapbert(model: HeteroGraphSAGESapMetricLea
             optimizer.step()
         num_steps += 1
         total_loss += float(loss)
-        # wandb.log({"Train loss": loss.item()})
-        # logging.info(f"num_steps  {num_steps}, Train step loss: {loss}")
     total_loss /= (num_steps + 1e-9)
-    print("total_loss", total_loss)
+
     return total_loss, num_steps
 
 
@@ -223,23 +198,25 @@ def val_heterogeneous_graphsage_dgi_sapbert(model: HeteroGraphSAGESapMetricLearn
     total_loss /= (num_steps + 1e-9)
     return total_loss
 
-
-def initialize_hetero_graph_sapbert_model(model: HeteroGraphSAGESapMetricLearning, all_node_types: Iterable[str],
-                                          sem_group_rel_combs: Iterable[Tuple[str, str, int]],
+def initialize_hetero_graph_sapbert_model(model: HeteroGraphSAGESapMetricLearning, hetero_dataset: HeteroData,
                                           emb_size: int):
     logging.info("Initializing heterogeneous GraphSAGE model.")
+    all_node_types = hetero_dataset.node_types
+    all_edge_types = hetero_dataset.edge_types
     logging.info(f"Num possible node types: {len(all_node_types)}")
-    logging.info(f"Num possible node, edge type combinations: {len(sem_group_rel_combs)}")
+    logging.info(f"Num possible node, edge type combinations: {len(all_edge_types)}")
 
     het_data = HeteroData()
     for node_type in all_node_types:
         het_data[node_type].x = torch.zeros((1, emb_size), dtype=torch.float)
-    for (node_type_1, node_type_2, rel_id) in sem_group_rel_combs:
+    for (node_type_1, rel_id, node_type_2) in all_edge_types:
         het_data[node_type_1, str(rel_id), node_type_2].edge_index = torch.zeros((2, 1), dtype=torch.long)
+
     model.hetero_graphsage = to_hetero(model.hetero_graphsage, het_data.metadata(), aggr="mean")
-    model.initialize_graphsage_layers(het_data.x_dict, het_data.edge_index_dict)
+    model.eval()
+    with torch.no_grad():
+        model.hetero_graphsage(het_data.x_dict, het_data.edge_index_dict)
     logging.info("Heterogeneous GraphSAGE model has been initialized.")
-    return model, het_data
 
 
 def main(args):
@@ -308,13 +285,14 @@ def main(args):
 
     logging.info(f"There are {num_nodes} nodes and {num_edges} edges in graph.")
     train_num_pos_pairs = len(train_pos_pairs_term_1_id_list)
-    train_pos_pairs_idx = torch.LongTensor(range(train_num_pos_pairs))
-    train_pos_pair_sampler = HeterogeneousPositivePairNeighborSampler(
+    logging.info(f"There are {train_num_pos_pairs} positive pairs in training set")
+
+    train_pos_pair_sampler = HeterogeneousPositivePairNeighborSamplerV2(
         pos_pairs_term_1_id_list=train_pos_pairs_term_1_id_list, edge_index=edge_index,
-        pos_pairs_term_2_id_list=train_pos_pairs_term_2_id_list,
-        pos_pairs_concept_ids_list=train_pos_pairs_concept_ids, sizes=args.graphsage_num_neighbors,
+        pos_pairs_term_2_id_list=train_pos_pairs_term_2_id_list, num_samples=args.graphsage_num_neighbors,
+        pos_pairs_concept_ids_list=train_pos_pairs_concept_ids,
         node_id2sem_group=node_id2sem_group, term_id2tokenizer_output=train_term_id2tok_out, rel_ids=edge_rel_ids,
-        node_idx=train_pos_pairs_idx, node_id2token_ids_dict=node_id2token_ids_dict, seq_max_length=args.max_length,
+        node_id2token_ids_dict=node_id2token_ids_dict, seq_max_length=args.max_length,
         batch_size=args.batch_size, num_workers=args.dataloader_num_workers, shuffle=True, )
 
     val_pos_pair_sampler = None
@@ -331,13 +309,13 @@ def main(args):
         val_term_id2tok_out = create_term_id2tokenizer_output(term2id=val_term2id, max_length=args.max_length,
                                                               tokenizer=bert_tokenizer)
         val_num_pos_pairs = len(val_pos_pairs_term_1_id_list)
-        val_pos_pairs_idx = torch.LongTensor(range(val_num_pos_pairs))
-        val_pos_pair_sampler = HeterogeneousPositivePairNeighborSampler(
+        # val_pos_pairs_idx = torch.LongTensor(range(val_num_pos_pairs))
+        val_pos_pair_sampler = HeterogeneousPositivePairNeighborSamplerV2(
             pos_pairs_term_1_id_list=val_pos_pairs_term_1_id_list, edge_index=edge_index,
             pos_pairs_term_2_id_list=val_pos_pairs_term_2_id_list,
-            pos_pairs_concept_ids_list=val_pos_pairs_concept_ids, sizes=args.graphsage_num_neighbors,
+            pos_pairs_concept_ids_list=val_pos_pairs_concept_ids, num_samples=args.graphsage_num_neighbors,
             node_id2sem_group=node_id2sem_group, term_id2tokenizer_output=val_term_id2tok_out, rel_ids=edge_rel_ids,
-            node_idx=val_pos_pairs_idx, node_id2token_ids_dict=node_id2token_ids_dict, seq_max_length=args.max_length,
+            node_id2token_ids_dict=node_id2token_ids_dict, seq_max_length=args.max_length,
             batch_size=args.batch_size, num_workers=args.dataloader_num_workers, shuffle=False, )
         val_epoch_fn = val_heterogeneous_graphsage_dgi_sapbert
     device = torch.device('cuda:0' if args.use_cuda else 'cpu')
@@ -355,22 +333,19 @@ def main(args):
                                              miner_margin=args.miner_margin, type_of_triplets=args.type_of_triplets,
                                              agg_mode=args.agg_mode)
 
-    all_node_types = list(set(node_id2sem_group.values()))
-    # all_edge_types = list(set((t.item() for t in edge_rel_ids)))
-    model, hetero_dataset = initialize_hetero_graph_sapbert_model(model=model, all_node_types=all_node_types,
-                                                                  sem_group_rel_combs=unique_sem_group_rel_combinations,
-                                                                  emb_size=bert_encoder.config.hidden_size)
+    initialize_hetero_graph_sapbert_model(model, hetero_dataset=train_pos_pair_sampler.hetero_dataset,
+                                          emb_size=bert_encoder.config.hidden_size)
+
     model = model.to(device)
-    train_pos_pair_sampler.hetero_dataset = hetero_dataset
-    hetero_dataset.all_node_types = all_node_types
-    hetero_dataset.sem_group_rel_combs = unique_sem_group_rel_combinations
+
     start = time.time()
     train_graph_sapbert_model(model=model, train_epoch_fn=train_heterogeneous_graphsage_dgi_sapbert,
                               val_epoch_fn=val_epoch_fn, train_loader=train_pos_pair_sampler,
                               val_loader=val_pos_pair_sampler, learning_rate=args.learning_rate,
                               weight_decay=args.weight_decay, num_epochs=args.num_epochs, output_dir=output_dir,
                               save_chkpnt_epoch_interval=args.save_every_N_epoch,
-                              amp=args.amp, scaler=scaler, device=device, chkpnt_path=args.model_checkpoint_path)
+                              amp=args.amp, scaler=scaler, device=device, chkpnt_path=args.model_checkpoint_path,
+                              parallel=args.parallel, )
     end = time.time()
     training_time = end - start
     training_hour = int(training_time / 60 / 60)

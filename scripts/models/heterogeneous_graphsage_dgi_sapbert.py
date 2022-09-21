@@ -15,23 +15,20 @@ class HeterogeneousGraphSAGE(torch.nn.Module):
     def __init__(self, num_layers, hidden_channels, dropout_p):
         super().__init__()
         self.convs = torch.nn.ModuleList()
+        self.relu = nn.ReLU(inplace=True)
         self.dropout_p = dropout_p
         for i in range(num_layers):
-            # num_conv_out_channels = out_channels if i == num_layers - 1 else hidden_channels
             self.convs.append(SAGEConv((-1, -1), hidden_channels))
 
     @autocast()
     def forward(self, x_dict, edge_index_dict):
-        # logging.info(f"x {type(x)}, {x}")
-        # logging.info(f"edge_index {type(edge_index)}, {edge_index}")
-        # logging.info(f"x {type(x_dict)}")
-        # logging.info(f"edge_index {type(edge_index_dict)}")
         for i, conv in enumerate(self.convs):
-            # logging.info(f"i {i} x {type(x_dict)}, edge_index {type(edge_index_dict)} ")
-            x_dict = conv(x_dict, edge_index_dict).relu()
+
+            x_dict = conv(x_dict, edge_index_dict)
+            self.relu(x_dict["SRC"])
             if i != len(self.convs) - 1:
                 x_dict = F.dropout(x_dict, p=self.dropout_p, training=self.training)
-        # logging.info("Forward is finished")
+
         return x_dict
 
 
@@ -66,6 +63,7 @@ class HeteroGraphSAGESapMetricLearning(nn.Module):
                                                        hidden_channels=graphsage_hidden_channels,
                                                        dropout_p=graphsage_dropout_p)
 
+
         self.dgi = Float32DeepGraphInfomaxV2(
             hidden_channels=graphsage_hidden_channels, encoder=self.hetero_graphsage,
             summary=self.summary_fn, corruption=self.corruption_fn)
@@ -94,30 +92,16 @@ class HeteroGraphSAGESapMetricLearning(nn.Module):
     def initialize_graphsage_layers(self, x_dict, edge_index_dict):
         self.eval()
         with torch.no_grad():
-            self.hetero_graphsage(x_dict, edge_index_dict)
+            for conv in self.hetero_graphsage.convs:
+                conv(x_dict, edge_index_dict)
 
     def summary_fn(self, x, ):
         return torch.sigmoid(torch.mean(x, dim=0))
 
-    def x_dict_to_tensor(self, x_dict, batch_size, local_id2batch_id: Dict[str, Dict[int, int]], device):
-
-        embs = torch.zeros((batch_size, self.graphsage_hidden_channels), dtype=torch.float32).to(device)
-        weights = torch.zeros((batch_size, 1), dtype=torch.float32).to(device)
-        for sem_gr, x in x_dict.items():
-            for i in range(x.size(0)):
-                x_i = x[i]
-                # logging.info(f"i {i} x_i {x_i.size()}")
-                if local_id2batch_id.get(sem_gr) is not None:
-                    batch_node_id = local_id2batch_id[sem_gr][i]
-                    if batch_node_id < batch_size:
-                        embs[batch_node_id] += x_i
-                        weights[batch_node_id] += 1
-        embs = embs / weights
-        return embs
-
     @staticmethod
     def corruption_fn(x_dict, ):
-        corr_x_dict = {node_type: x[torch.randperm(x.size(0))] for node_type, x in x_dict.items()}
+        corr_x_dict = {node_type: x for node_type, x in x_dict.items() if node_type != "SRC"}
+        corr_x_dict["SRC"] = x_dict["SRC"][torch.randperm(x_dict["SRC"].size(0))]
 
         return corr_x_dict
 
@@ -125,24 +109,19 @@ class HeteroGraphSAGESapMetricLearning(nn.Module):
     def bert_encode(self, input_ids, att_masks):
         emb = self.bert_encoder(input_ids, attention_mask=att_masks,
                                 return_dict=True)['last_hidden_state'][:, 0]
-        # logging.info(f"emb {emb.dtype}")
+
         return emb
 
     @autocast()
-    def dgi_loss(self, x_dict, edge_index_dict, batch_size, local_id2batch_id, device):
-        # pos_embs, neg_embs, summary = self.dgi(x_dict, edge_index_dict)
-        pos_embs_dict = self.hetero_graphsage(x_dict=x_dict, edge_index_dict=edge_index_dict, )
+    def dgi_loss(self, x_dict, edge_index_dict, batch_size, ):
 
         cor_x_dict = self.corruption_fn(x_dict=x_dict, )
 
-        neg_embs_dict = self.hetero_graphsage(x_dict=cor_x_dict, edge_index_dict=edge_index_dict, )
-
-        pos_embs = self.x_dict_to_tensor(pos_embs_dict, batch_size=batch_size, local_id2batch_id=local_id2batch_id,
-                                         device=device)
-
+        pos_embs = self.hetero_graphsage(x_dict=x_dict, edge_index_dict=edge_index_dict, )["SRC"]
+        assert pos_embs.size(0) == batch_size
+        neg_embs = self.hetero_graphsage(x_dict=cor_x_dict, edge_index_dict=edge_index_dict, )["SRC"]
+        assert neg_embs.size(0) == batch_size
         summary = self.summary_fn(pos_embs, )
-        neg_embs = self.x_dict_to_tensor(neg_embs_dict, batch_size=batch_size, local_id2batch_id=local_id2batch_id,
-                                         device=device)
 
         dgi_loss = self.dgi.loss(pos_embs, neg_embs, summary)
 
@@ -171,8 +150,8 @@ class HeteroGraphSAGESapMetricLearning(nn.Module):
         return sapbert_loss
 
     @autocast()
-    def eval_step_loss(self, term_1_input_ids, term_1_att_masks, term_2_input_ids, term_2_att_masks, concept_ids,
-                       batch_size):
+    def sapbert_loss(self, term_1_input_ids, term_1_att_masks, term_2_input_ids, term_2_att_masks, concept_ids,
+                     batch_size):
         """
         query : (N, h), candidates : (N, topk, h)
 
