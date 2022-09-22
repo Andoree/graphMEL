@@ -239,8 +239,6 @@ def initialize_hetero_graph_sapbert_model(model: HeteroGraphSAGESapMetricLearnin
 
 
 def main(args):
-    # TODO
-
 
     param_grid = {
         "graphsage_num_neighbors": args.graphsage_num_neighbors,
@@ -388,7 +386,7 @@ def main(args):
         train_pos_pair_sampler = HeterogeneousPositivePairNeighborSamplerV2(
             pos_pairs_term_1_id_list=train_pos_pairs_term_1_id_list, edge_index=edge_index,
             pos_pairs_term_2_id_list=train_pos_pairs_term_2_id_list, num_samples=graphsage_num_neighbors,
-            pos_pairs_concept_ids_list=train_pos_pairs_concept_ids,
+            pos_pairs_concept_ids_list=train_pos_pairs_concept_ids, emb_size=bert_encoder.config.hidden_size,
             node_id2sem_group=node_id2sem_group, term_id2tokenizer_output=train_term_id2tok_out, rel_ids=edge_rel_ids,
             node_id2token_ids_dict=node_id2token_ids_dict, seq_max_length=args.max_length,
             batch_size=batch_size, num_workers=args.dataloader_num_workers, shuffle=True, )

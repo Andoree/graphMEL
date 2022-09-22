@@ -733,7 +733,7 @@ def graph_to_hetero_dataset(edge_index, hetero_dataset, all_node_types, sem_grou
 class HeterogeneousPositivePairNeighborSamplerV2(HGTLoader):
     def __init__(self, pos_pairs_term_1_id_list: List[int],
                  pos_pairs_term_2_id_list: List[int], pos_pairs_concept_ids_list: List[int],
-                 node_id2sem_group: Dict[int, str], edge_index: torch.Tensor,
+                 node_id2sem_group: Dict[int, str], edge_index: torch.Tensor, emb_size:int,
                  term_id2tokenizer_output: Dict, rel_ids, node_id2token_ids_dict, seq_max_length, *args, **kwargs):
         num_nodes = len(node_id2token_ids_dict)
         self.num_pos_pairs = len(pos_pairs_term_1_id_list)
@@ -753,6 +753,7 @@ class HeterogeneousPositivePairNeighborSamplerV2(HGTLoader):
         self.seq_max_length = seq_max_length
         self.edge_index = edge_index
         self.num_edges = self.edge_index.size()[1]
+        self.emb_size = emb_size
 
         assert self.num_edges == len(rel_ids)
         hetero_dataset = self.create_hetero_dataset(num_nodes=num_nodes, edge_index=edge_index,
@@ -927,7 +928,7 @@ class HeterogeneousPositivePairNeighborSamplerV2(HGTLoader):
                 filter_node_store_(data[node_type], out[node_type],
                                    node_dict[node_type])
             else:
-                out[node_type].x = torch.zeros(size=(1, 312), dtype=torch.float) # torch.LongTensor([-1, ]).unsqueeze(1)
+                out[node_type].x = torch.zeros(size=(1, self.emb_size), dtype=torch.float)
 
         for edge_type in data.edge_types:
             edge_type_str = edge_type_to_str(edge_type)
