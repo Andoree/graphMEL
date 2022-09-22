@@ -409,6 +409,7 @@ def main(args):
 
         model = model.to(device)
         start = time.time()
+        try:
         train_graph_sapbert_model(model=model, train_epoch_fn=train_heterogeneous_graphsage_dgi_sapbert,
                                   val_epoch_fn=val_epoch_fn, train_loader=train_pos_pair_sampler,
                                   val_loader=val_pos_pair_sampler, learning_rate=args.learning_rate,
@@ -416,7 +417,12 @@ def main(args):
                                   save_chkpnt_epoch_interval=args.save_every_N_epoch,
                                   amp=args.amp, scaler=scaler, device=device, chkpnt_path=args.model_checkpoint_path,
                                   parallel=args.parallel, add_self_loops=add_self_loops )
-
+        
+        except Exception as e:
+            model = model.cpu()
+            del model
+            torch.cuda.empty_cache()
+            continue
         end = time.time()
         training_time = end - start
         training_hour = int(training_time / 60 / 60)
