@@ -163,12 +163,13 @@ def transitive_relations_filtering_recursive_call(all_ancestors_parents: Set[int
     current_node_child_nodes = nodeid2children.get(current_node_id)
     if current_node_child_nodes is not None:
         for child_node in list(current_node_child_nodes):
-            deleted_edges_counter = transitive_relations_filtering_recursive_call(
-                all_ancestors_parents=curr_node_all_ancestors,
-                current_node_id=child_node,
-                nodeid2parents=nodeid2parents,
-                nodeid2children=nodeid2children,
-                deleted_edges_counter=deleted_edges_counter)
+            if child_node not in curr_node_all_ancestors:
+                deleted_edges_counter = transitive_relations_filtering_recursive_call(
+                    all_ancestors_parents=curr_node_all_ancestors,
+                    current_node_id=child_node,
+                    nodeid2parents=nodeid2parents,
+                    nodeid2children=nodeid2children,
+                    deleted_edges_counter=deleted_edges_counter)
     return deleted_edges_counter
 
 
