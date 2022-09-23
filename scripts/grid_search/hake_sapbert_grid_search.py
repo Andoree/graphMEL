@@ -235,18 +235,18 @@ def main(args):
     node_id2terms = load_node_id2terms_list(dict_path=node2terms_path, )
 
     mrsty_df = read_mrsty(args.mrsty)
-    if len(args.filter_transitive_relations) != 1 or args.filter_transitive_relations[0] == True:
-        parent_children_adjacency_list_filt_trans = {i: set(lst) for i, lst in
-                                                     parent_children_adjacency_list_orig.items()}
-        child_parents_adjacency_list_filt_trans = {i: set(lst) for i, lst in child_parents_adjacency_list_orig.items()}
-
-        filter_transitive_hierarchical_relations(node_id2children=parent_children_adjacency_list_filt_trans,
-                                                 node_id2parents=child_parents_adjacency_list_filt_trans)
-        parent_children_adjacency_list_filt_trans = {i: list(s) for i, s in
-                                                     parent_children_adjacency_list_filt_trans.items()}
-        child_parents_adjacency_list_filt_trans = {i: list(s) for i, s in
-                                                   child_parents_adjacency_list_filt_trans.items()}
-    if len(args.filter_semantic_type_nodes) != 1 or args.filter_semantic_type_nodes[0] == True:
+    # if len(args.filter_transitive_relations) != 1 or args.filter_transitive_relations[0] == True:
+    #     parent_children_adjacency_list_filt_trans = {i: set(lst) for i, lst in
+    #                                                  parent_children_adjacency_list_orig.items()}
+    #     child_parents_adjacency_list_filt_trans = {i: set(lst) for i, lst in child_parents_adjacency_list_orig.items()}
+    #
+    #     filter_transitive_hierarchical_relations(node_id2children=parent_children_adjacency_list_filt_trans,
+    #                                              node_id2parents=child_parents_adjacency_list_filt_trans)
+    #     parent_children_adjacency_list_filt_trans = {i: list(s) for i, s in
+    #                                                  parent_children_adjacency_list_filt_trans.items()}
+    #     child_parents_adjacency_list_filt_trans = {i: list(s) for i, s in
+    #                                                child_parents_adjacency_list_filt_trans.items()}
+    if True in args.filter_semantic_type_nodes:
 
         parent_children_adjacency_list_filt_sem_types = {i: list(lst) for i, lst in
                                                          parent_children_adjacency_list_orig.items()}
@@ -261,28 +261,28 @@ def main(args):
         node_id2token_ids_dict_filt_sem_types = {node_id: token_ids for node_id, token_ids in
                                                  node_id2token_ids_dict_orig.items()
                                                  if node_id not in excluded_node_ids}
-    if (len(args.filter_transitive_relations) != 1  or args.filter_transitive_relations[0] == True) and \
-            (len(args.filter_semantic_type_nodes) != 1 or args.filter_semantic_type_nodes[0] == True):
-        parent_children_adjacency_list_filt_both = {i: set(lst) for i, lst in
-                                                    parent_children_adjacency_list_orig.items()}
-        child_parents_adjacency_list_filt_both = {i: set(lst) for i, lst in child_parents_adjacency_list_orig.items()}
-        filter_transitive_hierarchical_relations(node_id2children=parent_children_adjacency_list_filt_both,
-                                                 node_id2parents=child_parents_adjacency_list_filt_both)
-        parent_children_adjacency_list_filt_both = {i: list(s) for i, s in
-                                                    parent_children_adjacency_list_filt_both.items()}
-        child_parents_adjacency_list_filt_both = {i: list(s) for i, s in
-                                                  child_parents_adjacency_list_filt_both.items()}
-
-        excluded_node_ids = filter_hierarchical_semantic_type_nodes(
-            node_id2children=parent_children_adjacency_list_filt_both,
-            node_id2parents=child_parents_adjacency_list_filt_both,
-            node_id2terms=node_id2terms,
-            mrsty_df=mrsty_df)
-
-        node_id2token_ids_dict_filt_both = {node_id: token_ids for node_id, token_ids in
-                                            node_id2token_ids_dict_orig.items()
-                                            if node_id not in excluded_node_ids}
-    del mrsty_df
+    # if (len(args.filter_transitive_relations) != 1  or args.filter_transitive_relations[0] == True) and \
+    #         (len(args.filter_semantic_type_nodes) != 1 or args.filter_semantic_type_nodes[0] == True):
+    #     parent_children_adjacency_list_filt_both = {i: set(lst) for i, lst in
+    #                                                 parent_children_adjacency_list_orig.items()}
+    #     child_parents_adjacency_list_filt_both = {i: set(lst) for i, lst in child_parents_adjacency_list_orig.items()}
+    #     filter_transitive_hierarchical_relations(node_id2children=parent_children_adjacency_list_filt_both,
+    #                                              node_id2parents=child_parents_adjacency_list_filt_both)
+    #     parent_children_adjacency_list_filt_both = {i: list(s) for i, s in
+    #                                                 parent_children_adjacency_list_filt_both.items()}
+    #     child_parents_adjacency_list_filt_both = {i: list(s) for i, s in
+    #                                               child_parents_adjacency_list_filt_both.items()}
+    #
+    #     excluded_node_ids = filter_hierarchical_semantic_type_nodes(
+    #         node_id2children=parent_children_adjacency_list_filt_both,
+    #         node_id2parents=child_parents_adjacency_list_filt_both,
+    #         node_id2terms=node_id2terms,
+    #         mrsty_df=mrsty_df)
+    #
+    #     node_id2token_ids_dict_filt_both = {node_id: token_ids for node_id, token_ids in
+    #                                         node_id2token_ids_dict_orig.items()
+    #                                         if node_id not in excluded_node_ids}
+    # del mrsty_df
 
     train_positive_pairs_path = os.path.join(args.train_dir, f"train_pos_pairs")
     train_pos_pairs_term_1_list, train_pos_pairs_term_2_list, train_pos_pairs_concept_ids = \
@@ -367,15 +367,15 @@ def main(args):
         torch.cuda.random.manual_seed_all(args.random_seed)
         torch.backends.cudnn.deterministic = True
 
-        if filter_transitive_relations and filter_semantic_type_nodes:
-            node_id2token_ids_dict = node_id2token_ids_dict_filt_both
-
-            parent_children_adjacency_list = parent_children_adjacency_list_filt_both
-            child_parents_adjacency_list = child_parents_adjacency_list_filt_both
-        elif filter_transitive_relations:
-            parent_children_adjacency_list = parent_children_adjacency_list_filt_trans
-            child_parents_adjacency_list = child_parents_adjacency_list_filt_trans
-        elif filter_semantic_type_nodes:
+        # if filter_transitive_relations and filter_semantic_type_nodes:
+        #     node_id2token_ids_dict = node_id2token_ids_dict_filt_both
+        #
+        #     parent_children_adjacency_list = parent_children_adjacency_list_filt_both
+        #     child_parents_adjacency_list = child_parents_adjacency_list_filt_both
+        # elif filter_transitive_relations:
+        #     parent_children_adjacency_list = parent_children_adjacency_list_filt_trans
+        #     child_parents_adjacency_list = child_parents_adjacency_list_filt_trans
+        if filter_semantic_type_nodes:
             node_id2token_ids_dict = node_id2token_ids_dict_filt_sem_types
             parent_children_adjacency_list = parent_children_adjacency_list_filt_sem_types
             child_parents_adjacency_list = child_parents_adjacency_list_filt_sem_types
