@@ -20,7 +20,7 @@ from transformers import AutoModel
 
 from graphmel.scripts.evaluation.evaluate_all_checkpoints_in_dir import evaluate_single_checkpoint_acc1_acc5
 from graphmel.scripts.evaluation.utils import read_vocab, read_dataset
-from graphmel.scripts.models.heterogeneous_graphsage_dgi_sapbert import HeteroGraphSAGESapMetricLearning
+from graphmel.scripts.models.heterogeneous_graphsage_sapbert import HeteroGraphSAGENeighborsSapMetricLearning
 from graphmel.scripts.self_alignment_pretraining.dataset import HeterogeneousPositivePairNeighborSampler, \
     HeterogeneousPositivePairNeighborSamplerV2
 from graphmel.scripts.self_alignment_pretraining.sapbert_training import train_graph_sapbert_model
@@ -60,11 +60,10 @@ def parse_args():
     parser.add_argument('--num_graphsage_layers', type=int, nargs='+')
     parser.add_argument('--graphsage_hidden_channels', type=int, nargs='+')
     parser.add_argument('--graphsage_dropout_p', type=float, nargs='+')
-    parser.add_argument('--dgi_loss_weight', type=float, nargs='+')
+    parser.add_argument('--graph_loss_weight', type=float, nargs='+')
     parser.add_argument('--add_self_loops', type=bool, nargs='+')
     parser.add_argument('--filter_rel_types', type=bool, nargs='+')
     parser.add_argument('--batch_size', type=int, nargs='+')
-
 
     parser.add_argument('--train_subset_ratio', type=float, )
     # Evaluation data path
@@ -112,7 +111,8 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-def heterogeneous_graphsage_dgi_sapbert_train_step(model: HeteroGraphSAGESapMetricLearning, batch, amp, device,
+
+def heterogeneous_graphsage_neighbors_sapbert_train_step(model: HeteroGraphSAGENeighborsSapMetricLearning, batch, amp, device,
                                                    add_self_loops):
     term_1_input_ids, term_1_att_masks = batch["term_1_input"]
     term_1_input_ids, term_1_att_masks = term_1_input_ids.to(device), term_1_att_masks.to(device)
@@ -133,29 +133,36 @@ def heterogeneous_graphsage_dgi_sapbert_train_step(model: HeteroGraphSAGESapMetr
 
     term_1_node_features = model.bert_encode(input_ids=term_1_input_ids, att_masks=term_1_att_masks)
     term_2_node_features = model.bert_encode(input_ids=term_2_input_ids, att_masks=term_2_att_masks)
-    query_embed_mean = torch.mean(torch.stack((term_1_node_features, term_2_node_features)), dim=0)
-    hetero_dataset["SRC"].x = query_embed_mean
+    # query_embed_mean = torch.mean(torch.stack((term_1_node_features, term_2_node_features)), dim=0)
+    hetero_dataset["SRC"].x = term_1_node_features
     if add_self_loops:
         hetero_dataset = T.AddSelfLoops()(hetero_dataset)
     hetero_dataset = hetero_dataset.to(device)
 
-    dgi_loss = model.dgi_loss(x_dict=hetero_dataset.x_dict,
-                              edge_index_dict=hetero_dataset.edge_index_dict, batch_size=batch_size, )
+    x_dict_1 = hetero_dataset.x_dict
+    x_dict_2 = {node_type: x for node_type, x in x_dict_1.items() if node_type != "SRC"}
+    x_dict_2["SRC"] = term_2_node_features
 
     if amp:
         with autocast():
             sapbert_loss = model(query_embed1=term_1_node_features, query_embed2=term_2_node_features,
                                  concept_ids=concept_ids, batch_size=batch_size)
+            graph_loss = model.graph_loss(x_dict_1=x_dict_1, x_dict_2=x_dict_2, concept_ids=concept_ids,
+                                          edge_index_dict=hetero_dataset.edge_index_dict,
+                                          batch_size=batch_size, )
     else:
         sapbert_loss = model(query_embed1=term_1_node_features, query_embed2=term_2_node_features,
                              concept_ids=concept_ids, batch_size=batch_size)
+        graph_loss = model.graph_loss(x_dict_1=x_dict_1, x_dict_2=x_dict_2, concept_ids=concept_ids,
+                                      edge_index_dict=hetero_dataset.edge_index_dict,
+                                      batch_size=batch_size, )
 
-    loss = sapbert_loss + dgi_loss * model.dgi_loss_weight
+    loss = sapbert_loss + graph_loss
 
     return loss
 
 
-def heterogeneous_graphsage_dgi_sapbert_eval_step(model: HeteroGraphSAGESapMetricLearning, batch, amp, device):
+def heterogeneous_graphsage_neighbors_sapbert_eval_step(model: HeteroGraphSAGENeighborsSapMetricLearning, batch, amp, device):
     term_1_input_ids, term_1_att_masks = batch["term_1_input"]
     term_1_input_ids, term_1_att_masks = term_1_input_ids.to(device), term_1_att_masks.to(device)
     term_2_input_ids, term_2_att_masks = batch["term_2_input"]
@@ -176,7 +183,7 @@ def heterogeneous_graphsage_dgi_sapbert_eval_step(model: HeteroGraphSAGESapMetri
     return sapbert_loss
 
 
-def train_heterogeneous_graphsage_dgi_sapbert(model: HeteroGraphSAGESapMetricLearning,
+def train_heterogeneous_graphsage_neighbors_sapbert(model: HeteroGraphSAGENeighborsSapMetricLearning,
                                               train_loader: HeterogeneousPositivePairNeighborSampler,
                                               optimizer: torch.optim.Optimizer, scaler, amp, device, **kwargs):
     add_self_loops = kwargs["add_self_loops"]
@@ -185,7 +192,7 @@ def train_heterogeneous_graphsage_dgi_sapbert(model: HeteroGraphSAGESapMetricLea
     num_steps = 0
     for batch in tqdm(train_loader, miniters=len(train_loader) // 100, total=len(train_loader)):
         optimizer.zero_grad()
-        loss = heterogeneous_graphsage_dgi_sapbert_train_step(model=model, batch=batch, amp=amp, device=device,
+        loss = heterogeneous_graphsage_neighbors_sapbert_train_step(model=model, batch=batch, amp=amp, device=device,
                                                               add_self_loops=add_self_loops)
         if amp:
             scaler.scale(loss).backward()
@@ -201,7 +208,7 @@ def train_heterogeneous_graphsage_dgi_sapbert(model: HeteroGraphSAGESapMetricLea
     return total_loss, num_steps
 
 
-def val_heterogeneous_graphsage_dgi_sapbert(model: HeteroGraphSAGESapMetricLearning,
+def val_heterogeneous_graphsage_neighbors_sapbert(model: HeteroGraphSAGENeighborsSapMetricLearning,
                                             val_loader: HeterogeneousPositivePairNeighborSampler,
                                             amp, device, **kwargs):
     model.eval()
@@ -209,14 +216,15 @@ def val_heterogeneous_graphsage_dgi_sapbert(model: HeteroGraphSAGESapMetricLearn
     num_steps = 0
     with torch.no_grad():
         for batch in tqdm(val_loader, miniters=len(val_loader) // 100, total=len(val_loader)):
-            loss = heterogeneous_graphsage_dgi_sapbert_eval_step(model=model, batch=batch, amp=amp, device=device)
+            loss = heterogeneous_graphsage_neighbors_sapbert_eval_step(model=model, batch=batch, amp=amp, device=device)
             num_steps += 1
             total_loss += float(loss)
             # wandb.log({"Val loss": loss.item()})
     total_loss /= (num_steps + 1e-9)
     return total_loss
 
-def initialize_hetero_graph_sapbert_model(model: HeteroGraphSAGESapMetricLearning, hetero_dataset: HeteroData,
+
+def initialize_hetero_graph_sapbert_model(model: HeteroGraphSAGENeighborsSapMetricLearning, hetero_dataset: HeteroData,
                                           emb_size: int):
     logging.info("Initializing heterogeneous GraphSAGE model.")
     all_node_types = hetero_dataset.node_types
@@ -237,15 +245,13 @@ def initialize_hetero_graph_sapbert_model(model: HeteroGraphSAGESapMetricLearnin
     logging.info("Heterogeneous GraphSAGE model has been initialized.")
 
 
-
 def main(args):
-
     param_grid = {
         "graphsage_num_neighbors": args.graphsage_num_neighbors,
         "num_graphsage_layers": args.num_graphsage_layers,
         "graphsage_hidden_channels": args.graphsage_hidden_channels,
         "graphsage_dropout_p": args.graphsage_dropout_p,
-        "dgi_loss_weight": args.dgi_loss_weight,
+        "graph_loss_weight": args.graph_loss_weight,
         "add_self_loops": args.add_self_loops,
         "filter_rel_types": args.filter_rel_types,
         "batch_size": args.batch_size,
@@ -273,7 +279,6 @@ def main(args):
 
     assert edge_index_orig.size()[1] == len(edge_rel_ids_orig)
     assert edge_index_filtered.size()[1] == len(edge_rel_ids_filtered)
-
 
     node_id2sem_group = {int(node_id): sem_group for node_id, sem_group in load_dict(node_id2sem_group).items()}
     node_id2token_ids_dict = {node_id: token_ids for node_id, token_ids in node_id2token_ids_dict.items()
@@ -309,7 +314,6 @@ def main(args):
     train_pos_pairs_term_2_id_list = train_pos_pairs_term_2_id_list[selected_pos_pair_ids]
     train_pos_pairs_concept_ids = train_pos_pairs_concept_ids[selected_pos_pair_ids]
 
-
     train_num_pos_pairs = len(train_pos_pairs_term_1_id_list)
     train_pos_pairs_idx = torch.LongTensor(range(train_num_pos_pairs))
     logging.info(f"There are {train_num_pos_pairs} positive pairs")
@@ -340,10 +344,10 @@ def main(args):
         param_dict = {name: val for name, val in zip(param_names, model_setup)}
 
         num_graphsage_layers = param_dict["num_graphsage_layers"]
-        graphsage_num_neighbors = (param_dict["graphsage_num_neighbors"], ) * num_graphsage_layers
+        graphsage_num_neighbors = (param_dict["graphsage_num_neighbors"],) * num_graphsage_layers
         graphsage_hidden_channels = param_dict["graphsage_hidden_channels"]
         graphsage_dropout_p = param_dict["graphsage_dropout_p"]
-        dgi_loss_weight = param_dict["dgi_loss_weight"]
+        graph_loss_weight = param_dict["graph_loss_weight"]
         filter_rel_types = param_dict["filter_rel_types"]
         batch_size = param_dict["batch_size"]
         add_self_loops = param_dict["add_self_loops"]
@@ -354,7 +358,7 @@ def main(args):
 
         base_dir = args.output_dir
 
-        output_subdir = f"dgi_{dgi_loss_weight}_heterosage_{graphsage_num_neighbors}_{num_graphsage_layers}" \
+        output_subdir = f"gr_loss_{graph_loss_weight}_heterosage_{graphsage_num_neighbors}_{num_graphsage_layers}" \
                         f"_{graphsage_hidden_channels}_{graphsage_dropout_p}_" \
                         f"filter_types_{filter_rel_types}_rel_lr_{args.learning_rate}_b_{batch_size}"
 
@@ -396,28 +400,30 @@ def main(args):
         else:
             scaler = None
 
-        model = HeteroGraphSAGESapMetricLearning(bert_encoder, num_graphsage_layers=num_graphsage_layers,
-                                                 graphsage_hidden_channels=graphsage_hidden_channels,
-                                                 graphsage_dropout_p=graphsage_dropout_p,
-                                                 dgi_loss_weight=dgi_loss_weight,
-                                                 use_cuda=args.use_cuda, loss=args.loss,
-                                                 multigpu_flag=args.parallel, use_miner=args.use_miner,
-                                                 miner_margin=args.miner_margin, type_of_triplets=args.type_of_triplets,
-                                                 agg_mode=args.agg_mode, )
+        model = HeteroGraphSAGENeighborsSapMetricLearning(bert_encoder, num_graphsage_layers=num_graphsage_layers,
+                                                          graphsage_hidden_channels=graphsage_hidden_channels,
+                                                          graphsage_dropout_p=graphsage_dropout_p,
+                                                          graph_loss_weight=graph_loss_weight,
+                                                          use_cuda=args.use_cuda, loss=args.loss,
+                                                          multigpu_flag=args.parallel, use_miner=args.use_miner,
+                                                          miner_margin=args.miner_margin,
+                                                          type_of_triplets=args.type_of_triplets,
+                                                          agg_mode=args.agg_mode, )
         initialize_hetero_graph_sapbert_model(model, hetero_dataset=train_pos_pair_sampler.hetero_dataset,
                                               emb_size=bert_encoder.config.hidden_size)
 
         model = model.to(device)
         start = time.time()
         try:
-            train_graph_sapbert_model(model=model, train_epoch_fn=train_heterogeneous_graphsage_dgi_sapbert,
-                                  val_epoch_fn=val_epoch_fn, train_loader=train_pos_pair_sampler,
-                                  val_loader=val_pos_pair_sampler, learning_rate=args.learning_rate,
-                                  weight_decay=args.weight_decay, num_epochs=args.num_epochs, output_dir=output_dir,
-                                  save_chkpnt_epoch_interval=args.save_every_N_epoch,
-                                  amp=args.amp, scaler=scaler, device=device, chkpnt_path=args.model_checkpoint_path,
-                                  parallel=args.parallel, add_self_loops=add_self_loops )
-        
+            train_graph_sapbert_model(model=model, train_epoch_fn=train_heterogeneous_graphsage_neighbors_sapbert,
+                                      val_epoch_fn=val_epoch_fn, train_loader=train_pos_pair_sampler,
+                                      val_loader=val_pos_pair_sampler, learning_rate=args.learning_rate,
+                                      weight_decay=args.weight_decay, num_epochs=args.num_epochs, output_dir=output_dir,
+                                      save_chkpnt_epoch_interval=args.save_every_N_epoch,
+                                      amp=args.amp, scaler=scaler, device=device,
+                                      chkpnt_path=args.model_checkpoint_path,
+                                      parallel=args.parallel, add_self_loops=add_self_loops)
+
         except Exception as e:
             model = model.cpu()
             del model
@@ -467,7 +473,6 @@ def main(args):
                 log_file.write(f"{s}\n")
             logging.info(f"Dataset: {dataset_name}, Acc@1: {acc_1}, Acc@5 : {acc_5}")
 
-
     for dataset_name in best_accs_dict.keys():
         logging.info(f"DATASET {dataset_name}")
         best_param_dict_acc_1 = best_params_dict[dataset_name]["acc_1"]
@@ -483,7 +488,6 @@ def main(args):
         logging.info(f"BEST ACC@5 SETUP:")
         for k, v in best_param_dict_acc_5.items():
             logging.info(f"\t{k}={v}")
-
 
 
 if __name__ == '__main__':

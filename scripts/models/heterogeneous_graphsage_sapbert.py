@@ -1,17 +1,42 @@
 import logging
+from typing import Dict
 
 import torch
 import torch.nn as nn
 from pytorch_metric_learning import miners, losses
+from torch import nn as nn
 from torch.cuda.amp import autocast
+from torch.nn import functional as F
+from torch_geometric.nn import SAGEConv
+import torch.nn.functional as F
 
-from graphmel.scripts.models.heterogeneous_graphsage_sapbert import HeterogeneousGraphSAGE
 from graphmel.scripts.self_alignment_pretraining.dgi import Float32DeepGraphInfomaxV2
 
 
-class HeteroGraphSAGESapMetricLearning(nn.Module):
+class HeterogeneousGraphSAGE(torch.nn.Module):
+    def __init__(self, num_layers, hidden_channels, dropout_p):
+        super().__init__()
+        self.convs = torch.nn.ModuleList()
+        self.relu = nn.ReLU(inplace=True)
+        self.dropout_p = dropout_p
+        for i in range(num_layers):
+            self.convs.append(SAGEConv((-1, -1), hidden_channels))
+
+    @autocast()
+    def forward(self, x_dict, edge_index_dict):
+        for i, conv in enumerate(self.convs):
+
+            x_dict = conv(x_dict, edge_index_dict)
+            self.relu(x_dict["SRC"])
+            if i != len(self.convs) - 1:
+                x_dict = F.dropout(x_dict, p=self.dropout_p, training=self.training)
+
+        return x_dict
+
+
+class HeteroGraphSAGENeighborsSapMetricLearning(nn.Module):
     def __init__(self, bert_encoder, num_graphsage_layers: int, graphsage_hidden_channels: int,
-                 graphsage_dropout_p: float, dgi_loss_weight: float, use_cuda, loss,
+                 graphsage_dropout_p: float, use_cuda, loss, graph_loss_weight: float,
                  multigpu_flag, use_miner=True, miner_margin=0.2, type_of_triplets="all", agg_mode="cls"):
 
         logging.info(
@@ -20,7 +45,7 @@ class HeteroGraphSAGESapMetricLearning(nn.Module):
                         ))
         logging.info(f"HeteroGraphSAGE + SapBERT model parameters: num_graphsage_layers {num_graphsage_layers}, "
                      f"graphsage_hidden_channels: {graphsage_hidden_channels}.")
-        super(HeteroGraphSAGESapMetricLearning, self).__init__()
+        super(HeteroGraphSAGENeighborsSapMetricLearning, self).__init__()
         self.bert_encoder = bert_encoder
         self.use_cuda = use_cuda
         self.loss = loss
@@ -35,16 +60,10 @@ class HeteroGraphSAGESapMetricLearning(nn.Module):
         self.graphsage_hidden_channels = graphsage_hidden_channels
         self.num_graphsage_layers = num_graphsage_layers
         self.graphsage_dropout_p = graphsage_dropout_p
-
+        self.graph_loss_weight = graph_loss_weight
         self.hetero_graphsage = HeterogeneousGraphSAGE(num_layers=num_graphsage_layers,
                                                        hidden_channels=graphsage_hidden_channels,
                                                        dropout_p=graphsage_dropout_p)
-
-
-        self.dgi = Float32DeepGraphInfomaxV2(
-            hidden_channels=graphsage_hidden_channels, encoder=self.hetero_graphsage,
-            summary=self.summary_fn, corruption=self.corruption_fn)
-        self.dgi_loss_weight = dgi_loss_weight
 
         if self.use_miner:
             self.miner = miners.TripletMarginMiner(margin=miner_margin, type_of_triplets=type_of_triplets)
@@ -72,16 +91,6 @@ class HeteroGraphSAGESapMetricLearning(nn.Module):
             for conv in self.hetero_graphsage.convs:
                 conv(x_dict, edge_index_dict)
 
-    def summary_fn(self, x, ):
-        return torch.sigmoid(torch.mean(x, dim=0))
-
-    @staticmethod
-    def corruption_fn(x_dict, ):
-        corr_x_dict = {node_type: x for node_type, x in x_dict.items() if node_type != "SRC"}
-        corr_x_dict["SRC"] = x_dict["SRC"][torch.randperm(x_dict["SRC"].size(0))]
-
-        return corr_x_dict
-
     @autocast()
     def bert_encode(self, input_ids, att_masks):
         emb = self.bert_encoder(input_ids, attention_mask=att_masks,
@@ -90,19 +99,22 @@ class HeteroGraphSAGESapMetricLearning(nn.Module):
         return emb
 
     @autocast()
-    def dgi_loss(self, x_dict, edge_index_dict, batch_size, ):
+    def graph_loss(self, x_dict_1, edge_index_dict, x_dict_2, concept_ids, batch_size, ):
 
-        cor_x_dict = self.corruption_fn(x_dict=x_dict, )
+        graph_emb_1 = self.hetero_graphsage(x_dict=x_dict_1, edge_index_dict=edge_index_dict, )["SRC"]
+        assert graph_emb_1.size(0) == batch_size
+        graph_emb_2 = self.hetero_graphsage(x_dict=x_dict_2, edge_index_dict=edge_index_dict, )["SRC"]
+        assert graph_emb_2.size(0) == batch_size
+        graph_embed = torch.cat([graph_emb_1, graph_emb_2], dim=0)
+        labels = torch.cat([concept_ids, concept_ids], dim=0)
+        if self.use_miner:
+            hard_pairs_graph = self.miner(graph_embed, labels)
+            graph_loss = self.loss(graph_embed, labels, hard_pairs_graph)
+        else:
+            graph_loss = self.loss(graph_embed, labels, )
+        return graph_loss * self.graph_loss_weight
 
-        pos_embs = self.hetero_graphsage(x_dict=x_dict, edge_index_dict=edge_index_dict, )["SRC"]
-        assert pos_embs.size(0) == batch_size
-        neg_embs = self.hetero_graphsage(x_dict=cor_x_dict, edge_index_dict=edge_index_dict, )["SRC"]
-        assert neg_embs.size(0) == batch_size
-        summary = self.summary_fn(pos_embs, )
 
-        dgi_loss = self.dgi.loss(pos_embs, neg_embs, summary)
-
-        return dgi_loss
 
     @autocast()
     def forward(self, query_embed1, query_embed2, concept_ids, batch_size):
