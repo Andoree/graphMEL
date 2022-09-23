@@ -280,7 +280,7 @@ def main(args):
                                   num_blocks=args.rgcn_num_blocks, use_fast_conv=args.rgcn_use_fast_conv,
                                   use_cuda=args.use_cuda, loss=args.loss, miner_margin=args.miner_margin,
                                   type_of_triplets=args.type_of_triplets, agg_mode=args.agg_mode,
-                                  multigpu_flag=args.parallel, num_inner_layers=args.num_inner_layers,
+                                  multigpu_flag=args.parallel, num_inner_layers=args.rgcn_num_inner_layers,
                                   graph_loss_weight=args.graph_loss_weight).to(device)
     start = time.time()
     train_graph_sapbert_model(model=model, train_epoch_fn=train_rgcn_sapbert, val_epoch_fn=val_epoch_fn,
