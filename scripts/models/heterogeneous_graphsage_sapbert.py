@@ -23,15 +23,16 @@ class HeterogeneousGraphSAGE(torch.nn.Module):
             self.convs.append(SAGEConv((-1, -1), hidden_channels))
 
     @autocast()
-    def forward(self, x_dict, edge_index_dict):
+    def forward(self, x_dict_orig, edge_index_dict):
+
         for i, conv in enumerate(self.convs):
 
-            x_dict = conv(x_dict, edge_index_dict)
+            x_dict = conv(x_dict_orig, edge_index_dict)
             self.relu(x_dict["SRC"])
             if i != len(self.convs) - 1:
-                x_dict = F.dropout(x_dict, p=self.dropout_p, training=self.training)
-
-        return x_dict
+                F.dropout(x_dict["SRC"], p=self.dropout_p, training=self.training, inplace=True)
+            x_dict_orig["SRC"] = x_dict["SRC"]
+        return x_dict_orig
 
 
 class HeteroGraphSAGENeighborsSapMetricLearning(nn.Module):
