@@ -235,7 +235,7 @@ def main(args):
     node_id2terms = load_node_id2terms_list(dict_path=node2terms_path, )
 
     mrsty_df = read_mrsty(args.mrsty)
-    if len(args.filter_transitive_relations) == 1 and args.filter_transitive_relations[0] == False:
+    if len(args.filter_transitive_relations) != 1 or args.filter_transitive_relations[0] == True:
         parent_children_adjacency_list_filt_trans = {i: set(lst) for i, lst in
                                                      parent_children_adjacency_list_orig.items()}
         child_parents_adjacency_list_filt_trans = {i: set(lst) for i, lst in child_parents_adjacency_list_orig.items()}
@@ -246,7 +246,7 @@ def main(args):
                                                      parent_children_adjacency_list_filt_trans.items()}
         child_parents_adjacency_list_filt_trans = {i: list(s) for i, s in
                                                    child_parents_adjacency_list_filt_trans.items()}
-    if len(args.filter_semantic_type_nodes) == 1 and args.filter_semantic_type_nodes[0] == False:
+    if len(args.filter_semantic_type_nodes) != 1 or args.filter_semantic_type_nodes[0] == True:
 
         parent_children_adjacency_list_filt_sem_types = {i: list(lst) for i, lst in
                                                          parent_children_adjacency_list_orig.items()}
@@ -261,8 +261,8 @@ def main(args):
         node_id2token_ids_dict_filt_sem_types = {node_id: token_ids for node_id, token_ids in
                                                  node_id2token_ids_dict_orig.items()
                                                  if node_id not in excluded_node_ids}
-    if len(args.filter_transitive_relations) == 1  and args.filter_transitive_relations[0] == False and \
-        len(args.filter_semantic_type_nodes) == 1 and args.filter_semantic_type_nodes[0] == False:
+    if (len(args.filter_transitive_relations) != 1  or args.filter_transitive_relations[0] == True) and \
+            (len(args.filter_semantic_type_nodes) != 1 or args.filter_semantic_type_nodes[0] == True):
         parent_children_adjacency_list_filt_both = {i: set(lst) for i, lst in
                                                     parent_children_adjacency_list_orig.items()}
         child_parents_adjacency_list_filt_both = {i: set(lst) for i, lst in child_parents_adjacency_list_orig.items()}
