@@ -210,19 +210,21 @@ def filter_hierarchical_semantic_type_nodes(node_id2children: Dict[int, List[int
         if len(node_terms) == 1 and node_terms[0].strip().lower() in possible_sty_values:
             assert isinstance(node_terms[0], str)
             nodes_deleted.add(node_id)
+            for child_n_id in node_id2children[node_id]:
+                node_id2parents[child_n_id].remove(node_id)
             del node_id2children[node_id]
-        else:
-            node_id2children[node_id] = [p for p in node_id2children[node_id] if not (p in possible_sty_values)]
+        # else:
+        #     node_id2children[node_id] = [p for p in node_id2children[node_id] if not (p in possible_sty_values)]
 
-    for node_id in list(node_id2parents.keys()):
-        node_terms = node_id2terms[node_id]
-        assert isinstance(node_terms, list)
-        if len(node_terms) == 1 and node_terms[0].strip().lower() in possible_sty_values:
-            assert isinstance(node_terms[0], str)
-            nodes_deleted.add(node_id)
-            del node_id2parents[node_id]
-        else:
-            node_id2parents[node_id] = [p for p in node_id2parents[node_id] if not (p in possible_sty_values)]
+    # for node_id in list(node_id2parents.keys()):
+    #     node_terms = node_id2terms[node_id]
+    #     assert isinstance(node_terms, list)
+    #     if len(node_terms) == 1 and node_terms[0].strip().lower() in possible_sty_values:
+    #         assert isinstance(node_terms[0], str)
+    #         nodes_deleted.add(node_id)
+    #         del node_id2parents[node_id]
+    #     else:
+    #         node_id2parents[node_id] = [p for p in node_id2parents[node_id] if not (p in possible_sty_values)]
 
     for node_id in list(node_id2terms.keys()):
         node_terms = node_id2terms[node_id]
