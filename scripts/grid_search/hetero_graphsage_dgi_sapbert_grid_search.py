@@ -20,7 +20,7 @@ from transformers import AutoModel
 
 from graphmel.scripts.evaluation.evaluate_all_checkpoints_in_dir import evaluate_single_checkpoint_acc1_acc5
 from graphmel.scripts.evaluation.utils import read_vocab, read_dataset
-from graphmel.scripts.models.heterogeneous_graphsage_dgi_sapbert import HeteroGraphSAGESapMetricLearning
+from graphmel.scripts.models.heterogeneous_graphsage_dgi_sapbert import HeteroGraphSageDgiSapMetricLearning
 from graphmel.scripts.self_alignment_pretraining.dataset import HeterogeneousPositivePairNeighborSampler, \
     HeterogeneousPositivePairNeighborSamplerV2
 from graphmel.scripts.self_alignment_pretraining.sapbert_training import train_graph_sapbert_model
@@ -112,7 +112,7 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-def heterogeneous_graphsage_dgi_sapbert_train_step(model: HeteroGraphSAGESapMetricLearning, batch, amp, device,
+def heterogeneous_graphsage_dgi_sapbert_train_step(model: HeteroGraphSageDgiSapMetricLearning, batch, amp, device,
                                                    add_self_loops):
     term_1_input_ids, term_1_att_masks = batch["term_1_input"]
     term_1_input_ids, term_1_att_masks = term_1_input_ids.to(device), term_1_att_masks.to(device)
@@ -155,7 +155,7 @@ def heterogeneous_graphsage_dgi_sapbert_train_step(model: HeteroGraphSAGESapMetr
     return loss
 
 
-def heterogeneous_graphsage_dgi_sapbert_eval_step(model: HeteroGraphSAGESapMetricLearning, batch, amp, device):
+def heterogeneous_graphsage_dgi_sapbert_eval_step(model: HeteroGraphSageDgiSapMetricLearning, batch, amp, device):
     term_1_input_ids, term_1_att_masks = batch["term_1_input"]
     term_1_input_ids, term_1_att_masks = term_1_input_ids.to(device), term_1_att_masks.to(device)
     term_2_input_ids, term_2_att_masks = batch["term_2_input"]
@@ -176,7 +176,7 @@ def heterogeneous_graphsage_dgi_sapbert_eval_step(model: HeteroGraphSAGESapMetri
     return sapbert_loss
 
 
-def train_heterogeneous_graphsage_dgi_sapbert(model: HeteroGraphSAGESapMetricLearning,
+def train_heterogeneous_graphsage_dgi_sapbert(model: HeteroGraphSageDgiSapMetricLearning,
                                               train_loader: HeterogeneousPositivePairNeighborSampler,
                                               optimizer: torch.optim.Optimizer, scaler, amp, device, **kwargs):
     add_self_loops = kwargs["add_self_loops"]
@@ -201,7 +201,7 @@ def train_heterogeneous_graphsage_dgi_sapbert(model: HeteroGraphSAGESapMetricLea
     return total_loss, num_steps
 
 
-def val_heterogeneous_graphsage_dgi_sapbert(model: HeteroGraphSAGESapMetricLearning,
+def val_heterogeneous_graphsage_dgi_sapbert(model: HeteroGraphSageDgiSapMetricLearning,
                                             val_loader: HeterogeneousPositivePairNeighborSampler,
                                             amp, device, **kwargs):
     model.eval()
@@ -216,7 +216,7 @@ def val_heterogeneous_graphsage_dgi_sapbert(model: HeteroGraphSAGESapMetricLearn
     total_loss /= (num_steps + 1e-9)
     return total_loss
 
-def initialize_hetero_graph_sapbert_model(model: HeteroGraphSAGESapMetricLearning, hetero_dataset: HeteroData,
+def initialize_hetero_graph_sapbert_model(model: HeteroGraphSageDgiSapMetricLearning, hetero_dataset: HeteroData,
                                           emb_size: int):
     logging.info("Initializing heterogeneous GraphSAGE model.")
     all_node_types = hetero_dataset.node_types
@@ -399,14 +399,14 @@ def main(args):
         else:
             scaler = None
 
-        model = HeteroGraphSAGESapMetricLearning(bert_encoder, num_graphsage_layers=num_graphsage_layers,
-                                                 graphsage_hidden_channels=graphsage_hidden_channels,
-                                                 graphsage_dropout_p=graphsage_dropout_p,
-                                                 dgi_loss_weight=dgi_loss_weight,
-                                                 use_cuda=args.use_cuda, loss=args.loss,
-                                                 multigpu_flag=args.parallel, use_miner=args.use_miner,
-                                                 miner_margin=args.miner_margin, type_of_triplets=args.type_of_triplets,
-                                                 agg_mode=args.agg_mode, )
+        model = HeteroGraphSageDgiSapMetricLearning(bert_encoder, num_graphsage_layers=num_graphsage_layers,
+                                                    graphsage_hidden_channels=graphsage_hidden_channels,
+                                                    graphsage_dropout_p=graphsage_dropout_p,
+                                                    dgi_loss_weight=dgi_loss_weight,
+                                                    use_cuda=args.use_cuda, loss=args.loss,
+                                                    multigpu_flag=args.parallel, use_miner=args.use_miner,
+                                                    miner_margin=args.miner_margin, type_of_triplets=args.type_of_triplets,
+                                                    agg_mode=args.agg_mode, )
         initialize_hetero_graph_sapbert_model(model, hetero_dataset=train_pos_pair_sampler.hetero_dataset,
                                               emb_size=bert_encoder.config.hidden_size)
 

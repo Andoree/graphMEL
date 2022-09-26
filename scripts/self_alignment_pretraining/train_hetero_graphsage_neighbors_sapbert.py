@@ -16,6 +16,7 @@ from torch_geometric.nn import to_hetero
 from tqdm import tqdm
 
 from graphmel.scripts.models.heterogeneous_graphsage_dgi_sapbert import HeteroGraphSageDgiSapMetricLearning
+from graphmel.scripts.models.heterogeneous_graphsage_sapbert import HeteroGraphSAGENeighborsSapMetricLearning
 from graphmel.scripts.self_alignment_pretraining.dataset import HeterogeneousPositivePairNeighborSampler, \
     HeterogeneousPositivePairNeighborSamplerV2
 from graphmel.scripts.self_alignment_pretraining.sapbert_training import train_graph_sapbert_model
@@ -48,11 +49,11 @@ def parse_args():
                         help='Directory for output')
 
     # Graphsage + DGI configuration
-    parser.add_argument('--graphsage_num_neighbors', type=int, nargs='+')
+    parser.add_argument('--graphsage_num_neighbors', type=int)
     parser.add_argument('--num_graphsage_layers', type=int)
-    parser.add_argument('--graphsage_hidden_channels', type=int)
+    parser.add_argument('--graphsage_hidden_channels', type=int, )
     parser.add_argument('--graphsage_dropout_p', type=float, )
-    parser.add_argument('--dgi_loss_weight', type=float)
+    parser.add_argument('--graph_loss_weight', type=float, )
     parser.add_argument('--add_self_loops', action="store_true")
     parser.add_argument('--filter_rel_types', action="store_true")
 
@@ -96,7 +97,7 @@ def parse_args():
     return args
 
 
-def heterogeneous_graphsage_dgi_sapbert_train_step(model: HeteroGraphSageDgiSapMetricLearning, batch, amp, device, ):
+def heterogeneous_graphsage_neighbors_sapbert_train_step(model: HeteroGraphSAGENeighborsSapMetricLearning, batch, amp, device, ):
     term_1_input_ids, term_1_att_masks = batch["term_1_input"]
     term_1_input_ids, term_1_att_masks = term_1_input_ids.to(device), term_1_att_masks.to(device)
     term_2_input_ids, term_2_att_masks = batch["term_2_input"]
@@ -138,7 +139,7 @@ def heterogeneous_graphsage_dgi_sapbert_train_step(model: HeteroGraphSageDgiSapM
     return loss
 
 
-def heterogeneous_graphsage_dgi_sapbert_eval_step(model: HeteroGraphSageDgiSapMetricLearning, batch, amp, device):
+def heterogeneous_graphsage_neighbors_sapbert_eval_step(model: HeteroGraphSAGENeighborsSapMetricLearning, batch, amp, device):
     term_1_input_ids, term_1_att_masks = batch["term_1_input"]
     term_1_input_ids, term_1_att_masks = term_1_input_ids.to(device), term_1_att_masks.to(device)
     term_2_input_ids, term_2_att_masks = batch["term_2_input"]
@@ -159,15 +160,15 @@ def heterogeneous_graphsage_dgi_sapbert_eval_step(model: HeteroGraphSageDgiSapMe
     return sapbert_loss
 
 
-def train_heterogeneous_graphsage_dgi_sapbert(model: HeteroGraphSageDgiSapMetricLearning,
-                                              train_loader: HeterogeneousPositivePairNeighborSampler,
+def train_heterogeneous_graphsage_neighbors_sapbert(model: HeteroGraphSAGENeighborsSapMetricLearning,
+                                              train_loader: HeterogeneousPositivePairNeighborSamplerV2,
                                               optimizer: torch.optim.Optimizer, scaler, amp, device, **kwargs):
     model.train()
     total_loss = 0
     num_steps = 0
     for batch in tqdm(train_loader, miniters=len(train_loader) // 100, total=len(train_loader)):
         optimizer.zero_grad()
-        loss = heterogeneous_graphsage_dgi_sapbert_train_step(model=model, batch=batch, amp=amp, device=device, )
+        loss = heterogeneous_graphsage_neighbors_sapbert_train_step(model=model, batch=batch, amp=amp, device=device, )
         if amp:
             scaler.scale(loss).backward()
             scaler.step(optimizer)
@@ -182,15 +183,15 @@ def train_heterogeneous_graphsage_dgi_sapbert(model: HeteroGraphSageDgiSapMetric
     return total_loss, num_steps
 
 
-def val_heterogeneous_graphsage_dgi_sapbert(model: HeteroGraphSageDgiSapMetricLearning,
-                                            val_loader: HeterogeneousPositivePairNeighborSampler,
+def val_heterogeneous_graphsage_neighbors_sapbert(model: HeteroGraphSAGENeighborsSapMetricLearning,
+                                            val_loader: HeterogeneousPositivePairNeighborSamplerV2,
                                             amp, device, **kwargs):
     model.eval()
     total_loss = 0
     num_steps = 0
     with torch.no_grad():
         for batch in tqdm(val_loader, miniters=len(val_loader) // 100, total=len(val_loader)):
-            loss = heterogeneous_graphsage_dgi_sapbert_eval_step(model=model, batch=batch, amp=amp, device=device)
+            loss = heterogeneous_graphsage_neighbors_sapbert_eval_step(model=model, batch=batch, amp=amp, device=device)
             num_steps += 1
             total_loss += float(loss)
             # wandb.log({"Val loss": loss.item()})
@@ -198,7 +199,7 @@ def val_heterogeneous_graphsage_dgi_sapbert(model: HeteroGraphSageDgiSapMetricLe
     return total_loss
 
 
-def initialize_hetero_graph_sapbert_model(model: HeteroGraphSageDgiSapMetricLearning, hetero_dataset: HeteroData,
+def initialize_hetero_graph_sapbert_model(model: HeteroGraphSAGENeighborsSapMetricLearning, hetero_dataset: HeteroData,
                                           emb_size: int):
     logging.info("Initializing heterogeneous GraphSAGE model.")
     all_node_types = hetero_dataset.node_types
@@ -222,9 +223,10 @@ def initialize_hetero_graph_sapbert_model(model: HeteroGraphSageDgiSapMetricLear
 def main(args):
     print(args)
     output_dir = args.output_dir
+
     output_subdir = f"graphsage_n-{args.graphsage_num_neighbors}_l-{args.num_graphsage_layers}_" \
-                    f"c-{args.graphsage_hidden_channels}_p-{args.graphsage_dropout_p}_" \
-                    f"filt_rel_{args.filter_rel_types}_dgi_{args.dgi_loss_weight}_lr_{args.learning_rate}_" \
+                    f"c-{args.graphsage_hidden_channels}_p-{args.graphsage_dropout_p}_add_loops_{args.add_self_loops}" \
+                    f"filt_rel_{args.filter_rel_types}_graph_loss_{args.graph_loss_weight}_lr_{args.learning_rate}_" \
                     f"b_{args.batch_size}"
     output_dir = os.path.join(output_dir, output_subdir)
     if not os.path.exists(output_dir) and output_dir != '':
@@ -290,7 +292,7 @@ def main(args):
     train_pos_pair_sampler = HeterogeneousPositivePairNeighborSamplerV2(
         pos_pairs_term_1_id_list=train_pos_pairs_term_1_id_list, edge_index=edge_index,
         pos_pairs_term_2_id_list=train_pos_pairs_term_2_id_list, num_samples=args.graphsage_num_neighbors,
-        pos_pairs_concept_ids_list=train_pos_pairs_concept_ids,
+        pos_pairs_concept_ids_list=train_pos_pairs_concept_ids, emb_size=bert_encoder.config.hidden_size,
         node_id2sem_group=node_id2sem_group, term_id2tokenizer_output=train_term_id2tok_out, rel_ids=edge_rel_ids,
         node_id2token_ids_dict=node_id2token_ids_dict, seq_max_length=args.max_length,
         batch_size=args.batch_size, num_workers=args.dataloader_num_workers, shuffle=True, )
@@ -311,27 +313,28 @@ def main(args):
         val_num_pos_pairs = len(val_pos_pairs_term_1_id_list)
         # val_pos_pairs_idx = torch.LongTensor(range(val_num_pos_pairs))
         val_pos_pair_sampler = HeterogeneousPositivePairNeighborSamplerV2(
-            pos_pairs_term_1_id_list=val_pos_pairs_term_1_id_list, edge_index=edge_index,
-            pos_pairs_term_2_id_list=val_pos_pairs_term_2_id_list,
-            pos_pairs_concept_ids_list=val_pos_pairs_concept_ids, num_samples=args.graphsage_num_neighbors,
-            node_id2sem_group=node_id2sem_group, term_id2tokenizer_output=val_term_id2tok_out, rel_ids=edge_rel_ids,
-            node_id2token_ids_dict=node_id2token_ids_dict, seq_max_length=args.max_length,
-            batch_size=args.batch_size, num_workers=args.dataloader_num_workers, shuffle=False, )
-        val_epoch_fn = val_heterogeneous_graphsage_dgi_sapbert
+        pos_pairs_term_1_id_list=val_pos_pairs_term_1_id_list, edge_index=edge_index,
+        pos_pairs_term_2_id_list=val_pos_pairs_term_2_id_list, num_samples=args.graphsage_num_neighbors,
+        pos_pairs_concept_ids_list=val_pos_pairs_concept_ids, emb_size=bert_encoder.config.hidden_size,
+        node_id2sem_group=node_id2sem_group, term_id2tokenizer_output=val_term_id2tok_out, rel_ids=edge_rel_ids,
+        node_id2token_ids_dict=node_id2token_ids_dict, seq_max_length=args.max_length,
+        batch_size=args.batch_size, num_workers=args.dataloader_num_workers, shuffle=False, )
+        val_epoch_fn = val_heterogeneous_graphsage_neighbors_sapbert
     device = torch.device('cuda:0' if args.use_cuda else 'cpu')
     if args.amp:
         scaler = GradScaler()
     else:
         scaler = None
 
-    model = HeteroGraphSageDgiSapMetricLearning(bert_encoder, num_graphsage_layers=args.num_graphsage_layers,
-                                                graphsage_hidden_channels=args.graphsage_hidden_channels,
-                                                graphsage_dropout_p=args.graphsage_dropout_p,
-                                                dgi_loss_weight=args.dgi_loss_weight,
-                                                use_cuda=args.use_cuda, loss=args.loss,
-                                                multigpu_flag=args.parallel, use_miner=args.use_miner,
-                                                miner_margin=args.miner_margin, type_of_triplets=args.type_of_triplets,
-                                                agg_mode=args.agg_mode)
+    model = HeteroGraphSAGENeighborsSapMetricLearning(bert_encoder, num_graphsage_layers=args.num_graphsage_layers,
+                                                      graphsage_hidden_channels=args.graphsage_hidden_channels,
+                                                      graphsage_dropout_p=args.graphsage_dropout_p,
+                                                      graph_loss_weight=args.graph_loss_weight,
+                                                      use_cuda=args.use_cuda, loss=args.loss,
+                                                      multigpu_flag=args.parallel, use_miner=args.use_miner,
+                                                      miner_margin=args.miner_margin,
+                                                      type_of_triplets=args.type_of_triplets,
+                                                      agg_mode=args.agg_mode, )
 
     initialize_hetero_graph_sapbert_model(model, hetero_dataset=train_pos_pair_sampler.hetero_dataset,
                                           emb_size=bert_encoder.config.hidden_size)
@@ -339,7 +342,7 @@ def main(args):
     model = model.to(device)
 
     start = time.time()
-    train_graph_sapbert_model(model=model, train_epoch_fn=train_heterogeneous_graphsage_dgi_sapbert,
+    train_graph_sapbert_model(model=model, train_epoch_fn=train_heterogeneous_graphsage_neighbors_sapbert,
                               val_epoch_fn=val_epoch_fn, train_loader=train_pos_pair_sampler,
                               val_loader=val_pos_pair_sampler, learning_rate=args.learning_rate,
                               weight_decay=args.weight_decay, num_epochs=args.num_epochs, output_dir=output_dir,

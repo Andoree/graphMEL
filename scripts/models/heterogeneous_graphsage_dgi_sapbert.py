@@ -9,7 +9,7 @@ from graphmel.scripts.models.heterogeneous_graphsage_sapbert import Heterogeneou
 from graphmel.scripts.self_alignment_pretraining.dgi import Float32DeepGraphInfomaxV2
 
 
-class HeteroGraphSAGESapMetricLearning(nn.Module):
+class HeteroGraphSageDgiSapMetricLearning(nn.Module):
     def __init__(self, bert_encoder, num_graphsage_layers: int, graphsage_hidden_channels: int,
                  graphsage_dropout_p: float, dgi_loss_weight: float, use_cuda, loss,
                  multigpu_flag, use_miner=True, miner_margin=0.2, type_of_triplets="all", agg_mode="cls"):
@@ -20,7 +20,7 @@ class HeteroGraphSAGESapMetricLearning(nn.Module):
                         ))
         logging.info(f"HeteroGraphSAGE + SapBERT model parameters: num_graphsage_layers {num_graphsage_layers}, "
                      f"graphsage_hidden_channels: {graphsage_hidden_channels}.")
-        super(HeteroGraphSAGESapMetricLearning, self).__init__()
+        super(HeteroGraphSageDgiSapMetricLearning, self).__init__()
         self.bert_encoder = bert_encoder
         self.use_cuda = use_cuda
         self.loss = loss
