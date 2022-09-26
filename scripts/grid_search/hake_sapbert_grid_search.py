@@ -59,8 +59,8 @@ def parse_args():
     parser.add_argument('--hake_phase_weight', type=float, nargs='+')
     parser.add_argument('--hake_adversarial_temperature', type=float, nargs='+')
     parser.add_argument('--hake_loss_weight', type=float, nargs='+')
-    parser.add_argument('--filter_transitive_relations', type=bool, nargs='+')
-    parser.add_argument('--filter_semantic_type_nodes', type=bool, nargs='+')
+    parser.add_argument('--filter_transitive_relations', type=str, nargs='+')
+    parser.add_argument('--filter_semantic_type_nodes', type=str, nargs='+')
     parser.add_argument('--batch_size', type=int, nargs='+')
     # parser.add_argument('--node_id_lower_bound_filtering', type=int, required=False)
     parser.add_argument('--mrsty', type=str, required=False)
@@ -246,7 +246,7 @@ def main(args):
     #                                                  parent_children_adjacency_list_filt_trans.items()}
     #     child_parents_adjacency_list_filt_trans = {i: list(s) for i, s in
     #                                                child_parents_adjacency_list_filt_trans.items()}
-    if True in args.filter_semantic_type_nodes:
+    if "yes" in args.filter_semantic_type_nodes:
 
         parent_children_adjacency_list_filt_sem_types = {i: list(lst) for i, lst in
                                                          parent_children_adjacency_list_orig.items()}
@@ -344,6 +344,9 @@ def main(args):
         filter_transitive_relations = param_dict["filter_transitive_relations"]
         filter_semantic_type_nodes = param_dict["filter_semantic_type_nodes"]
         batch_size = param_dict["batch_size"]
+
+        filter_transitive_relations = True if filter_transitive_relations == "yes" else False
+        filter_semantic_type_nodes = True if filter_semantic_type_nodes == "yes" else False
 
         base_dir = args.output_dir
         output_subdir = f"neg_{negative_sample_size}_gamma_{hake_gamma}_mw_" \
