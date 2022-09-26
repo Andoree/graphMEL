@@ -16,7 +16,7 @@ python ../../scripts/grid_search/hetero_graphsage_dgi_sapbert_grid_search.py --t
 --dataloader_num_workers=4 \
 --max_length=32 \
 --graphsage_num_neighbors 1 2 3 \
---num_graphsage_layers 1 2 \
+--num_graphsage_layers 1 \
 --graphsage_hidden_channels 256 768 \
 --graphsage_dropout_p 0.1 \
 --dgi_loss_weight 1 0.1 0.01 \

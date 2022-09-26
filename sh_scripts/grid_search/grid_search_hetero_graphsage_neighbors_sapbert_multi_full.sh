@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=gs_sage          # Название задачи
+#SBATCH --job-name=gs_nhsage          # Название задачи
 #SBATCH --error=../../logs/grid_search/grid_search_multi_full_hetero_graphsage_neighbors_sapbert.err        # Файл для вывода ошибок
 #SBATCH --output=../../logs/grid_search/grid_search_multi_full_hetero_graphsage_neighbors_sapbert.txt       # Файл для вывода результатов
 #SBATCH --time=72:00:59                      # Максимальное время выполнения
@@ -16,7 +16,7 @@ python ../../scripts/grid_search/hetero_graphsage_neighbors_sapbert_grid_search.
 --dataloader_num_workers=4 \
 --max_length=32 \
 --graphsage_num_neighbors 1 2 3 \
---num_graphsage_layers 1 2 \
+--num_graphsage_layers 1 \
 --graphsage_hidden_channels 256 768 \
 --graphsage_dropout_p 0.1 \
 --graph_loss_weight 1 0.1 0.01 \

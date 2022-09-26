@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=gs_hake          # Название задачи
-#SBATCH --error=../../logs/grid_search/grid_search_multi_full_hake_sapbert.err        # Файл для вывода ошибок
-#SBATCH --output=../../logs/grid_search/grid_search_multi_full_hake_sapbert.txt       # Файл для вывода результатов
+#SBATCH --error=../../logs/grid_search/grid_search_multi_full_hake_sapbert_2.err        # Файл для вывода ошибок
+#SBATCH --output=../../logs/grid_search/grid_search_multi_full_hake_sapbert_2.txt       # Файл для вывода результатов
 #SBATCH --time=72:00:59                      # Максимальное время выполнения
 #SBATCH --cpus-per-task=4                   # Количество CPU на одну задачу
 #SBATCH --gpus=4               # Требуемое количество GPU
@@ -20,10 +20,10 @@ python ../../scripts/grid_search/hake_sapbert_grid_search.py --train_dir="../../
 --hake_gamma 1 10 50 \
 --hake_modulus_weight 1. \
 --hake_phase_weight 0 0.1 \
---hake_adversarial_temperature 1. 3. \
+--hake_adversarial_temperature 0.3 1. 3. \
 --hake_loss_weight 1. 0.1 \
 --filter_transitive_relations false \
---filter_semantic_type_nodes true false \
+--filter_semantic_type_nodes false \
 --batch_size 128 \
 --mrsty "../../UMLS/2020AB/MRSTY.RRF" \
 --train_subset_ratio 0.001 \
@@ -41,7 +41,7 @@ python ../../scripts/grid_search/hake_sapbert_grid_search.py --train_dir="../../
 --miner_margin 0.2 \
 --agg_mode "cls" \
 --save_every_N_epoch=1 \
---output_dir="../../grid_search/2020AB/HAKE_Sapbert/gs_MULTI_FULL"
+--output_dir="../../grid_search/2020AB/HAKE_Sapbert/gs_MULTI_FULL_2"
 
 
 

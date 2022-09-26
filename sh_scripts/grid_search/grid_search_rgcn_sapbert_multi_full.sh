@@ -2,7 +2,7 @@
 #SBATCH --job-name=gs_sage          # Название задачи
 #SBATCH --error=../../logs/grid_search/grid_search_multi_full_rgcn_sapbert.err        # Файл для вывода ошибок
 #SBATCH --output=../../logs/grid_search/grid_search_multi_full_rgcn_sapbert.txt       # Файл для вывода результатов
-#SBATCH --time=36:00:59                      # Максимальное время выполнения
+#SBATCH --time=58:00:59                      # Максимальное время выполнения
 #SBATCH --cpus-per-task=4                   # Количество CPU на одну задачу
 #SBATCH --gpus=4                   # Требуемое количество GPU
 #SBATCH --constraint=type_c|type_b|type_a
