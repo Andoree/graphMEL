@@ -55,14 +55,14 @@ def parse_args():
     parser.add_argument('--output_dir', type=str, required=True,
                         help='Directory for output')
 
-    # GCN encoder configuration
+    # GraphSAGE encoder configuration
     parser.add_argument('--graphsage_num_neighbors', type=int, nargs='+')
     parser.add_argument('--num_graphsage_layers', type=int, nargs='+')
     parser.add_argument('--graphsage_hidden_channels', type=int, nargs='+')
     parser.add_argument('--graphsage_dropout_p', type=float, nargs='+')
     parser.add_argument('--graph_loss_weight', type=float, nargs='+')
-    parser.add_argument('--add_self_loops', type=bool, nargs='+')
-    parser.add_argument('--filter_rel_types', type=bool, nargs='+')
+    parser.add_argument('--add_self_loops', type=str, nargs='+')
+    parser.add_argument('--filter_rel_types', type=str, nargs='+')
     parser.add_argument('--batch_size', type=int, nargs='+')
 
     parser.add_argument('--train_subset_ratio', type=float, )
@@ -351,6 +351,9 @@ def main(args):
         filter_rel_types = param_dict["filter_rel_types"]
         batch_size = param_dict["batch_size"]
         add_self_loops = param_dict["add_self_loops"]
+        filter_rel_types = True if filter_rel_types == "yes" else False
+        add_self_loops = True if add_self_loops == "yes" else False
+
 
         logging.info("Processing configuration:")
         for k, v in param_dict.items():
