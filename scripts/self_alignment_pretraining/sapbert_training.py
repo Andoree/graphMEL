@@ -44,9 +44,9 @@ def train_graph_sapbert_model(model, train_epoch_fn, val_epoch_fn, train_loader,
             }
 
             if parallel:
-                checkpoint['model_state']: model.bert_encoder.module.state_dict()
+                checkpoint['model_state'] = model.bert_encoder.module.state_dict()
             else:
-                checkpoint['model_state']: model.bert_encoder.state_dict()
+                checkpoint['model_state'] = model.bert_encoder.state_dict()
 
             chkpnt_path = os.path.join(output_dir, f"checkpoint_e_{i + 1}_steps_{global_num_steps}.pth")
             if save_chkpnts:
@@ -58,9 +58,9 @@ def train_graph_sapbert_model(model, train_epoch_fn, val_epoch_fn, train_loader,
         'optimizer': optimizer,
     }
     if parallel:
-        checkpoint['model_state']: model.bert_encoder.module.state_dict()
+        checkpoint['model_state'] = model.bert_encoder.module.state_dict()
     else:
-        checkpoint['model_state']: model.bert_encoder.state_dict()
+        checkpoint['model_state'] = model.bert_encoder.state_dict()
     chkpnt_path = os.path.join(output_dir, f"checkpoint_e_{start_epoch + num_epochs}_steps_{global_num_steps}.pth")
     if save_chkpnts:
         torch.save(checkpoint, chkpnt_path)
