@@ -293,7 +293,8 @@ def main(args):
         pos_pairs_concept_ids_list=train_pos_pairs_concept_ids,
         node_id2sem_group=node_id2sem_group, term_id2tokenizer_output=train_term_id2tok_out, rel_ids=edge_rel_ids,
         node_id2token_ids_dict=node_id2token_ids_dict, seq_max_length=args.max_length,
-        batch_size=args.batch_size, num_workers=args.dataloader_num_workers, shuffle=True, )
+        batch_size=args.batch_size, num_workers=args.dataloader_num_workers, shuffle=True,
+        emb_size=bert_encoder.config.hidden_size)
 
     val_pos_pair_sampler = None
     val_epoch_fn = None
@@ -316,7 +317,8 @@ def main(args):
             pos_pairs_concept_ids_list=val_pos_pairs_concept_ids, num_samples=args.graphsage_num_neighbors,
             node_id2sem_group=node_id2sem_group, term_id2tokenizer_output=val_term_id2tok_out, rel_ids=edge_rel_ids,
             node_id2token_ids_dict=node_id2token_ids_dict, seq_max_length=args.max_length,
-            batch_size=args.batch_size, num_workers=args.dataloader_num_workers, shuffle=False, )
+            batch_size=args.batch_size, num_workers=args.dataloader_num_workers, shuffle=False,
+            emb_size=bert_encoder.config.hidden_size)
         val_epoch_fn = val_heterogeneous_graphsage_dgi_sapbert
     device = torch.device('cuda:0' if args.use_cuda else 'cpu')
     if args.amp:

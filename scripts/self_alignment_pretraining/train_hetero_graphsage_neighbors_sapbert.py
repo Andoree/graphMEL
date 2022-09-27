@@ -49,7 +49,7 @@ def parse_args():
                         help='Directory for output')
 
     # Graphsage + DGI configuration
-    parser.add_argument('--graphsage_num_neighbors', type=int)
+    parser.add_argument('--graphsage_num_neighbors', type=int, nargs='+')
     parser.add_argument('--num_graphsage_layers', type=int)
     parser.add_argument('--graphsage_hidden_channels', type=int, )
     parser.add_argument('--graphsage_dropout_p', type=float, )
