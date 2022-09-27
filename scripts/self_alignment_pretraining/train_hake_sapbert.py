@@ -238,9 +238,9 @@ def main(args):
             node_id2terms=node_id2terms,
             mrsty_df=mrsty_df)
 
-        node_id2token_ids_dict = {node_id: token_ids for node_id, token_ids in
-                                                 node_id2token_ids_dict.items()
-                                                 if node_id not in excluded_node_ids}
+        # node_id2token_ids_dict = {node_id: token_ids for node_id, token_ids in
+        #                                          node_id2token_ids_dict.items()
+        #                                          if node_id not in excluded_node_ids}
         del mrsty_df
 
     train_positive_pairs_path = os.path.join(args.train_dir, f"train_pos_pairs")
