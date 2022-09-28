@@ -96,7 +96,8 @@ def parse_args():
     return args
 
 
-def heterogeneous_graphsage_neighbors_sapbert_train_step(model: HeteroGraphSAGENeighborsSapMetricLearning, batch, amp, device, ):
+def heterogeneous_graphsage_neighbors_sapbert_train_step(model: HeteroGraphSAGENeighborsSapMetricLearning, batch, amp, device,
+                                                   add_self_loops):
     term_1_input_ids, term_1_att_masks = batch["term_1_input"]
     term_1_input_ids, term_1_att_masks = term_1_input_ids.to(device), term_1_att_masks.to(device)
     term_2_input_ids, term_2_att_masks = batch["term_2_input"]
@@ -116,24 +117,31 @@ def heterogeneous_graphsage_neighbors_sapbert_train_step(model: HeteroGraphSAGEN
 
     term_1_node_features = model.bert_encode(input_ids=term_1_input_ids, att_masks=term_1_att_masks)
     term_2_node_features = model.bert_encode(input_ids=term_2_input_ids, att_masks=term_2_att_masks)
-    query_embed_mean = torch.mean(torch.stack((term_1_node_features, term_2_node_features)), dim=0)
-    hetero_dataset["SRC"].x = query_embed_mean
-    # if add_self_loops:
-    #     hetero_dataset = T.AddSelfLoops()(hetero_dataset)
+    # query_embed_mean = torch.mean(torch.stack((term_1_node_features, term_2_node_features)), dim=0)
+    hetero_dataset["SRC"].x = term_1_node_features
+    if add_self_loops:
+        hetero_dataset = T.AddSelfLoops()(hetero_dataset)
     hetero_dataset = hetero_dataset.to(device)
 
-    graph_loss = model.graph_loss(x_dict=hetero_dataset.x_dict,
-                              edge_index_dict=hetero_dataset.edge_index_dict, batch_size=batch_size, )
+    x_dict_1 = hetero_dataset.x_dict
+    x_dict_2 = {node_type: x for node_type, x in x_dict_1.items() if node_type != "SRC"}
+    x_dict_2["SRC"] = term_2_node_features
 
     if amp:
         with autocast():
             sapbert_loss = model(query_embed1=term_1_node_features, query_embed2=term_2_node_features,
                                  concept_ids=concept_ids, batch_size=batch_size)
+            graph_loss = model.graph_loss(x_dict_1=x_dict_1, x_dict_2=x_dict_2, concept_ids=concept_ids,
+                                          edge_index_dict=hetero_dataset.edge_index_dict,
+                                          batch_size=batch_size, )
     else:
         sapbert_loss = model(query_embed1=term_1_node_features, query_embed2=term_2_node_features,
                              concept_ids=concept_ids, batch_size=batch_size)
+        graph_loss = model.graph_loss(x_dict_1=x_dict_1, x_dict_2=x_dict_2, concept_ids=concept_ids,
+                                      edge_index_dict=hetero_dataset.edge_index_dict,
+                                      batch_size=batch_size, )
 
-    loss = sapbert_loss + graph_loss * model.graph_loss_weight
+    loss = sapbert_loss + graph_loss
 
     return loss
 
@@ -160,14 +168,16 @@ def heterogeneous_graphsage_neighbors_sapbert_eval_step(model: HeteroGraphSAGENe
 
 
 def train_heterogeneous_graphsage_neighbors_sapbert(model: HeteroGraphSAGENeighborsSapMetricLearning,
-                                              train_loader: HeterogeneousPositivePairNeighborSamplerV2,
+                                              train_loader: HeterogeneousPositivePairNeighborSampler,
                                               optimizer: torch.optim.Optimizer, scaler, amp, device, **kwargs):
+    add_self_loops = kwargs["add_self_loops"]
     model.train()
     total_loss = 0
     num_steps = 0
     for batch in tqdm(train_loader, miniters=len(train_loader) // 100, total=len(train_loader)):
         optimizer.zero_grad()
-        loss = heterogeneous_graphsage_neighbors_sapbert_train_step(model=model, batch=batch, amp=amp, device=device, )
+        loss = heterogeneous_graphsage_neighbors_sapbert_train_step(model=model, batch=batch, amp=amp, device=device,
+                                                              add_self_loops=add_self_loops)
         if amp:
             scaler.scale(loss).backward()
             scaler.step(optimizer)
@@ -183,7 +193,7 @@ def train_heterogeneous_graphsage_neighbors_sapbert(model: HeteroGraphSAGENeighb
 
 
 def val_heterogeneous_graphsage_neighbors_sapbert(model: HeteroGraphSAGENeighborsSapMetricLearning,
-                                            val_loader: HeterogeneousPositivePairNeighborSamplerV2,
+                                            val_loader: HeterogeneousPositivePairNeighborSampler,
                                             amp, device, **kwargs):
     model.eval()
     total_loss = 0
