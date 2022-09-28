@@ -15,7 +15,6 @@ from torch_geometric.data import HeteroData
 from torch_geometric.nn import to_hetero
 from tqdm import tqdm
 
-from graphmel.scripts.models.heterogeneous_graphsage_dgi_sapbert import HeteroGraphSageDgiSapMetricLearning
 from graphmel.scripts.models.heterogeneous_graphsage_sapbert import HeteroGraphSAGENeighborsSapMetricLearning
 from graphmel.scripts.self_alignment_pretraining.dataset import HeterogeneousPositivePairNeighborSampler, \
     HeterogeneousPositivePairNeighborSamplerV2
@@ -48,7 +47,7 @@ def parse_args():
     parser.add_argument('--output_dir', type=str, required=True,
                         help='Directory for output')
 
-    # Graphsage + DGI configuration
+    # Graphsage configuration
     parser.add_argument('--graphsage_num_neighbors', type=int, nargs='+')
     parser.add_argument('--num_graphsage_layers', type=int)
     parser.add_argument('--graphsage_hidden_channels', type=int, )
@@ -123,7 +122,7 @@ def heterogeneous_graphsage_neighbors_sapbert_train_step(model: HeteroGraphSAGEN
     #     hetero_dataset = T.AddSelfLoops()(hetero_dataset)
     hetero_dataset = hetero_dataset.to(device)
 
-    dgi_loss = model.dgi_loss(x_dict=hetero_dataset.x_dict,
+    graph_loss = model.graph_loss(x_dict=hetero_dataset.x_dict,
                               edge_index_dict=hetero_dataset.edge_index_dict, batch_size=batch_size, )
 
     if amp:
@@ -134,7 +133,7 @@ def heterogeneous_graphsage_neighbors_sapbert_train_step(model: HeteroGraphSAGEN
         sapbert_loss = model(query_embed1=term_1_node_features, query_embed2=term_2_node_features,
                              concept_ids=concept_ids, batch_size=batch_size)
 
-    loss = sapbert_loss + dgi_loss * model.dgi_loss_weight
+    loss = sapbert_loss + graph_loss * model.graph_loss_weight
 
     return loss
 
