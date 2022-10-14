@@ -119,7 +119,8 @@ def main(args):
     mrconso_df["STR"].fillna('', inplace=True)
 
     logging.info("Loading MRREL....")
-    mrrel_df = read_mrrel(args.mrrel)
+    # mrrel_df = read_mrrel(args.mrrel)
+    mrrel_df = read_mrrel(args.mrrel)[["CUI1", "REL", "RELA", "CUI2"]]
     rel2id, rela2id = create_relations2id_dicts(mrrel_df)
     cui2node_id = create_cui2node_id_mapping(mrconso_df=mrconso_df)
 
