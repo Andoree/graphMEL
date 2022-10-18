@@ -34,7 +34,6 @@ class NeighborSampler(RawNeighborSampler):
         self.seq_max_length = seq_max_length
         self.random_walk_length = random_walk_length
         self.num_nodes = kwargs["num_nodes"]
-        # TODO: Deterministic random_walk для валидации?
 
     def __len__(self):
         return self.num_nodes

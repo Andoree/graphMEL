@@ -18,6 +18,7 @@ from graphmel.scripts.training.data.dataset import load_positive_pairs, map_term
     create_term_id2tokenizer_output, load_data_and_bert_model, convert_edges_tuples_to_edge_index
 from graphmel.scripts.utils.io import save_dict
 
+
 # import wandb
 # wandb.init(project="sapbert")
 
@@ -49,7 +50,9 @@ def parse_args():
     parser.add_argument('--remove_selfloops', action="store_true")
     parser.add_argument('--num_inner_graphsage_layers', type=int)
     parser.add_argument('--graph_loss_weight', type=float)
-
+    parser.add_argument('--text_loss_weight', type=float, required=False, default=1.0)
+    parser.add_argument('--intermodal_loss_weight', type=float, required=False)
+    parser.add_argument('--modality_distance', type=str, required=False, choices=(None, "sapbert", "cosine", "MSE"))
 
     # Tokenizer settings
     parser.add_argument('--max_length', default=25, type=int)
@@ -96,18 +99,12 @@ def parse_args():
     return args
 
 
-def graphsage_sapbert_step(model: GraphSAGESapMetricLearning, batch, amp, device):
+def train_graphsage_sapbert_step(model: GraphSAGESapMetricLearning, batch, amp, device):
     term_1_input_ids, term_1_att_masks = batch["term_1_input"]
     term_1_input_ids, term_1_att_masks = term_1_input_ids.to(device), term_1_att_masks.to(device)
     term_2_input_ids, term_2_att_masks = batch["term_2_input"]
     term_2_input_ids, term_2_att_masks = term_2_input_ids.to(device), term_2_att_masks.to(device)
     adjs = batch["adjs"]
-    # print("adjs", type(adjs), adjs)
-    # print('--')
-    # for adj in adjs:
-    #     print("adj", type(adj), adj)
-    # adjs = [adjs,]
-    # adjs = [adj.to(device) for adj in adjs]
     if not isinstance(adjs, list):
         adjs = [adjs.to(device), ]
     else:
@@ -117,24 +114,43 @@ def graphsage_sapbert_step(model: GraphSAGESapMetricLearning, batch, amp, device
 
     if amp:
         with autocast():
-            loss = model(term_1_input_ids=term_1_input_ids, term_1_att_masks=term_1_att_masks,
-                         term_2_input_ids=term_2_input_ids, term_2_att_masks=term_2_att_masks,
-                         concept_ids=concept_ids, adjs=adjs, batch_size=batch_size)
+            sapbert_loss, graph_loss, intermodal_loss = model(term_1_input_ids=term_1_input_ids,
+                                                              term_1_att_masks=term_1_att_masks,
+                                                              term_2_input_ids=term_2_input_ids,
+                                                              term_2_att_masks=term_2_att_masks,
+                                                              concept_ids=concept_ids, adjs=adjs, batch_size=batch_size)
     else:
-        loss = model(term_1_input_ids=term_1_input_ids, term_1_att_masks=term_1_att_masks,
-                     term_2_input_ids=term_2_input_ids, term_2_att_masks=term_2_att_masks,
-                     concept_ids=concept_ids, adjs=adjs, batch_size=batch_size)
-    return loss
+        sapbert_loss, graph_loss, intermodal_loss = model(term_1_input_ids=term_1_input_ids,
+                                                          term_1_att_masks=term_1_att_masks,
+                                                          term_2_input_ids=term_2_input_ids,
+                                                          term_2_att_masks=term_2_att_masks,
+                                                          concept_ids=concept_ids, adjs=adjs, batch_size=batch_size)
+    return sapbert_loss, graph_loss, intermodal_loss
 
 
 def train_graphsage_sapbert(model: GraphSAGESapMetricLearning, train_loader: PositivePairNeighborSampler,
                             optimizer: torch.optim.Optimizer, scaler, amp, device, **kwargs):
     model.train()
-    total_loss = 0
+    # total_loss = 0
+    losses_dict = {"total": 0, "sapbert": 0, "graph": 0, "intermodal": 0}
     num_steps = 0
-    for batch in tqdm(train_loader, miniters=len(train_loader) // 100, total=len(train_loader)):
+    pbar = tqdm(train_loader, miniters=len(train_loader) // 100, total=len(train_loader))
+    for batch in pbar:
         optimizer.zero_grad()
-        loss = graphsage_sapbert_step(model=model, batch=batch, amp=amp, device=device)
+        sapbert_loss, graph_loss, intermodal_loss = train_graphsage_sapbert_step(model=model, batch=batch, amp=amp,
+                                                                                 device=device)
+        sapbert_loss = sapbert_loss * model.sapbert_loss_weight
+        graph_loss = graph_loss * model.graph_loss_weight
+        intermodal_loss = intermodal_loss * model.intermodal_loss_weight
+        if intermodal_loss is not None:
+            intermodal_loss = intermodal_loss * model.intermodal_loss_weight
+            loss = sapbert_loss + graph_loss + intermodal_loss
+        else:
+            loss = sapbert_loss + graph_loss
+            intermodal_loss = -1.
+        pbar.set_description(f"L: {float(loss):.5f} ({float(sapbert_loss):.5f} + "
+                             f"{float(graph_loss):.5f} + {float(intermodal_loss):.5f})")
+
         if amp:
             scaler.scale(loss).backward()
             scaler.step(optimizer)
@@ -143,31 +159,22 @@ def train_graphsage_sapbert(model: GraphSAGESapMetricLearning, train_loader: Pos
             loss.backward()
             optimizer.step()
         num_steps += 1
-        total_loss += float(loss)
-        # wandb.log({"Train loss": loss.item()})
-    total_loss /= (num_steps + 1e-9)
-    return total_loss, num_steps
+        losses_dict["total"] += float(loss)
+        losses_dict["sapbert"] += float(sapbert_loss)
+        losses_dict["graph"] += float(graph_loss)
+        losses_dict["intermodal"] += float(intermodal_loss)
+        losses_dict = {key: lo / (num_steps + 1e-9) for key, lo in losses_dict.items()}
 
-
-def val_graphsage_sapbert(model: GraphSAGESapMetricLearning, val_loader: PositivePairNeighborSampler,
-                          amp, device, **kwargs):
-    model.eval()
-    total_loss = 0
-    num_steps = 0
-    with torch.no_grad():
-        for batch in tqdm(val_loader, miniters=len(val_loader) // 100, total=len(val_loader)):
-            loss = graphsage_sapbert_step(model=model, batch=batch, amp=amp, device=device)
-            num_steps += 1
-            total_loss += float(loss)
-            # wandb.log({"Val loss": loss.item()})
-    total_loss /= (num_steps + 1e-9)
-    return total_loss
-
+    return losses_dict["total"], num_steps
 
 def main(args):
     print(args)
     output_dir = args.output_dir
-    output_subdir = f"gs_{args.num_graphsage_layers}-{args.num_graphsage_channels}_" \
+    assert len(args.graphsage_num_neighbors) == args.num_graphsage_layers
+
+    output_subdir = f"gs_{args.num_graphsage_layers}-{args.num_graphsage_channels}_{args.num_inner_graphsage_layers}" \
+                    f"text_loss_{args.text_loss_weight}_graph_loss_{args.graph_loss_weight}_intermodal" \
+                    f"_{args.modality_distance}_{args.intermodal_loss_weight}_remove_loops_{args.remove_selfloops}_" \
                     f"{'.'.join((str(x) for x in args.graphsage_num_neighbors))}_{args.graphsage_dropout_p}_" \
                     f"lr_{args.learning_rate}_b_{args.batch_size}"
     output_dir = os.path.join(output_dir, output_subdir)
@@ -210,18 +217,19 @@ def main(args):
     del train_pos_pairs_term_2_list
     logging.info(f"There are {num_nodes} nodes and {num_edges} edges in graph.")
     train_num_pos_pairs = len(train_pos_pairs_term_1_id_list)
-    train_pos_pairs_idx = torch.LongTensor(range(train_num_pos_pairs)) 
+    train_pos_pairs_idx = torch.LongTensor(range(train_num_pos_pairs))
     train_pos_pair_sampler = PositivePairNeighborSampler(pos_pairs_term_1_id_list=train_pos_pairs_term_1_id_list,
                                                          pos_pairs_term_2_id_list=train_pos_pairs_term_2_id_list,
                                                          pos_pairs_concept_ids_list=train_pos_pairs_concept_ids,
                                                          sizes=args.graphsage_num_neighbors, edge_index=edge_index,
-                                                         term_id2tokenizer_output=train_term_id2tok_out, node_idx=train_pos_pairs_idx,
+                                                         term_id2tokenizer_output=train_term_id2tok_out,
+                                                         node_idx=train_pos_pairs_idx,
                                                          node_id2token_ids_dict=node_id2token_ids_dict,
                                                          seq_max_length=args.max_length, batch_size=args.batch_size,
                                                          num_workers=args.dataloader_num_workers, shuffle=True, )
 
     val_pos_pair_sampler = None
-    val_epoch_fn = None
+
     if args.validate:
         val_positive_pairs_path = os.path.join(args.train_dir, f"val_pos_pairs")
         val_pos_pairs_term_1_list, val_pos_pairs_term_2_list, val_pos_pairs_concept_ids = \
@@ -238,11 +246,12 @@ def main(args):
                                                            pos_pairs_term_2_id_list=val_pos_pairs_term_2_id_list,
                                                            pos_pairs_concept_ids_list=val_pos_pairs_concept_ids,
                                                            sizes=args.graphsage_num_neighbors, edge_index=edge_index,
-                                                           term_id2tokenizer_output=val_term_id2tok_out, node_idx=val_pos_pairs_idx,
+                                                           term_id2tokenizer_output=val_term_id2tok_out,
+                                                           node_idx=val_pos_pairs_idx,
                                                            node_id2token_ids_dict=node_id2token_ids_dict,
                                                            seq_max_length=args.max_length, batch_size=args.batch_size,
                                                            num_workers=args.dataloader_num_workers, shuffle=False, )
-        val_epoch_fn = val_graphsage_sapbert
+
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     if args.amp:
         scaler = GradScaler()
@@ -250,15 +259,17 @@ def main(args):
         scaler = None
     model = GraphSAGESapMetricLearning(bert_encoder=bert_encoder, num_graphsage_channels=args.num_graphsage_channels,
                                        num_graphsage_layers=args.num_graphsage_layers,
+                                       sapbert_loss_weight=args.text_loss_weight,
                                        graphsage_dropout_p=args.graphsage_dropout_p,
                                        use_cuda=args.use_cuda, graph_loss_weight=args.graph_loss_weight,
                                        num_inner_graphsage_layers=args.num_inner_graphsage_layers,
+                                       modality_distance=args.modality_distance,
+                                       intermodal_loss_weight=args.intermodal_loss_weight,
                                        loss=args.loss, use_miner=args.use_miner, miner_margin=args.miner_margin,
                                        type_of_triplets=args.type_of_triplets, agg_mode=args.agg_mode,
                                        multigpu_flag=args.parallel).to(device)
     start = time.time()
-    train_graph_sapbert_model(model=model, train_epoch_fn=train_graphsage_sapbert, val_epoch_fn=val_epoch_fn,
-                              train_loader=train_pos_pair_sampler,
+    train_graph_sapbert_model(model=model, train_epoch_fn=train_graphsage_sapbert, train_loader=train_pos_pair_sampler,
                               val_loader=val_pos_pair_sampler, parallel=args.parallel,
                               learning_rate=args.learning_rate, weight_decay=args.weight_decay,
                               num_epochs=args.num_epochs, output_dir=output_dir,

@@ -37,6 +37,7 @@ class PositivePairNeighborSampler(RawNeighborSampler):
         return len(self.pos_pairs_term_1_id_list) // self.batch_size
 
     def sample(self, batch):
+
         term_1_ids = [self.pos_pairs_term_1_id_list[idx] for idx in batch]
         term_1_tok_out = [self.term_id2tokenizer_output[idx] for idx in term_1_ids]
         term_1_input_ids = torch.stack([t_out["input_ids"][0] for t_out in term_1_tok_out])
@@ -53,7 +54,6 @@ class PositivePairNeighborSampler(RawNeighborSampler):
         triplet_concept_ids = torch.LongTensor([self.pos_pairs_concept_ids_list[idx] for idx in batch])
 
         assert len(triplet_concept_ids) == len(term_1_input_ids)
-
         (batch_size, n_id, adjs) = super(PositivePairNeighborSampler, self).sample(triplet_concept_ids)
         neighbor_node_ids = n_id[batch_size:]
 
@@ -123,10 +123,6 @@ class PositiveRelationalNeighborSampler(RawNeighborSampler):
         (batch_size, n_id, adjs) = super(PositiveRelationalNeighborSampler, self).sample(triplet_concept_ids)
 
         neighbor_node_ids = n_id[batch_size:]
-        if not isinstance(adjs, list):
-            adjs = [adjs, ]
-        else:
-            adjs = [adj for adj in adjs]
 
         e_ids_list = [adj.e_id for adj in adjs]
         rel_ids_list = [self.rel_ids[e_ids] for e_ids in e_ids_list]

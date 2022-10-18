@@ -43,6 +43,17 @@ class Float32DeepGraphInfomax(DeepGraphInfomax):
         value = torch.matmul(z, torch.matmul(self.weight, summary)).float()
         return torch.sigmoid(value) if sigmoid else value
 
+    def forward(self, *args, **kwargs):
+        """Returns the latent space for the input arguments, their
+        corruptions and their summary representation."""
+        pos_z = self.encoder(*args, **kwargs)
+        cor = self.corruption(*args, **kwargs)
+        cor = cor if isinstance(cor, tuple) else (cor, )
+        neg_z = self.encoder(*cor, **kwargs)
+        summary = self.summary(pos_z, *args, **kwargs)
+        return pos_z, neg_z, summary
+
+
 
 class Float32DeepGraphInfomaxV2(Float32DeepGraphInfomax):
     r"""The Deep Graph Infomax model from the
