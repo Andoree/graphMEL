@@ -1,9 +1,10 @@
+torch==1.11.0
 sentencepiece
 transformers
 sentence-transformers
 pytorch-metric-learning
-torch-scatter==2.0.9+cu113
-torch-sparse==0.6.13+cu113
-torch-cluster==1.6.0+cu113
+torch-scatter==2.0.9+cu102
+torch-sparse==0.6.13+cu102
+torch-cluster==1.6.0+cu102
 torch-geometric
 git+git://github.com/Andoree/graphmel.git
