@@ -78,29 +78,29 @@ def load_dict(path: str, sep: str = '\t') -> Dict[str, str]:
     return dict(zip(df.key, df.value))
 
 
-def read_mrconso(fpath):
+def read_mrconso(fpath) -> pd.DataFrame:
     columns = ['CUI', 'LAT', 'TS', 'LUI', 'STT', 'SUI', 'ISPREF', 'AUI', 'SAUI', 'SCUI', 'SDUI', 'SAB', 'TTY', 'CODE',
                'STR', 'SRL', 'SUPPRESS', 'CVF', 'NOCOL']
     return pd.read_csv(fpath, names=columns, sep='|', encoding='utf-8', quoting=3)
 
 
-def read_mrsty(fpath):
+def read_mrsty(fpath) -> pd.DataFrame:
     columns = ['CUI', 'TUI', 'STN', 'STY', 'ATUI', 'CVF', 'NOCOL']
     return pd.read_csv(fpath, names=columns, sep='|', encoding='utf-8', quoting=3)
 
 
-def read_mrrel(fpath):
+def read_mrrel(fpath) -> pd.DataFrame:
     columns = ["CUI1", "AUI1", "STYPE1", "REL", "CUI2", "AUI2", "STYPE2", "RELA", "RUI", "SRUI", "RSAB", "VSAB",
                "SL", "RG", "DIR", "SUPPRESS", "CVF", 'NOCOL']
     return pd.read_csv(fpath, names=columns, sep='|', encoding='utf-8')
 
 
-def read_mrdef(fpath):
+def read_mrdef(fpath) -> pd.DataFrame:
     columns = ["CUI", "AUI", "ATUI", "SATUI", "SAB", "DEF", "SUPPRESS", "CVF", 'NOCOL']
     return pd.read_csv(fpath, names=columns, sep='|', encoding='utf-8')
 
 
-def read_sem_groups(fpath):
+def read_sem_groups(fpath) -> pd.DataFrame:
     columns = ["Semantic Group Abbrev", "Semantic Group Name", "TUI", "Full Semantic Type Name"]
     return pd.read_csv(fpath, names=columns, sep='|', encoding='utf-8')
 

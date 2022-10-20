@@ -87,7 +87,7 @@ def generate_positive_pairs(mrconso_df: pd.DataFrame, mrrel_df: pd.DataFrame,
     logging.info(f"There are {len(cui_term_pairs_list)} <CUI, synonym> concepts with tradenames after duplicates drop")
 
     cui2synonyms_list = create_cui2synonyms_list_mapping(cui_synonym_pair_strings=cui_term_pairs_list)
-    cui2synonyms_list = {cui: syns for cui, syns in cui2synonyms_list.items() if cui2node_id.get(cui) is not None}
+    cui2synonyms_list = {cui: syns for cui, syns in cui2synonyms_list.items()}  # if cui2node_id.get(cui) is not None}
     # cui2node_id = {cui: node_id for node_id, cui in enumerate(sorted(cui2synonyms_list.keys()))}
     node_id2synonyms_list = {cui2node_id[cui]: synonyms_list for cui, synonyms_list in cui2synonyms_list.items()}
     pos_pairs = generate_positive_pairs_from_synonyms(concept_id2synonyms_list=node_id2synonyms_list, )
@@ -117,10 +117,18 @@ def main(args):
 
     logging.info(f"There are {mrconso_df.shape[0]} MRCONSO rows after language filtering")
     mrconso_df["STR"].fillna('', inplace=True)
+    filtered_mrconso_present_cuis_set = set(mrconso_df["CUI"].unique())
 
     logging.info("Loading MRREL....")
     # mrrel_df = read_mrrel(args.mrrel)
     mrrel_df = read_mrrel(args.mrrel)[["CUI1", "REL", "RELA", "CUI2"]]
+    logging.info(f"Removing MRREL duplicated rows. There are {mrrel_df.shape[0]} rows with duplicates")
+    mrrel_df.drop_duplicates(inplace=True)
+    logging.info(f"Filtering MRREL by CUI1 and CUI2 fields. There are {mrrel_df.shape[0]} rows before filtering")
+    mrrel_df = mrrel_df[(mrrel_df['CUI1'].isin(filtered_mrconso_present_cuis_set)) & (
+        mrrel_df['CUI2'].isin(filtered_mrconso_present_cuis_set))]
+    logging.info(f"Finished filtering MRREL by CUI1 and CUI2 fields. "
+                 f"There are {mrrel_df.shape[0]} rows after filtering")
     rel2id, rela2id = create_relations2id_dicts(mrrel_df)
     cui2node_id = create_cui2node_id_mapping(mrconso_df=mrconso_df)
 
