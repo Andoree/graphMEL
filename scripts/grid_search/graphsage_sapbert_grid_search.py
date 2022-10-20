@@ -20,10 +20,10 @@ from graphmel.scripts.evaluation.utils import read_dataset, read_vocab
 from graphmel.scripts.self_alignment_pretraining.dataset import PositivePairNeighborSampler
 from graphmel.scripts.self_alignment_pretraining.graph_sapbert_models import GraphSAGESapMetricLearning
 from graphmel.scripts.self_alignment_pretraining.sapbert_training import train_graph_sapbert_model
+from graphmel.scripts.self_alignment_pretraining.train_graphsage_sapbert import train_graphsage_sapbert
 from graphmel.scripts.training.data.dataset import load_positive_pairs, map_terms2term_id, \
     create_term_id2tokenizer_output, load_data_and_bert_model, convert_edges_tuples_to_edge_index
 from graphmel.scripts.utils.io import save_dict, save_encoder_from_checkpoint
-
 
 # import wandb
 # wandb.init(project="sapbert")
@@ -47,15 +47,18 @@ def parse_args():
 
     parser.add_argument('--output_dir', type=str, required=True,
                         help='Directory for output')
-
     # GraphSAGE configuration
-    parser.add_argument('--num_graphsage_channels', type=int, nargs='+')
-    parser.add_argument('--num_graphsage_layers', type=int, nargs='+')
+
     parser.add_argument('--num_inner_graphsage_layers', type=int, nargs='+')
     parser.add_argument('--graphsage_dropout_p', type=float, nargs='+')
     parser.add_argument('--graphsage_num_neighbors', type=int, nargs='+', )
+    parser.add_argument('--num_graphsage_channels', type=int, nargs='+', )
+    parser.add_argument('--num_graphsage_layers', type=int, nargs='+', )
     parser.add_argument('--remove_selfloops', action="store_true")
     parser.add_argument('--graph_loss_weight', type=float, nargs='+', )
+    parser.add_argument('--text_loss_weight', type=float, nargs='+',  required=False, default=(1.0, ))
+    parser.add_argument('--intermodal_loss_weight', type=float, nargs='+', )
+    parser.add_argument('--modality_distance', type=str, nargs='+', )
     parser.add_argument('--batch_size', type=int, nargs='+', )
 
     parser.add_argument('--train_subset_ratio', type=float, )
@@ -110,74 +113,6 @@ def parse_args():
     return args
 
 
-def graphsage_sapbert_step(model: GraphSAGESapMetricLearning, batch, amp, device):
-    term_1_input_ids, term_1_att_masks = batch["term_1_input"]
-    term_1_input_ids, term_1_att_masks = term_1_input_ids.to(device), term_1_att_masks.to(device)
-    term_2_input_ids, term_2_att_masks = batch["term_2_input"]
-    term_2_input_ids, term_2_att_masks = term_2_input_ids.to(device), term_2_att_masks.to(device)
-    adjs = batch["adjs"]
-    # print("adjs", type(adjs), adjs)
-    # print('--')
-    # for adj in adjs:
-    #     print("adj", type(adj), adj)
-    # adjs = [adjs,]
-    # adjs = [adj.to(device) for adj in adjs]
-    if not isinstance(adjs, list):
-        adjs = [adjs.to(device), ]
-    else:
-        adjs = [adj.to(device) for adj in adjs]
-    batch_size = batch["batch_size"]
-    concept_ids = batch["concept_ids"].to(device)
-
-    if amp:
-        with autocast():
-            loss = model(term_1_input_ids=term_1_input_ids, term_1_att_masks=term_1_att_masks,
-                         term_2_input_ids=term_2_input_ids, term_2_att_masks=term_2_att_masks,
-                         concept_ids=concept_ids, adjs=adjs, batch_size=batch_size)
-    else:
-        loss = model(term_1_input_ids=term_1_input_ids, term_1_att_masks=term_1_att_masks,
-                     term_2_input_ids=term_2_input_ids, term_2_att_masks=term_2_att_masks,
-                     concept_ids=concept_ids, adjs=adjs, batch_size=batch_size)
-    return loss
-
-
-def train_graphsage_sapbert(model: GraphSAGESapMetricLearning, train_loader: PositivePairNeighborSampler,
-                            optimizer: torch.optim.Optimizer, scaler, amp, device, **kwargs):
-    model.train()
-    total_loss = 0
-    num_steps = 0
-    for batch in tqdm(train_loader, miniters=len(train_loader) // 100, total=len(train_loader)):
-        optimizer.zero_grad()
-        loss = graphsage_sapbert_step(model=model, batch=batch, amp=amp, device=device)
-        if amp:
-            scaler.scale(loss).backward()
-            scaler.step(optimizer)
-            scaler.update()
-        else:
-            loss.backward()
-            optimizer.step()
-        num_steps += 1
-        total_loss += float(loss)
-        # wandb.log({"Train loss": loss.item()})
-    total_loss /= (num_steps + 1e-9)
-    return total_loss, num_steps
-
-
-def val_graphsage_sapbert(model: GraphSAGESapMetricLearning, val_loader: PositivePairNeighborSampler,
-                          amp, device, **kwargs):
-    model.eval()
-    total_loss = 0
-    num_steps = 0
-    with torch.no_grad():
-        for batch in tqdm(val_loader, miniters=len(val_loader) // 100, total=len(val_loader)):
-            loss = graphsage_sapbert_step(model=model, batch=batch, amp=amp, device=device)
-            num_steps += 1
-            total_loss += float(loss)
-            # wandb.log({"Val loss": loss.item()})
-    total_loss /= (num_steps + 1e-9)
-    return total_loss
-
-
 def main(args):
     param_grid = {
         "num_graphsage_channels": args.num_graphsage_channels,
@@ -186,6 +121,9 @@ def main(args):
         "graphsage_dropout_p": args.graphsage_dropout_p,
         "graphsage_num_neighbors": args.graphsage_num_neighbors,
         "graph_loss_weight": args.graph_loss_weight,
+        "text_loss_weight" : args.text_loss_weight,
+        "intermodal_loss_weight": args.intermodal_loss_weight,
+        "modality_distance" : args.modality_distance,
         "batch_size": args.batch_size,
     }
 
@@ -258,7 +196,8 @@ def main(args):
 
     param_names = sorted(param_grid.keys())
     param_values_list = [param_grid[p_name] for p_name in param_names]
-
+    num_setups = len(list(itertools.product(*param_values_list)))
+    logging.info(f"There {num_setups} model configurations to train")
     for model_setup in itertools.product(*param_values_list):
         param_dict = {name: val for name, val in zip(param_names, model_setup)}
 
@@ -267,17 +206,23 @@ def main(args):
         num_graphsage_channels = param_dict["num_graphsage_channels"]
         graphsage_num_neighbors = (param_dict["graphsage_num_neighbors"],) * num_graphsage_layers
         graphsage_dropout_p = param_dict["graphsage_dropout_p"]
+        text_loss_weight = param_dict["text_loss_weight"]
         graph_loss_weight = param_dict["graph_loss_weight"]
+        intermodal_loss_weight = param_dict["intermodal_loss_weight"]
+        modality_distance = param_dict["modality_distance"]
         batch_size = param_dict["batch_size"]
+
         # modalities_aggr_type = param_dict["modalities_aggr_type"]
         logging.info("Processing configuration:")
         for k, v in param_dict.items():
             logging.info(f"{k}={v}")
 
         base_dir = args.output_dir
-        output_subdir = f"gs_{num_graphsage_layers}-{num_graphsage_channels}_{num_inner_graphsage_layers}" \
-                        f"{graphsage_num_neighbors}_{graphsage_dropout_p}_{graph_loss_weight}" \
-                        f"lr_{args.learning_rate}_b_{batch_size}"
+        output_subdir = f"gs_{num_graphsage_layers}-{num_inner_graphsage_layers}_{num_graphsage_channels}_" \
+                        f"{graphsage_num_neighbors}_{graphsage_dropout_p}_text_{text_loss_weight}_graph_{graph_loss_weight}" \
+                        f"_intermodal_{modality_distance}_{intermodal_loss_weight}" \
+                        f"_lr_{args.learning_rate}_b_{batch_size}"
+
         output_dir = os.path.join(base_dir, output_subdir)
         if not os.path.exists(output_dir) and output_dir != '':
             os.makedirs(output_dir)
@@ -315,6 +260,8 @@ def main(args):
                                            num_graphsage_layers=num_graphsage_layers,
                                            num_inner_graphsage_layers=num_inner_graphsage_layers,
                                            graphsage_dropout_p=graphsage_dropout_p,
+                                           modality_distance=modality_distance,
+                                           intermodal_loss_weight=intermodal_loss_weight,
                                            use_cuda=args.use_cuda, graph_loss_weight=graph_loss_weight,
                                            loss=args.loss, use_miner=args.use_miner, miner_margin=args.miner_margin,
                                            type_of_triplets=args.type_of_triplets, agg_mode=args.agg_mode,
@@ -328,7 +275,8 @@ def main(args):
                                       num_epochs=args.num_epochs, output_dir=output_dir, save_chkpnts=False,
                                       save_chkpnt_epoch_interval=args.save_every_N_epoch, parallel=args.parallel,
                                       amp=args.amp, scaler=scaler, device=device, chkpnt_path=args.model_checkpoint_path)
-        except Exception:
+        except Exception as e:
+            logging.warning(f"An error occurred:\n{e}")
             model = model.cpu()
             del model
             torch.cuda.empty_cache()

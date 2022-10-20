@@ -19,9 +19,9 @@ from graphmel.scripts.evaluation.evaluate_all_checkpoints_in_dir import evaluate
 from graphmel.scripts.evaluation.utils import read_dataset, read_vocab
 from graphmel.scripts.self_alignment_pretraining.dataset import PositivePairNeighborSampler, \
     PositiveRelationalNeighborSampler
-from graphmel.scripts.self_alignment_pretraining.graph_sapbert_models import RGCNDGISapMetricLearning, \
-    RGCNDGISapMetricLearningV2
+from graphmel.scripts.models.rgcn_dgi_sapbert import RGCNDGISapMetricLearning
 from graphmel.scripts.self_alignment_pretraining.sapbert_training import train_graph_sapbert_model
+from graphmel.scripts.self_alignment_pretraining.train_rgcn_dgi_sapbert import train_rgcn_dgi_sapbert
 from graphmel.scripts.training.data.dataset import load_positive_pairs, map_terms2term_id, \
     create_term_id2tokenizer_output, load_data_and_bert_model, convert_edges_tuples_to_edge_index, \
     convert_edges_tuples_to_oriented_edge_index_with_relations
@@ -51,12 +51,16 @@ def parse_args():
     parser.add_argument('--output_dir', type=str, required=True,
                         help='Directory for output')
 
-    # GCN encoder configuration
+    # RGCN encoder configuration
     parser.add_argument('--rgcn_num_hidden_channels', type=int, nargs='+')
     parser.add_argument('--rgcn_num_blocks', type=int, nargs='+')
     parser.add_argument('--rgcn_num_neighbors', type=int, nargs='+')
-    parser.add_argument('--rgcn_num_layers', type=int, nargs='+')
+    parser.add_argument('--rgcn_num_outer_layers', type=int, nargs='+')
+    parser.add_argument('--rgcn_num_inner_layers', type=int, nargs='+')
     parser.add_argument('--rgcn_dropout_p', type=float, nargs='+')
+    parser.add_argument('--text_loss_weight', type=float, nargs='+', required=False, default=(1.0,))
+    parser.add_argument('--intermodal_loss_weight', type=float, nargs='+', )
+    parser.add_argument('--modality_distance', type=str, nargs='+', )
     parser.add_argument('--dgi_loss_weight', type=float, nargs='+')
     parser.add_argument('--rgcn_use_fast_conv', action="store_true")
     parser.add_argument('--batch_size', type=int, nargs='+')
@@ -109,103 +113,17 @@ def parse_args():
     return args
 
 
-def rgcn_dgi_sapbert_train_step(model: RGCNDGISapMetricLearning, batch, amp, device):
-    term_1_input_ids, term_1_att_masks = batch["term_1_input"]
-    term_1_input_ids, term_1_att_masks = term_1_input_ids.to(device), term_1_att_masks.to(device)
-    term_2_input_ids, term_2_att_masks = batch["term_2_input"]
-    term_2_input_ids, term_2_att_masks = term_2_input_ids.to(device), term_2_att_masks.to(device)
-    adjs = batch["adjs"]
-    rel_ids_list = batch["rel_ids_list"]
-    if len(rel_ids_list) > 1 or len(adjs) > 1:
-        raise ValueError(
-            "To make model more lightweighted, RGCN+DGI+SapBert does not support k-hop neighbors for k > 1 ")
-    edge_index = adjs[0].edge_index.to(device)
-    edge_type = rel_ids_list[0].to(device)
-    batch_size = batch["batch_size"]
-    concept_ids = batch["concept_ids"].to(device)
-
-    if amp:
-        with autocast():
-            loss = model(term_1_input_ids=term_1_input_ids, term_1_att_masks=term_1_att_masks,
-                         term_2_input_ids=term_2_input_ids, term_2_att_masks=term_2_att_masks,
-                         concept_ids=concept_ids, edge_index=edge_index, edge_type=edge_type, batch_size=batch_size)
-    else:
-        loss = model(term_1_input_ids=term_1_input_ids, term_1_att_masks=term_1_att_masks,
-                     term_2_input_ids=term_2_input_ids, term_2_att_masks=term_2_att_masks,
-                     concept_ids=concept_ids, edge_index=edge_index, edge_type=edge_type, batch_size=batch_size)
-    # logging.info(f"Train loss: {float(loss)}")
-    return loss
-
-
-def rgcn_dgi_sapbert_eval_step(model: RGCNDGISapMetricLearning, batch, amp, device):
-    term_1_input_ids, term_1_att_masks = batch["term_1_input"]
-    term_1_input_ids, term_1_att_masks = term_1_input_ids.to(device), term_1_att_masks.to(device)
-    term_2_input_ids, term_2_att_masks = batch["term_2_input"]
-    term_2_input_ids, term_2_att_masks = term_2_input_ids.to(device), term_2_att_masks.to(device)
-    concept_ids = batch["concept_ids"].to(device)
-    batch_size = batch["batch_size"]
-
-    if amp:
-        with autocast():
-            sapbert_loss = model.eval_step_loss(term_1_input_ids=term_1_input_ids, term_1_att_masks=term_1_att_masks,
-                                                term_2_input_ids=term_2_input_ids, term_2_att_masks=term_2_att_masks,
-                                                concept_ids=concept_ids, batch_size=batch_size)
-
-    else:
-        sapbert_loss = model.eval_step_loss(term_1_input_ids=term_1_input_ids, term_1_att_masks=term_1_att_masks,
-                                            term_2_input_ids=term_2_input_ids, term_2_att_masks=term_2_att_masks,
-                                            concept_ids=concept_ids, batch_size=batch_size)
-    return sapbert_loss
-
-
-def train_rgcn_dgi_sapbert(model: RGCNDGISapMetricLearning, train_loader: PositivePairNeighborSampler,
-                           optimizer: torch.optim.Optimizer, scaler, amp, device, **kwargs):
-    model.train()
-    total_loss = 0
-    num_steps = 0
-    for batch in tqdm(train_loader, miniters=len(train_loader) // 100, total=len(train_loader)):
-        optimizer.zero_grad()
-        loss = rgcn_dgi_sapbert_train_step(model=model, batch=batch, amp=amp, device=device)
-        if amp:
-            scaler.scale(loss).backward()
-            scaler.step(optimizer)
-            scaler.update()
-        else:
-            loss.backward()
-            optimizer.step()
-        num_steps += 1
-        total_loss += float(loss)
-        # wandb.log({"Train loss": loss.item()})
-        # logging.info(f"num_steps  {num_steps}, Train step loss: {loss}")
-    total_loss /= (num_steps + 1e-9)
-    print("total_loss", total_loss)
-    return total_loss, num_steps
-
-
-def val_rgcn_dgi_sapbert(model: RGCNDGISapMetricLearning, val_loader: PositivePairNeighborSampler,
-                         amp, device, **kwargs):
-    model.eval()
-    total_loss = 0
-    num_steps = 0
-    with torch.no_grad():
-        for batch in tqdm(val_loader, miniters=len(val_loader) // 100, total=len(val_loader)):
-            loss = rgcn_dgi_sapbert_eval_step(model=model, batch=batch, amp=amp, device=device)
-            num_steps += 1
-            total_loss += float(loss)
-            # wandb.log({"Val loss": loss.item()})
-    total_loss /= (num_steps + 1e-9)
-    return total_loss
-
-
 def main(args):
-
     param_grid = {
-        "model_class": (RGCNDGISapMetricLearning, RGCNDGISapMetricLearningV2),
         "rgcn_num_hidden_channels": args.rgcn_num_hidden_channels,
         "rgcn_num_blocks": args.rgcn_num_blocks,
         "rgcn_num_neighbors": args.rgcn_num_neighbors,
-        "rgcn_num_layers": args.rgcn_num_layers,
+        "rgcn_num_outer_layers": args.rgcn_num_outer_layers,
+        "rgcn_num_inner_layers": args.rgcn_num_inner_layers,
         "rgcn_dropout_p": args.rgcn_dropout_p,
+        "text_loss_weight": args.text_loss_weight,
+        "modality_distance": args.modality_distance,
+        "intermodal_loss_weight": args.intermodal_loss_weight,
         "dgi_loss_weight": args.dgi_loss_weight,
         "batch_size": args.batch_size,
     }
@@ -291,12 +209,15 @@ def main(args):
     for model_setup in itertools.product(*param_values_list):
         param_dict = {name: val for name, val in zip(param_names, model_setup)}
 
-        model_class = param_dict["model_class"]
         rgcn_num_hidden_channels = param_dict["rgcn_num_hidden_channels"]
         rgcn_num_blocks = param_dict["rgcn_num_blocks"]
-        rgcn_num_neighbors = (param_dict["rgcn_num_neighbors"], )
-        rgcn_num_layers = param_dict["rgcn_num_layers"]
+        rgcn_num_outer_layers = param_dict["rgcn_num_outer_layers"]
+        rgcn_num_inner_layers = param_dict["rgcn_num_inner_layers"]
+        rgcn_num_neighbors = (param_dict["rgcn_num_neighbors"], ) * rgcn_num_outer_layers
         rgcn_dropout_p = param_dict["rgcn_dropout_p"]
+        text_loss_weight = param_dict["text_loss_weight"]
+        modality_distance = param_dict["modality_distance"]
+        intermodal_loss_weight = param_dict["intermodal_loss_weight"]
         dgi_loss_weight = param_dict["dgi_loss_weight"]
         rgcn_use_fast_conv = args.rgcn_use_fast_conv
         batch_size = param_dict["batch_size"]
@@ -306,11 +227,10 @@ def main(args):
 
         base_dir = args.output_dir
         conv_type = "fast_rgcn_conv" if rgcn_use_fast_conv else "rgcn_conv"
-        model_version = "v1" if model_class is RGCNDGISapMetricLearning else "v2"
-        output_subdir = f"dgi_{dgi_loss_weight}_rgcn_{model_version}_{rgcn_num_layers}_{rgcn_num_neighbors}_" \
-                        f"{rgcn_dropout_p}_{rgcn_num_hidden_channels}-" \
-                        f"{rgcn_num_blocks}_rel_lr_{args.learning_rate}_b_{batch_size}" \
-                        f"_{conv_type}"
+        output_subdir = f"dgi_{dgi_loss_weight}_{rgcn_num_outer_layers}-{rgcn_num_inner_layers}" \
+                        f"_{rgcn_num_hidden_channels}_{rgcn_num_neighbors}_{rgcn_dropout_p}_text_{text_loss_weight}" \
+                        f"_intermodal_{modality_distance}_{intermodal_loss_weight}" \
+                        f"_{rgcn_num_blocks}_rel_lr_{args.learning_rate}_b_{batch_size}_{conv_type}"
         output_dir = os.path.join(base_dir, output_subdir)
         if not os.path.exists(output_dir) and output_dir != '':
             os.makedirs(output_dir)
@@ -345,17 +265,20 @@ def main(args):
         else:
             scaler = None
 
-        model = model_class(bert_encoder, num_rgcn_channels=rgcn_num_hidden_channels,
+        model = RGCNDGISapMetricLearning(bert_encoder, num_rgcn_channels=rgcn_num_hidden_channels,
                                          dgi_loss_weight=dgi_loss_weight, rgcn_dropout_p=rgcn_dropout_p,
                                          num_relations=num_relations, num_bases=None,
                                          num_blocks=rgcn_num_blocks, use_fast_conv=rgcn_use_fast_conv,
-                                         num_rgcn_layers=rgcn_num_layers, use_cuda=args.use_cuda, loss=args.loss,
-                                         multigpu_flag=args.parallel, use_miner=args.use_miner,
-                                         miner_margin=args.miner_margin,
+                                         num_outer_rgcn_layers=rgcn_num_outer_layers,
+                                         num_inner_rgcn_layers=rgcn_num_inner_layers,
+                                         sapbert_loss_weight=text_loss_weight, modality_distance=modality_distance,
+                                         intermodal_loss_weight=intermodal_loss_weight,
+                                         loss=args.loss, multigpu_flag=args.parallel, use_miner=args.use_miner,
+                                         miner_margin=args.miner_margin, use_cuda=args.use_cuda,
                                          type_of_triplets=args.type_of_triplets, agg_mode=args.agg_mode).to(device)
         start = time.time()
         try:
-            train_graph_sapbert_model(model=model, train_epoch_fn=train_rgcn_dgi_sapbert, val_epoch_fn=val_epoch_fn,
+            train_graph_sapbert_model(model=model, train_epoch_fn=train_rgcn_dgi_sapbert,
                                       train_loader=train_pos_pair_sampler,
                                       val_loader=val_pos_pair_sampler,
                                       learning_rate=args.learning_rate, weight_decay=args.weight_decay,

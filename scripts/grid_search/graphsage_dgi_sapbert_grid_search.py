@@ -17,17 +17,15 @@ from transformers import AutoModel
 
 from graphmel.scripts.evaluation.evaluate_all_checkpoints_in_dir import evaluate_single_checkpoint_acc1_acc5
 from graphmel.scripts.evaluation.utils import read_dataset, read_vocab
-from graphmel.scripts.self_alignment_pretraining.dataset import PositivePairNeighborSampler, \
-    PositiveRelationalNeighborSampler
-from graphmel.scripts.self_alignment_pretraining.graph_sapbert_models import GraphSAGESapMetricLearning, \
-    RGCNSapMetricLearning
+from graphmel.scripts.models.graphsage_dgi_sapbert import GraphSAGEDGISapMetricLearning
+from graphmel.scripts.self_alignment_pretraining.dataset import PositivePairNeighborSampler
+from graphmel.scripts.self_alignment_pretraining.graph_sapbert_models import GraphSAGESapMetricLearning
 from graphmel.scripts.self_alignment_pretraining.sapbert_training import train_graph_sapbert_model
-from graphmel.scripts.self_alignment_pretraining.train_rgcn_sapbert import train_rgcn_sapbert
-from graphmel.scripts.training.data.data_utils import create_rel_id2inverse_rel_id_map
+from graphmel.scripts.self_alignment_pretraining.train_graphsage_dgi_sapbert import train_graphsage_dgi_sapbert
+from graphmel.scripts.self_alignment_pretraining.train_graphsage_sapbert import train_graphsage_sapbert
 from graphmel.scripts.training.data.dataset import load_positive_pairs, map_terms2term_id, \
-    create_term_id2tokenizer_output, load_data_and_bert_model, convert_edges_tuples_to_edge_index, \
-    convert_edges_tuples_to_oriented_edge_index_with_relations
-from graphmel.scripts.utils.io import save_dict, load_dict, save_encoder_from_checkpoint
+    create_term_id2tokenizer_output, load_data_and_bert_model, convert_edges_tuples_to_edge_index
+from graphmel.scripts.utils.io import save_dict, save_encoder_from_checkpoint
 
 
 # import wandb
@@ -52,23 +50,30 @@ def parse_args():
 
     parser.add_argument('--output_dir', type=str, required=True,
                         help='Directory for output')
+    # GraphSAGE configuration
 
-
-    # RGCN configuration
-    parser.add_argument('--rgcn_num_hidden_channels', type=int, nargs='+')
-    parser.add_argument('--rgcn_num_outer_layers', type=int, nargs='+')
-    parser.add_argument('--rgcn_num_inner_layers', type=int, nargs='+')
-    parser.add_argument('--rgcn_num_blocks', type=int, nargs='+')
-    parser.add_argument('--rgcn_use_fast_conv', action="store_true")
-    parser.add_argument('--rgcn_dropout_p', type=float, nargs='+')
-    parser.add_argument('--rgcn_num_neighbors', type=int, nargs='+')
-    parser.add_argument('--graph_loss_weight', type=float, nargs='+', )
+    parser.add_argument('--graphsage_num_outer_layers', type=int, nargs='+')
+    parser.add_argument('--graphsage_num_inner_layers', type=int, nargs='+')
+    parser.add_argument('--graphsage_num_hidden_channels', type=int, nargs='+')
+    parser.add_argument('--graphsage_num_neighbors', type=int, nargs='+', )
+    parser.add_argument('--graphsage_dropout_p', type=float, nargs='+')
+    parser.add_argument('--dgi_loss_weight', type=float, nargs='+')
+    parser.add_argument('--intermodal_loss_weight', type=float, required=False, nargs='+')
+    parser.add_argument('--modality_distance', type=str, choices=(None, "sapbert", "cosine", "MSE"), nargs='+')
+    parser.add_argument('--text_loss_weight', type=float, required=False, default=1.0, nargs='+')
     parser.add_argument('--remove_selfloops', action="store_true")
-    parser.add_argument('--text_loss_weight', type=float, nargs='+', required=False, default=(1.0,))
-    parser.add_argument('--intermodal_loss_weight', type=float, nargs='+', )
-    parser.add_argument('--modality_distance', type=str, nargs='+', )
-    parser.add_argument('--batch_size', type=int, nargs='+')
+    parser.add_argument('--batch_size', type=int, nargs='+', )
 
+
+    # TODO: Всё переделать под DGGI модель:
+    """
+    0. Аргпарсер
+    1. Словарь
+    2. Чтение словаря
+    3. Директория
+    4. Класс модели
+    5. Параметры модели
+    """
     parser.add_argument('--train_subset_ratio', type=float, )
     # Evaluation data path
     parser.add_argument('--data_folder', help='Path to the directory containing BioSyn format dataset', type=str,
@@ -93,10 +98,14 @@ def parse_args():
     parser.add_argument('--num_epochs',
                         help='epoch to train',
                         default=3, type=int)
-
+    # parser.add_argument('--save_checkpoint_all', action="store_true")
+    # parser.add_argument('--checkpoint_step', type=int, default=10000000)
     parser.add_argument('--amp', action="store_true",
                         help="automatic mixed precision training")
     parser.add_argument('--parallel', action="store_true")
+    # parser.add_argument('--cased', action="store_true")
+    # parser.add_argument('--pairwise', action="store_true",
+    #                     help="if loading pairwise formatted datasets")
     parser.add_argument('--random_seed',
                         help='',
                         default=1996, type=int)
@@ -117,70 +126,43 @@ def parse_args():
     return args
 
 
-
 def main(args):
 
-    # TODO:
-    """
-    parser.add_argument('--rgcn_use_fast_conv', action="store_true")
-
-    parser.add_argument('--remove_selfloops', action="store_true")
-    parser.add_argument('--text_loss_weight', type=float, nargs='+', required=False, default=(1.0,))
-    parser.add_argument('--intermodal_loss_weight', type=float, nargs='+', )
-    parser.add_argument('--modality_distance', type=str, nargs='+', )
-    parser.add_argument('--batch_size', type=int, nargs='+')
-
-    """
     param_grid = {
-        "rgcn_num_hidden_channels": args.rgcn_num_hidden_channels,
-        "rgcn_num_outer_layers": args.rgcn_num_outer_layers,
-        "rgcn_num_inner_layers": args.rgcn_num_inner_layers,
-        "rgcn_num_blocks": args.rgcn_num_blocks,
-        "rgcn_dropout_p": args.rgcn_dropout_p,
-        "rgcn_num_neighbors": args.rgcn_num_neighbors,
-        "graph_loss_weight": args.graph_loss_weight,
+        "num_graphsage_channels": args.num_graphsage_channels,
+        "graphsage_num_outer_layers": args.graphsage_num_outer_layers,
+        "graphsage_num_inner_layers": args.graphsage_num_inner_layers,
+        "graphsage_dropout_p": args.graphsage_dropout_p,
+        "graphsage_num_neighbors": args.graphsage_num_neighbors,
+        "dgi_loss_weight": args.dgi_loss_weight,
         "text_loss_weight": args.text_loss_weight,
         "intermodal_loss_weight": args.intermodal_loss_weight,
         "modality_distance": args.modality_distance,
         "batch_size": args.batch_size,
     }
+
     print(args)
+
     node2terms_path = os.path.join(args.train_dir, "node_id2terms_list")
     edges_path = os.path.join(args.train_dir, "edges")
-    rel2id_path = os.path.join(args.train_dir, "rel2id")
-
-
 
     bert_encoder, bert_tokenizer, node_id2token_ids_dict, edges_tuples, _, _ = \
         load_data_and_bert_model(train_node2terms_path=node2terms_path,
                                  train_edges_path=edges_path, use_fast=True, do_lower_case=True,
                                  val_node2terms_path=node2terms_path,
                                  val_edges_path=edges_path, text_encoder_name=args.text_encoder,
-                                 text_encoder_seq_length=args.max_length, drop_relations_info=False)
+                                 text_encoder_seq_length=args.max_length, drop_relations_info=True)
 
     del _
-
-    rel2id = load_dict(rel2id_path)
-
-    num_relations = len(rel2id.keys())
-
-
-    edge_index, edge_rel_ids = \
-        convert_edges_tuples_to_oriented_edge_index_with_relations(edges_tuples, "rel",
-                                                                   remove_selfloops=args.remove_selfloops )
-    assert edge_index.size()[1] == len(edge_rel_ids)
-
-    num_edges = edge_index.size()[1]
+    edge_index = convert_edges_tuples_to_edge_index(edges_tuples=edges_tuples, remove_selfloops=args.remove_selfloops)
     num_nodes = len(set(node_id2token_ids_dict.keys()))
-
+    num_edges = edge_index.size()[1]
     del edges_tuples
-
     train_positive_pairs_path = os.path.join(args.train_dir, f"train_pos_pairs")
     train_pos_pairs_term_1_list, train_pos_pairs_term_2_list, train_pos_pairs_concept_ids = \
         load_positive_pairs(train_positive_pairs_path)
     train_pos_pairs_term_1_id_list, train_pos_pairs_term_2_id_list, train_term2id = map_terms2term_id(
         term_1_list=train_pos_pairs_term_1_list, term_2_list=train_pos_pairs_term_2_list)
-    logging.info(f"There are {len(train_pos_pairs_term_1_id_list)} positive training pairs")
     train_term_id2tok_out = create_term_id2tokenizer_output(term2id=train_term2id, max_length=args.max_length,
                                                             tokenizer=bert_tokenizer)
     del train_pos_pairs_term_1_list
@@ -228,38 +210,37 @@ def main(args):
 
     param_names = sorted(param_grid.keys())
     param_values_list = [param_grid[p_name] for p_name in param_names]
-
+    num_setups = len(list(itertools.product(*param_values_list)))
+    logging.info(f"There {num_setups} model configurations to train")
     for model_setup in itertools.product(*param_values_list):
         param_dict = {name: val for name, val in zip(param_names, model_setup)}
 
-        rgcn_num_hidden_channels = param_dict["rgcn_num_hidden_channels"]
-        rgcn_num_outer_layers = param_dict["rgcn_num_outer_layers"]
-        rgcn_num_inner_layers = param_dict["rgcn_num_inner_layers"]
-
-        rgcn_num_blocks = param_dict["rgcn_num_blocks"]
-        rgcn_dropout_p = param_dict["rgcn_dropout_p"]
-        rgcn_num_neighbors = (param_dict["rgcn_num_neighbors"],) * rgcn_num_outer_layers
+        graphsage_num_outer_layers = param_dict["graphsage_num_outer_layers"]
+        num_inner_graphsage_layers = param_dict["num_inner_graphsage_layers"]
+        num_graphsage_channels = param_dict["num_graphsage_channels"]
+        graphsage_num_neighbors = (param_dict["graphsage_num_neighbors"],) * graphsage_num_outer_layers
+        graphsage_dropout_p = param_dict["graphsage_dropout_p"]
         text_loss_weight = param_dict["text_loss_weight"]
-        graph_loss_weight = param_dict["graph_loss_weight"]
+        dgi_loss_weight = param_dict["dgi_loss_weight"]
         intermodal_loss_weight = param_dict["intermodal_loss_weight"]
         modality_distance = param_dict["modality_distance"]
-
         batch_size = param_dict["batch_size"]
+
+        # modalities_aggr_type = param_dict["modalities_aggr_type"]
         logging.info("Processing configuration:")
         for k, v in param_dict.items():
             logging.info(f"{k}={v}")
 
         base_dir = args.output_dir
-        conv_type = "fast_rgcn_conv" if args.rgcn_use_fast_conv else "rgcn_conv"
+        output_subdir = f"gs_{graphsage_num_outer_layers}-{num_inner_graphsage_layers}_{num_graphsage_channels}_" \
+                        f"{graphsage_num_neighbors}_{graphsage_dropout_p}_text_{text_loss_weight}_dgi_{dgi_loss_weight}" \
+                        f"_intermodal_{modality_distance}_{intermodal_loss_weight}_lr_{args.learning_rate}_b_{batch_size}"
 
-        output_subdir = f"rgcn_{rgcn_num_neighbors}_{rgcn_num_hidden_channels}-{rgcn_num_outer_layers}" \
-                        f"-{rgcn_num_inner_layers}_{rgcn_num_blocks}_tl_{text_loss_weight}_gl_{graph_loss_weight}" \
-                        f"intermodal_{modality_distance}_{intermodal_loss_weight}_rel_lr_{args.learning_rate}" \
-                        f"_{conv_type}_{args.remove_selfloops}_drop_{rgcn_dropout_p}_b_{batch_size}"
         output_dir = os.path.join(base_dir, output_subdir)
         if not os.path.exists(output_dir) and output_dir != '':
             os.makedirs(output_dir)
         model_descr_path = os.path.join(output_dir, "model_description.tsv")
+
         save_dict(save_path=model_descr_path, dictionary=vars(args), )
         torch.manual_seed(args.random_seed)
         torch.manual_seed(args.random_seed)
@@ -271,44 +252,47 @@ def main(args):
         torch.cuda.random.manual_seed_all(args.random_seed)
         torch.backends.cudnn.deterministic = True
 
-        train_pos_pair_sampler = PositiveRelationalNeighborSampler(pos_pairs_term_1_id_list=train_pos_pairs_term_1_id_list,
-                                                                   pos_pairs_term_2_id_list=train_pos_pairs_term_2_id_list,
-                                                                   pos_pairs_concept_ids_list=train_pos_pairs_concept_ids,
-                                                                   sizes=rgcn_num_neighbors, edge_index=edge_index,
-                                                                   term_id2tokenizer_output=train_term_id2tok_out,
-                                                                   rel_ids=edge_rel_ids, node_idx=train_pos_pairs_idx,
-                                                                   node_id2token_ids_dict=node_id2token_ids_dict,
-                                                                   seq_max_length=args.max_length,
-                                                                   batch_size=batch_size,
-                                                                   num_workers=args.dataloader_num_workers, shuffle=True, )
-
+        train_num_pos_pairs = len(train_pos_pairs_term_1_id_list)
+        train_pos_pairs_idx = torch.LongTensor(range(train_num_pos_pairs))
+        train_pos_pair_sampler = PositivePairNeighborSampler(pos_pairs_term_1_id_list=train_pos_pairs_term_1_id_list,
+                                                             pos_pairs_term_2_id_list=train_pos_pairs_term_2_id_list,
+                                                             pos_pairs_concept_ids_list=train_pos_pairs_concept_ids,
+                                                             sizes=graphsage_num_neighbors, edge_index=edge_index,
+                                                             term_id2tokenizer_output=train_term_id2tok_out,
+                                                             node_idx=train_pos_pairs_idx,
+                                                             node_id2token_ids_dict=node_id2token_ids_dict,
+                                                             seq_max_length=args.max_length, batch_size=batch_size,
+                                                             num_workers=args.dataloader_num_workers, shuffle=True, )
 
         if args.amp:
             scaler = GradScaler()
         else:
             scaler = None
         bert_encoder = AutoModel.from_pretrained(args.text_encoder, )
-
-        model = RGCNSapMetricLearning(bert_encoder=bert_encoder, rgcn_num_hidden_channels=rgcn_num_hidden_channels,
-                                      rgcn_num_outer_layers=rgcn_num_outer_layers, rgcn_num_inner_layers=rgcn_num_inner_layers,
-                                      rgcn_dropout_p=rgcn_dropout_p, sapbert_loss_weight=text_loss_weight,
-                                      graph_loss_weight=graph_loss_weight, modality_distance=modality_distance,
-                                      intermodal_loss_weight=intermodal_loss_weight,
-                                      num_relations=num_relations, num_bases=None,
-                                      num_blocks=rgcn_num_blocks, use_fast_conv=args.rgcn_use_fast_conv,
-                                      use_cuda=args.use_cuda, loss=args.loss, miner_margin=args.miner_margin,
-                                      type_of_triplets=args.type_of_triplets, agg_mode=args.agg_mode,
-                                      multigpu_flag=args.parallel, ).to(device)
+        model = GraphSAGEDGISapMetricLearning(bert_encoder=bert_encoder,
+                                              graphsage_num_outer_layers=graphsage_num_outer_layers,
+                                              graphsage_num_inner_layers=num_inner_graphsage_layers,
+                                              graphsage_num_hidden_channels=num_graphsage_channels,
+                                              graphsage_dropout_p=graphsage_dropout_p,
+                                              sapbert_loss_weight=text_loss_weight,
+                                              dgi_loss_weight=dgi_loss_weight,
+                                              intermodal_loss_weight=intermodal_loss_weight,
+                                              loss=args.loss, use_cuda=args.use_cuda, multigpu_flag=args.parallel,
+                                              use_miner=args.use_miner, miner_margin=args.miner_margin,
+                                              type_of_triplets=args.type_of_triplets, agg_mode=args.agg_mode,
+                                              modality_distance=modality_distance).to(device)
         start = time.time()
         try:
-            train_graph_sapbert_model(model=model, train_epoch_fn=train_rgcn_sapbert,
+            train_graph_sapbert_model(model=model, train_epoch_fn=train_graphsage_dgi_sapbert,
                                       train_loader=train_pos_pair_sampler,
                                       val_loader=val_pos_pair_sampler,
                                       learning_rate=args.learning_rate, weight_decay=args.weight_decay,
                                       num_epochs=args.num_epochs, output_dir=output_dir, save_chkpnts=False,
                                       save_chkpnt_epoch_interval=args.save_every_N_epoch, parallel=args.parallel,
-                                      amp=args.amp, scaler=scaler, device=device, chkpnt_path=args.model_checkpoint_path)
-        except Exception:
+                                      amp=args.amp, scaler=scaler, device=device,
+                                      chkpnt_path=args.model_checkpoint_path)
+        except Exception as e:
+            logging.warning(f"An error occurred:\n{e}")
             model = model.cpu()
             del model
             torch.cuda.empty_cache()
@@ -319,9 +303,9 @@ def main(args):
         training_minute = int(training_time / 60 % 60)
         training_second = int(training_time % 60)
         logging.info(f"Training Time took {training_hour} hours {training_minute} minutes {training_second} seconds")
-
         checkpoint_path = os.path.join(output_dir, "final_checkpoint/")
         bert = AutoModel.from_pretrained(args.text_encoder, )
+
         if args.parallel:
             bert.load_state_dict(model.bert_encoder.module.state_dict())
         else:
