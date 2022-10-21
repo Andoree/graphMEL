@@ -25,9 +25,9 @@ python /home/echernyak/graph_entity_linking/graphmel/scripts/grid_search/graphsa
 --graph_loss_weight 1.0 0.1 0.01 \
 --text_loss_weight 1.0 \
 --intermodal_loss_weight 1.0 0.1 0.01 \
---modality_distance "sapbert" "MSE" "cosine" \
+--modality_distance "sapbert" "cosine" \
 --batch_size 128 \
---train_subset_ratio 0.005 \
+--train_subset_ratio 0.01 \
 --use_cuda \
 --learning_rate=2e-5 \
 --weight_decay=0.01  \
