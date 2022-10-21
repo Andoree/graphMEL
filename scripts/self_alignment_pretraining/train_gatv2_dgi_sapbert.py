@@ -183,6 +183,9 @@ def main(args):
                     f"{args.use_rel_or_rela}_remove_loops_{args.remove_selfloops}_dgi_{args.dgi_loss_weight}" \
                     f"_text_loss_{args.text_loss_weight}_intermodal_{args.modality_distance}" \
                     f"_{args.intermodal_loss_weight}_lr_{args.learning_rate}_b_{args.batch_size}"
+    modality_distance = args.modality_distance
+    if modality_distance == "None":
+        modality_distance = None
 
     output_dir = os.path.join(output_dir, output_subdir)
     if not os.path.exists(output_dir) and output_dir != '':
@@ -296,7 +299,7 @@ def main(args):
                                       gat_attention_dropout_p=args.gat_attention_dropout_p,
                                       gat_dropout_p=args.gat_dropout_p, sapbert_loss_weight=args.text_loss_weight,
                                       num_relations=num_relations, dgi_loss_weight=args.dgi_loss_weight,
-                                      modality_distance=args.modality_distance,
+                                      modality_distance=modality_distance,
                                       intermodal_loss_weight=args.intermodal_loss_weight,
                                       use_cuda=args.use_cuda, loss=args.loss,
                                       multigpu_flag=args.parallel, use_miner=args.use_miner,

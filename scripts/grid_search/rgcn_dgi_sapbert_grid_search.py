@@ -217,6 +217,8 @@ def main(args):
         rgcn_dropout_p = param_dict["rgcn_dropout_p"]
         text_loss_weight = param_dict["text_loss_weight"]
         modality_distance = param_dict["modality_distance"]
+        if modality_distance == "None":
+            modality_distance = None
         intermodal_loss_weight = param_dict["intermodal_loss_weight"]
         dgi_loss_weight = param_dict["dgi_loss_weight"]
         rgcn_use_fast_conv = args.rgcn_use_fast_conv

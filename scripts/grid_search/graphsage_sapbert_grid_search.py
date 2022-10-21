@@ -210,6 +210,8 @@ def main(args):
         graph_loss_weight = param_dict["graph_loss_weight"]
         intermodal_loss_weight = param_dict["intermodal_loss_weight"]
         modality_distance = param_dict["modality_distance"]
+        if modality_distance == "None":
+            modality_distance = None
         batch_size = param_dict["batch_size"]
 
         # modalities_aggr_type = param_dict["modalities_aggr_type"]

@@ -185,6 +185,9 @@ def main(args):
     output_dir = os.path.join(output_dir, output_subdir)
     if not os.path.exists(output_dir) and output_dir != '':
         os.makedirs(output_dir)
+    modality_distance = args.modality_distance
+    if modality_distance == "None":
+        modality_distance = None
     model_descr_path = os.path.join(output_dir, "model_description.tsv")
     save_dict(save_path=model_descr_path, dictionary=vars(args), )
     torch.manual_seed(args.random_seed)
@@ -292,7 +295,7 @@ def main(args):
                                      num_outer_rgcn_layers=args.rgcn_num_outer_layers,
                                      num_inner_rgcn_layers=args.rgcn_num_inner_layers ,use_cuda=args.use_cuda,
                                      sapbert_loss_weight=args.text_loss_weight, loss=args.loss,
-                                     modality_distance=args.modality_distance,
+                                     modality_distance=modality_distance,
                                      intermodal_loss_weight=args.intermodal_loss_weight,
                                      multigpu_flag=args.parallel, use_miner=args.use_miner,
                                      miner_margin=args.miner_margin,

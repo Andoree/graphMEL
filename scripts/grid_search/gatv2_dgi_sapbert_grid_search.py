@@ -230,6 +230,8 @@ def main(args):
         gat_attention_dropout_p = param_dict["gat_attention_dropout_p"]
         text_loss_weight = param_dict["text_loss_weight"]
         modality_distance = param_dict["modality_distance"]
+        if modality_distance == "None":
+            modality_distance = None
         intermodal_loss_weight = param_dict["intermodal_loss_weight"]
         dgi_loss_weight = param_dict["dgi_loss_weight"]
         batch_size = param_dict["batch_size"]

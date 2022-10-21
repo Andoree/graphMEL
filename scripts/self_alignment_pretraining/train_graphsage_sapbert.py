@@ -180,6 +180,9 @@ def main(args):
     output_dir = os.path.join(output_dir, output_subdir)
     if not os.path.exists(output_dir) and output_dir != '':
         os.makedirs(output_dir)
+    modality_distance = args.modality_distance
+    if modality_distance == "None":
+        modality_distance = None
     model_descr_path = os.path.join(output_dir, "model_description.tsv")
     save_dict(save_path=model_descr_path, dictionary=vars(args), )
     torch.manual_seed(args.random_seed)
@@ -263,7 +266,7 @@ def main(args):
                                        graphsage_dropout_p=args.graphsage_dropout_p,
                                        use_cuda=args.use_cuda, graph_loss_weight=args.graph_loss_weight,
                                        num_inner_graphsage_layers=args.num_inner_graphsage_layers,
-                                       modality_distance=args.modality_distance,
+                                       modality_distance=modality_distance,
                                        intermodal_loss_weight=args.intermodal_loss_weight,
                                        loss=args.loss, use_miner=args.use_miner, miner_margin=args.miner_margin,
                                        type_of_triplets=args.type_of_triplets, agg_mode=args.agg_mode,

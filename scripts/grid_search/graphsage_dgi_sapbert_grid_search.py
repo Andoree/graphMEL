@@ -64,16 +64,6 @@ def parse_args():
     parser.add_argument('--remove_selfloops', action="store_true")
     parser.add_argument('--batch_size', type=int, nargs='+', )
 
-
-    # TODO: Всё переделать под DGGI модель:
-    """
-    0. Аргпарсер
-    1. Словарь
-    2. Чтение словаря
-    3. Директория
-    4. Класс модели
-    5. Параметры модели
-    """
     parser.add_argument('--train_subset_ratio', type=float, )
     # Evaluation data path
     parser.add_argument('--data_folder', help='Path to the directory containing BioSyn format dataset', type=str,
@@ -224,6 +214,8 @@ def main(args):
         dgi_loss_weight = param_dict["dgi_loss_weight"]
         intermodal_loss_weight = param_dict["intermodal_loss_weight"]
         modality_distance = param_dict["modality_distance"]
+        if modality_distance == "None":
+            modality_distance = None
         batch_size = param_dict["batch_size"]
 
         # modalities_aggr_type = param_dict["modalities_aggr_type"]
