@@ -6,6 +6,7 @@
 #SBATCH --cpus-per-task=2                   # Количество CPU на одну задачу
 #SBATCH --gpus=4                   # Требуемое количество GPU
 #SBATCH --constraint=type_c|type_b|type_a
+#SBATCH --nodes=1
 
 export CUDA_VISIBLE_DEVICES=0,1
 nvidia-smi
