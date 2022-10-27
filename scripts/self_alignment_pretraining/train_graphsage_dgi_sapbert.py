@@ -49,6 +49,7 @@ def parse_args():
     parser.add_argument('--graphsage_num_neighbors', type=int, nargs='+', )
     parser.add_argument('--graphsage_dropout_p', type=float)
     parser.add_argument('--dgi_loss_weight', type=float)
+    parser.add_argument('--graph_loss_weight', type=float, required=False, default=0.0)
     parser.add_argument('--intermodal_loss_weight', type=float, required=False)
     parser.add_argument('--modality_distance', type=str, required=False, choices=(None, "sapbert", "cosine", "MSE"))
     parser.add_argument('--text_loss_weight', type=float, required=False, default=1.0)
@@ -115,32 +116,34 @@ def train_graphsage_dgi_sapbert_step(model: GraphSAGEDGISapMetricLearning, batch
 
     if amp:
         with autocast():
-            sapbert_loss, dgi_loss, intermodal_loss = model(term_1_input_ids=term_1_input_ids,
+            sapbert_loss, graph_loss, dgi_loss, intermodal_loss = model(term_1_input_ids=term_1_input_ids,
                                                             term_1_att_masks=term_1_att_masks,
                                                             term_2_input_ids=term_2_input_ids,
                                                             term_2_att_masks=term_2_att_masks,
                                                             concept_ids=concept_ids, adjs=adjs, batch_size=batch_size)
     else:
-        sapbert_loss, dgi_loss, intermodal_loss = model(term_1_input_ids=term_1_input_ids,
+        sapbert_loss, graph_loss, dgi_loss, intermodal_loss = model(term_1_input_ids=term_1_input_ids,
                                                         term_1_att_masks=term_1_att_masks,
                                                         term_2_input_ids=term_2_input_ids,
                                                         term_2_att_masks=term_2_att_masks,
                                                         concept_ids=concept_ids, adjs=adjs, batch_size=batch_size)
 
-    return sapbert_loss, dgi_loss, intermodal_loss
+    return sapbert_loss, graph_loss, dgi_loss, intermodal_loss
+
 
 def train_graphsage_sapbert(model: GraphSAGEDGISapMetricLearning, train_loader: PositivePairNeighborSampler,
                             optimizer: torch.optim.Optimizer, scaler, amp, device, **kwargs):
     model.train()
-    losses_dict = {"total": 0, "sapbert": 0, "dgi": 0, "intermodal": 0}
+    losses_dict = {"total": 0, "sapbert": 0, "graph": 0, "dgi": 0, "intermodal": 0}
     # total_loss = 0
     num_steps = 0
     pbar = tqdm(train_loader, miniters=len(train_loader) // 100, total=len(train_loader))
     for batch in pbar:
         optimizer.zero_grad()
-        sapbert_loss, dgi_loss, intermodal_loss = train_graphsage_dgi_sapbert_step(model=model, batch=batch, amp=amp,
+        sapbert_loss, graph_loss, dgi_loss, intermodal_loss = train_graphsage_dgi_sapbert_step(model=model, batch=batch, amp=amp,
                                                                                    device=device)
         sapbert_loss = sapbert_loss * model.sapbert_loss_weight
+        graph_loss = graph_loss * model.graph_loss_weight
         dgi_loss = dgi_loss * model.dgi_loss_weight
         if intermodal_loss is not None:
             intermodal_loss = intermodal_loss * model.intermodal_loss_weight
@@ -148,7 +151,7 @@ def train_graphsage_sapbert(model: GraphSAGEDGISapMetricLearning, train_loader: 
         else:
             loss = sapbert_loss + dgi_loss
             intermodal_loss = -1.
-        pbar.set_description(f"L: {float(loss):.5f} ({float(sapbert_loss):.5f} + "
+        pbar.set_description(f"L: {float(loss):.5f} ({float(sapbert_loss):.5f} + {float(graph_loss)} + "
                              f"{float(dgi_loss):.5f} + {float(intermodal_loss):.5f})")
         if amp:
             scaler.scale(loss).backward()
@@ -160,6 +163,7 @@ def train_graphsage_sapbert(model: GraphSAGEDGISapMetricLearning, train_loader: 
         num_steps += 1
         losses_dict["total"] += float(loss)
         losses_dict["sapbert"] += float(sapbert_loss)
+        losses_dict["graph"] += float(graph_loss)
         losses_dict["dgi"] += float(dgi_loss)
         losses_dict["intermodal"] += float(intermodal_loss)
 
@@ -170,12 +174,11 @@ def train_graphsage_sapbert(model: GraphSAGEDGISapMetricLearning, train_loader: 
 def main(args):
     print(args)
     output_dir = args.output_dir
-
     output_subdir = f"gs_{args.graphsage_num_outer_layers}-{args.graphsage_num_inner_layers}_text_loss" \
                     f"_{args.text_loss_weight}_{args.graphsage_num_hidden_channels}_{'.'.join((str(x) for x in args.graphsage_num_neighbors))}" \
-                    f"_{args.graphsage_dropout_p}_remove_loops_{args.remove_selfloops}_dgi_{args.dgi_loss_weight}" \
-                    f"modal_{args.modality_distance}_{args.intermodal_loss_weight}_lr_{args.learning_rate}" \
-                    f"_b_{args.batch_size}"
+                    f"_{args.graphsage_dropout_p}_remove_loops_{args.remove_selfloops}_graph_{args.graph_loss_weight}" \
+                    f"_dgi_{args.dgi_loss_weight}_modal_{args.modality_distance}_{args.intermodal_loss_weight}" \
+                    f"_lr_{args.learning_rate}_b_{args.batch_size}"
     output_dir = os.path.join(output_dir, output_subdir)
     if not os.path.exists(output_dir) and output_dir != '':
         os.makedirs(output_dir)
@@ -265,6 +268,7 @@ def main(args):
                                           graphsage_dropout_p=args.graphsage_dropout_p,
                                           sapbert_loss_weight=args.text_loss_weight,
                                           dgi_loss_weight=args.dgi_loss_weight,
+                                          graph_loss_weight=args.graph_loss_weight,
                                           intermodal_loss_weight=args.intermodal_loss_weight,
                                           loss=args.loss, use_cuda=args.use_cuda, multigpu_flag=args.parallel,
                                           use_miner=args.use_miner, miner_margin=args.miner_margin,

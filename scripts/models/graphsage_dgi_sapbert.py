@@ -19,7 +19,7 @@ class GraphSAGEDGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningMod
     def __init__(self, bert_encoder, use_cuda, loss, graphsage_num_outer_layers, graphsage_num_inner_layers,
                  graphsage_num_hidden_channels, graphsage_dropout_p, dgi_loss_weight, intermodal_loss_weight,
                  multigpu_flag, use_miner=True, miner_margin=0.2, type_of_triplets="all", agg_mode="cls",
-                 modality_distance=None, sapbert_loss_weight: float = 1.0):
+                 modality_distance=None, sapbert_loss_weight: float = 1.0, graph_loss_weight=0.0):
 
         logging.info(
             "Sap_Metric_Learning! use_cuda={} loss={} use_miner={} miner_margin={} type_of_triplets={} agg_mode={}".format(
@@ -34,6 +34,7 @@ class GraphSAGEDGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningMod
         self.agg_mode = agg_mode
         self.convs = nn.ModuleList()
         self.bert_hidden_dim = bert_encoder.config.hidden_size
+        self.graph_loss_weight = graph_loss_weight
         self.sapbert_loss_weight = sapbert_loss_weight
         self.dgi_loss_weight = dgi_loss_weight
         self.intermodal_loss_weight = intermodal_loss_weight
@@ -108,7 +109,9 @@ class GraphSAGEDGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningMod
         dgi_loss_1 = self.dgi.loss(pos_graph_embs_1, neg_graph_embs_1, graph_summary_1)
         dgi_loss_2 = self.dgi.loss(pos_graph_embs_2, neg_graph_embs_2, graph_summary_2)
 
+        graph_loss = self.calculate_sapbert_loss(pos_graph_embs_1, pos_graph_embs_2, labels, batch_size)
+
         intermodal_loss = self.calculate_intermodal_loss(text_embed_1, text_embed_2, pos_graph_embs_1, pos_graph_embs_2,
                                                          labels, batch_size)
 
-        return text_loss, (dgi_loss_1 + dgi_loss_2) / 2, intermodal_loss
+        return text_loss, graph_loss, (dgi_loss_1 + dgi_loss_2) / 2, intermodal_loss
