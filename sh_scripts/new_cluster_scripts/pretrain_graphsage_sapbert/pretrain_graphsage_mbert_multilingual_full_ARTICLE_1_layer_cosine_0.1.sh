@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=mul_sage          # Название задачи
-#SBATCH --error=/home/echernyak/graph_entity_linking/graphmel/logs/pretrain_graphsage_sapbert_multilingual_full/multilingual_pretrain_graphsage_sapbert_article_1_layer_mse_0.1.err        # Файл для вывода ошибок
-#SBATCH --output=/home/echernyak/graph_entity_linking/graphmel/logs/pretrain_graphsage_sapbert_multilingual_full/multilingual_pretrain_graphsage_sapbert_article_1_layer_mse_0.1.txt       # Файл для вывода результатов
+#SBATCH --error=/home/echernyak/graph_entity_linking/graphmel/logs/pretrain_graphsage_sapbert_multilingual_full/multilingual_pretrain_graphsage_mbert_article_1_layer_cosine_0.1.err        # Файл для вывода ошибок
+#SBATCH --output=/home/echernyak/graph_entity_linking/graphmel/logs/pretrain_graphsage_sapbert_multilingual_full/multilingual_pretrain_graphsage_mbert_article_1_layer_cosine_0.1.txt       # Файл для вывода результатов
 #SBATCH --time=40:59:59                      # Максимальное время выполнения
 #SBATCH --cpus-per-task=2                   # Количество CPU на одну задачу
 #SBATCH --gpus=4                   # Требуемое количество GPU
@@ -19,7 +19,7 @@ python /home/echernyak/graph_entity_linking/graphmel/scripts/self_alignment_pret
 --graphsage_num_neighbors 3 \
 --text_loss_weight 1.0 \
 --graph_loss_weight 0.1 \
---modality_distance "MSE" \
+--modality_distance "cosine" \
 --intermodal_loss_weight 0.1 \
 --remove_selfloops \
 --max_length=32 \
