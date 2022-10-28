@@ -11,7 +11,7 @@
 
 export CUDA_VISIBLE_DEVICES=0,1
 nvidia-smi
-python /home/echernyak/graph_entity_linking/graphmel/scripts/self_alignment_pretraining/train_graphsage_dgi_sapbert.py --train_dir="/home/echernyak/graph_entity_linking/pos_pairs_graph_data/2020AB/ENG_FRE_GER_SPA_DUT_RUS_MULTILINGUAL_FULL/" \
+python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_alignment_pretraining/train_graphsage_dgi_sapbert.py --train_dir="/home/echernyak/graph_entity_linking/pos_pairs_graph_data/2020AB/ENG_FRE_GER_SPA_DUT_RUS_MULTILINGUAL_FULL/" \
 --text_encoder="/home/echernyak/graph_entity_linking/huggingface_models/bert-base-multilingual-uncased" \
 --dataloader_num_workers=0 \
 --graphsage_num_outer_layers 1 \
