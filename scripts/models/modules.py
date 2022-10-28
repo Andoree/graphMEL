@@ -1,13 +1,15 @@
+import logging
+
 import torch
 from torch import nn as nn
 from torch.nn import functional as F, Parameter
-from torch_geometric.nn import SAGEConv, FastRGCNConv, RGCNConv, GATv2Conv
+from torch_geometric.nn import SAGEConv, FastRGCNConv, RGCNConv, GATv2Conv, DataParallel
 from torch_geometric.nn.inits import glorot
 
 
 class GraphSAGEEncoder(nn.Module):
     def __init__(self, in_channels, num_outer_layers: int, num_inner_layers: int, num_hidden_channels,
-                 dropout_p: float, set_out_input_dim_equal: bool = False):
+                 dropout_p: float, set_out_input_dim_equal: bool = False, parallel=False):
         super().__init__()
         self.convs = nn.ModuleList()
         self.num_outer_layers = num_outer_layers
@@ -24,7 +26,11 @@ class GraphSAGEEncoder(nn.Module):
                 output_num_channels = num_hidden_channels
                 if set_out_input_dim_equal and (i == num_outer_layers - 1) and (j == num_inner_layers - 1):
                     output_num_channels = in_channels
-                sage_conv = SAGEConv(input_num_channels, output_num_channels)
+                # TODO: Если многопоточная версия упадёт, то вот эти строки всему виной
+                if parallel:
+                    sage_conv = DataParallel(SAGEConv(input_num_channels, output_num_channels))
+                else:
+                    sage_conv = SAGEConv(input_num_channels, output_num_channels)
                 inner_convs.append(sage_conv)
 
             self.convs.append(inner_convs)
@@ -120,8 +126,8 @@ class GATv2Encoder(nn.Module):
     def __init__(self, in_channels, num_outer_layers: int, num_inner_layers: int, num_hidden_channels, dropout_p: float,
                  num_relations: int, num_att_heads: int, attention_dropout_p: float, set_out_input_dim_equal):
         super().__init__()
-
         self.num_outer_layers = num_outer_layers
+
         self.num_inner_layers = num_inner_layers
         self.num_att_heads = num_att_heads
         self.num_hidden_channels = num_hidden_channels
@@ -135,7 +141,9 @@ class GATv2Encoder(nn.Module):
                 output_num_channels = num_hidden_channels
                 if set_out_input_dim_equal and (i == num_outer_layers - 1) and (j == num_inner_layers - 1):
                     output_num_channels = in_channels
-                gat_conv = GATv2Conv(in_channels=input_num_channels, out_channels=output_num_channels,
+                assert output_num_channels % num_att_heads == 0
+                gat_head_output_size = output_num_channels // num_att_heads
+                gat_conv = GATv2Conv(in_channels=input_num_channels, out_channels=gat_head_output_size,
                                      heads=num_att_heads, dropout=attention_dropout_p,
                                      add_self_loops=False, edge_dim=in_channels, share_weights=True)
                 inner_convs.append(gat_conv)

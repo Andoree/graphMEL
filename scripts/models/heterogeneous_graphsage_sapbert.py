@@ -10,6 +10,8 @@ from torch.nn import functional as F
 from torch_geometric.nn import SAGEConv
 import torch.nn.functional as F
 
+from graphmel.scripts.models.abstract_graphsapbert_model import AbstractGraphSapMetricLearningModel
+from graphmel.scripts.models.modules import ModalityDistanceLoss
 from graphmel.scripts.self_alignment_pretraining.dgi import Float32DeepGraphInfomaxV2
 
 
@@ -17,6 +19,7 @@ class HeterogeneousGraphSAGE(torch.nn.Module):
     def __init__(self, num_layers, hidden_channels, dropout_p):
         super().__init__()
         self.convs = torch.nn.ModuleList()
+        # TODO: Оставил так, но может быть всё-таки подумать: точно должна быть ReLU?
         self.relu = nn.ReLU(inplace=True)
         self.dropout_p = dropout_p
         for i in range(num_layers):
@@ -26,16 +29,17 @@ class HeterogeneousGraphSAGE(torch.nn.Module):
     def forward(self, x_dict, edge_index_dict):
         for i, conv in enumerate(self.convs):
             x_dict = conv(x_dict, edge_index_dict)
-            self.relu(x_dict["SRC"])
             if i != len(self.convs) - 1:
+                self.relu(x_dict["SRC"])
                 F.dropout(x_dict["SRC"], p=self.dropout_p, training=self.training, inplace=True)
         return x_dict
 
 
-class HeteroGraphSAGENeighborsSapMetricLearning(nn.Module):
+class HeteroGraphSAGENeighborsSapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel):
     def __init__(self, bert_encoder, num_graphsage_layers: int, graphsage_hidden_channels: int,
-                 graphsage_dropout_p: float, use_cuda, loss, graph_loss_weight: float,
-                 multigpu_flag, use_miner=True, miner_margin=0.2, type_of_triplets="all", agg_mode="cls"):
+                 graph_loss_weight: float, intermodal_loss_weight: float, graphsage_dropout_p: float, use_cuda,
+                 loss, multigpu_flag, use_miner=True, miner_margin=0.2, type_of_triplets="all", agg_mode="cls",
+                 sapbert_loss_weight: float = 1.0, modality_distance=None):
 
         logging.info(
             "Sap_Metric_Learning! use_cuda={} loss={} use_miner={} miner_margin={} type_of_triplets={} agg_mode={}"
@@ -55,10 +59,25 @@ class HeteroGraphSAGENeighborsSapMetricLearning(nn.Module):
             self.bert_encoder = nn.DataParallel(bert_encoder)
         else:
             self.bert_encoder = bert_encoder
+        self.graph_loss_weight = graph_loss_weight
+        self.sapbert_loss_weight = sapbert_loss_weight
+        self.intermodal_loss_weight = intermodal_loss_weight
+        self.modality_distance = modality_distance
+
+        if modality_distance == "sapbert":
+            if self.use_miner:
+                self.intermodal_miner = miners.TripletMarginMiner(margin=miner_margin,
+                                                                  type_of_triplets=type_of_triplets)
+            else:
+                self.intermodal_miner = None
+            self.intermodal_loss = losses.MultiSimilarityLoss(alpha=2, beta=50, base=0.5)
+
+        elif modality_distance is not None:
+            self.intermodal_loss = ModalityDistanceLoss(dist_name=modality_distance)
+
         self.graphsage_hidden_channels = graphsage_hidden_channels
         self.num_graphsage_layers = num_graphsage_layers
         self.graphsage_dropout_p = graphsage_dropout_p
-        self.graph_loss_weight = graph_loss_weight
         self.hetero_graphsage = HeterogeneousGraphSAGE(num_layers=num_graphsage_layers,
                                                        hidden_channels=graphsage_hidden_channels,
                                                        dropout_p=graphsage_dropout_p)
@@ -96,71 +115,24 @@ class HeteroGraphSAGENeighborsSapMetricLearning(nn.Module):
 
         return emb
 
-    @autocast()
-    def graph_loss(self, x_dict_1, edge_index_dict, x_dict_2, concept_ids, batch_size, ):
-
-        graph_emb_1 = self.hetero_graphsage(x_dict=x_dict_1, edge_index_dict=edge_index_dict, )["SRC"]
-        assert graph_emb_1.size(0) == batch_size
-        graph_emb_2 = self.hetero_graphsage(x_dict=x_dict_2, edge_index_dict=edge_index_dict, )["SRC"]
-        assert graph_emb_2.size(0) == batch_size
-        graph_embed = torch.cat([graph_emb_1, graph_emb_2], dim=0)
-        labels = torch.cat([concept_ids, concept_ids], dim=0)
-        if self.use_miner:
-            hard_pairs_graph = self.miner(graph_embed, labels)
-            graph_loss = self.loss(graph_embed, labels, hard_pairs_graph)
-        else:
-            graph_loss = self.loss(graph_embed, labels, )
-        return graph_loss * self.graph_loss_weight
-
-
+    def graph_encode(self, x_dict, edge_index_dict, batch_size):
+        graph_emb = self.hetero_graphsage(x_dict=x_dict, edge_index_dict=edge_index_dict, )["SRC"]
+        assert graph_emb.size(0) == batch_size
+        return graph_emb
 
     @autocast()
-    def forward(self, query_embed1, query_embed2, concept_ids, batch_size):
+    def forward(self, text_embed_1, text_embed_2, concept_ids,
+                graph_embed_1, graph_embed_2, batch_size):
         """
         query : (N, h), candidates : (N, topk, h)
 
         output : (N, topk)
         """
 
-        query_embed1 = query_embed1[:batch_size]
-        query_embed2 = query_embed2[:batch_size]
-
-        query_embed = torch.cat([query_embed1, query_embed2], dim=0)
         labels = torch.cat([concept_ids, concept_ids], dim=0)
+        text_loss = self.calculate_sapbert_loss(text_embed_1, text_embed_2, labels, batch_size)
+        graph_loss = self.calculate_sapbert_loss(graph_embed_1, graph_embed_2, labels, batch_size)
+        intermodal_loss = self.calculate_intermodal_loss(text_embed_1, text_embed_2, graph_embed_1, graph_embed_2,
+                                                         labels, batch_size)
 
-        if self.use_miner:
-            hard_pairs = self.miner(query_embed, labels)
-            sapbert_loss = self.loss(query_embed, labels, hard_pairs)
-        else:
-            sapbert_loss = self.loss(query_embed, labels)
-
-        return sapbert_loss
-
-    @autocast()
-    def sapbert_loss(self, term_1_input_ids, term_1_att_masks, term_2_input_ids, term_2_att_masks, concept_ids,
-                     batch_size):
-        """
-        query : (N, h), candidates : (N, topk, h)
-
-        output : (N, topk)
-        """
-
-        query_embed1 = self.bert_encoder(term_1_input_ids, attention_mask=term_1_att_masks,
-                                         return_dict=True)['last_hidden_state'][:batch_size, 0]
-        query_embed2 = self.bert_encoder(term_2_input_ids, attention_mask=term_2_att_masks,
-                                         return_dict=True)['last_hidden_state'][:batch_size, 0]
-        query_embed = torch.cat([query_embed1, query_embed2], dim=0)
-        labels = torch.cat([concept_ids, concept_ids], dim=0)
-
-        if self.use_miner:
-            hard_pairs = self.miner(query_embed, labels)
-            sapbert_loss = self.loss(query_embed, labels, hard_pairs)
-        else:
-            sapbert_loss = self.loss(query_embed, labels)
-        return sapbert_loss
-
-    def get_loss(self, outputs, targets):
-        if self.use_cuda:
-            targets = targets.cuda()
-        loss, in_topk = self.criterion(outputs, targets)
-        return loss, in_topk
+        return text_loss, graph_loss, intermodal_loss

@@ -163,7 +163,7 @@ def train_graphsage_sapbert(model: GraphSAGESapMetricLearning, train_loader: Pos
         losses_dict["sapbert"] += float(sapbert_loss)
         losses_dict["graph"] += float(graph_loss)
         losses_dict["intermodal"] += float(intermodal_loss)
-        losses_dict = {key: lo / (num_steps + 1e-9) for key, lo in losses_dict.items()}
+    losses_dict = {key: lo / (num_steps + 1e-9) for key, lo in losses_dict.items()}
 
     return losses_dict["total"], num_steps
 

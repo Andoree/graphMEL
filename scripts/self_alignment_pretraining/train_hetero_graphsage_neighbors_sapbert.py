@@ -55,6 +55,9 @@ def parse_args():
     parser.add_argument('--graph_loss_weight', type=float, )
     parser.add_argument('--add_self_loops', action="store_true")
     parser.add_argument('--filter_rel_types', action="store_true")
+    parser.add_argument('--intermodal_loss_weight', type=float, required=False)
+    parser.add_argument('--modality_distance', type=str, required=False, choices=(None, "sapbert", "cosine", "MSE"))
+    parser.add_argument('--text_loss_weight', type=float, required=False, default=1.0)
 
     # Tokenizer settings
     parser.add_argument('--max_length', default=25, type=int)
@@ -96,8 +99,9 @@ def parse_args():
     return args
 
 
-def heterogeneous_graphsage_neighbors_sapbert_train_step(model: HeteroGraphSAGENeighborsSapMetricLearning, batch, amp, device,
-                                                   add_self_loops):
+def heterogeneous_graphsage_neighbors_sapbert_train_step(model: HeteroGraphSAGENeighborsSapMetricLearning, batch, amp,
+                                                         device,
+                                                         add_self_loops):
     term_1_input_ids, term_1_att_masks = batch["term_1_input"]
     term_1_input_ids, term_1_att_masks = term_1_input_ids.to(device), term_1_att_masks.to(device)
     term_2_input_ids, term_2_att_masks = batch["term_2_input"]
@@ -106,12 +110,10 @@ def heterogeneous_graphsage_neighbors_sapbert_train_step(model: HeteroGraphSAGEN
     nodes_bert_input = batch["nodes_bert_input"]
     batch_size = batch["batch_size"]
     hetero_dataset = batch["hetero_dataset"]
-
     for node_type, bert_input in nodes_bert_input.items():
         bert_input_ids, bert_att_masks = bert_input
         bert_input_ids, bert_att_masks = bert_input_ids.to(device), bert_att_masks.to(device)
         bert_features = model.bert_encode(input_ids=bert_input_ids, att_masks=bert_att_masks)
-
         if node_type != "SRC":
             hetero_dataset[node_type].x = bert_features
 
@@ -127,57 +129,54 @@ def heterogeneous_graphsage_neighbors_sapbert_train_step(model: HeteroGraphSAGEN
     x_dict_2 = {node_type: x for node_type, x in x_dict_1.items() if node_type != "SRC"}
     x_dict_2["SRC"] = term_2_node_features
 
-    if amp:
-        with autocast():
-            sapbert_loss = model(query_embed1=term_1_node_features, query_embed2=term_2_node_features,
-                                 concept_ids=concept_ids, batch_size=batch_size)
-            graph_loss = model.graph_loss(x_dict_1=x_dict_1, x_dict_2=x_dict_2, concept_ids=concept_ids,
-                                          edge_index_dict=hetero_dataset.edge_index_dict,
-                                          batch_size=batch_size, )
-    else:
-        sapbert_loss = model(query_embed1=term_1_node_features, query_embed2=term_2_node_features,
-                             concept_ids=concept_ids, batch_size=batch_size)
-        graph_loss = model.graph_loss(x_dict_1=x_dict_1, x_dict_2=x_dict_2, concept_ids=concept_ids,
-                                      edge_index_dict=hetero_dataset.edge_index_dict,
-                                      batch_size=batch_size, )
-
-    loss = sapbert_loss + graph_loss
-
-    return loss
-
-
-def heterogeneous_graphsage_neighbors_sapbert_eval_step(model: HeteroGraphSAGENeighborsSapMetricLearning, batch, amp, device):
-    term_1_input_ids, term_1_att_masks = batch["term_1_input"]
-    term_1_input_ids, term_1_att_masks = term_1_input_ids.to(device), term_1_att_masks.to(device)
-    term_2_input_ids, term_2_att_masks = batch["term_2_input"]
-    term_2_input_ids, term_2_att_masks = term_2_input_ids.to(device), term_2_att_masks.to(device)
-
-    concept_ids = batch["concept_ids"].to(device)
-    batch_size = batch["batch_size"]
+    graph_embed_1 = model.graph_encode(x_dict=x_dict_1, edge_index_dict=hetero_dataset.edge_index_dict,
+                                       batch_size=batch_size)
+    graph_embed_2 = model.graph_encode(x_dict=x_dict_2, edge_index_dict=hetero_dataset.edge_index_dict,
+                                       batch_size=batch_size)
 
     if amp:
         with autocast():
-            sapbert_loss = model.sapbert_loss(term_1_input_ids=term_1_input_ids, term_1_att_masks=term_1_att_masks,
-                                              term_2_input_ids=term_2_input_ids, term_2_att_masks=term_2_att_masks,
-                                              concept_ids=concept_ids, batch_size=batch_size)
+
+            text_loss, graph_loss, intermodal_loss = model(text_embed_1=term_1_node_features,
+                                                           text_embed_2=term_2_node_features,
+                                                           concept_ids=concept_ids, batch_size=batch_size,
+                                                           graph_embed_1=graph_embed_1, graph_embed_2=graph_embed_2, )
     else:
-        sapbert_loss = model.sapbert_loss(term_1_input_ids=term_1_input_ids, term_1_att_masks=term_1_att_masks,
-                                          term_2_input_ids=term_2_input_ids, term_2_att_masks=term_2_att_masks,
-                                          concept_ids=concept_ids, batch_size=batch_size)
-    return sapbert_loss
+        text_loss, graph_loss, intermodal_loss = model(text_embed_1=term_1_node_features,
+                                                       text_embed_2=term_2_node_features,
+                                                       concept_ids=concept_ids, batch_size=batch_size,
+                                                       graph_embed_1=graph_embed_1, graph_embed_2=graph_embed_2, )
+
+    return text_loss, graph_loss, intermodal_loss
 
 
 def train_heterogeneous_graphsage_neighbors_sapbert(model: HeteroGraphSAGENeighborsSapMetricLearning,
-                                              train_loader: HeterogeneousPositivePairNeighborSampler,
-                                              optimizer: torch.optim.Optimizer, scaler, amp, device, **kwargs):
+                                                    train_loader: HeterogeneousPositivePairNeighborSampler,
+                                                    optimizer: torch.optim.Optimizer, scaler, amp, device, **kwargs):
     add_self_loops = kwargs["add_self_loops"]
+    # TODO: Тут потом будет ещё и DGI лосс
     model.train()
-    total_loss = 0
+    # total_loss = 0
+    losses_dict = {"total": 0, "sapbert": 0, "graph": 0, "intermodal": 0}
     num_steps = 0
-    for batch in tqdm(train_loader, miniters=len(train_loader) // 100, total=len(train_loader)):
+    pbar = tqdm(train_loader, miniters=len(train_loader) // 100, total=len(train_loader))
+    for batch in pbar:
         optimizer.zero_grad()
-        loss = heterogeneous_graphsage_neighbors_sapbert_train_step(model=model, batch=batch, amp=amp, device=device,
-                                                              add_self_loops=add_self_loops)
+        sapbert_loss, graph_loss, intermodal_loss = \
+            heterogeneous_graphsage_neighbors_sapbert_train_step(model=model, batch=batch, amp=amp, device=device,
+                                                                 add_self_loops=add_self_loops)
+
+        sapbert_loss = sapbert_loss * model.sapbert_loss_weight
+        graph_loss = graph_loss * model.graph_loss_weight
+        intermodal_loss = intermodal_loss * model.intermodal_loss_weight
+        if intermodal_loss is not None:
+            intermodal_loss = intermodal_loss * model.intermodal_loss_weight
+            loss = sapbert_loss + graph_loss + intermodal_loss
+        else:
+            loss = sapbert_loss + graph_loss
+            intermodal_loss = -1.
+        pbar.set_description(f"L: {float(loss):.5f} ({float(sapbert_loss):.5f} + "
+                             f"{float(graph_loss):.5f} + {float(intermodal_loss):.5f})")
         if amp:
             scaler.scale(loss).backward()
             scaler.step(optimizer)
@@ -186,26 +185,13 @@ def train_heterogeneous_graphsage_neighbors_sapbert(model: HeteroGraphSAGENeighb
             loss.backward()
             optimizer.step()
         num_steps += 1
-        total_loss += float(loss)
-    total_loss /= (num_steps + 1e-9)
+        losses_dict["total"] += float(loss)
+        losses_dict["sapbert"] += float(sapbert_loss)
+        losses_dict["graph"] += float(graph_loss)
+        losses_dict["intermodal"] += float(intermodal_loss)
+    losses_dict = {key: lo / (num_steps + 1e-9) for key, lo in losses_dict.items()}
 
-    return total_loss, num_steps
-
-
-def val_heterogeneous_graphsage_neighbors_sapbert(model: HeteroGraphSAGENeighborsSapMetricLearning,
-                                            val_loader: HeterogeneousPositivePairNeighborSampler,
-                                            amp, device, **kwargs):
-    model.eval()
-    total_loss = 0
-    num_steps = 0
-    with torch.no_grad():
-        for batch in tqdm(val_loader, miniters=len(val_loader) // 100, total=len(val_loader)):
-            loss = heterogeneous_graphsage_neighbors_sapbert_eval_step(model=model, batch=batch, amp=amp, device=device)
-            num_steps += 1
-            total_loss += float(loss)
-            # wandb.log({"Val loss": loss.item()})
-    total_loss /= (num_steps + 1e-9)
-    return total_loss
+    return losses_dict["total"], num_steps
 
 
 def initialize_hetero_graph_sapbert_model(model: HeteroGraphSAGENeighborsSapMetricLearning, hetero_dataset: HeteroData,
@@ -224,6 +210,7 @@ def initialize_hetero_graph_sapbert_model(model: HeteroGraphSAGENeighborsSapMetr
 
     model.hetero_graphsage = to_hetero(model.hetero_graphsage, het_data.metadata(), aggr="mean")
     model.eval()
+
     with torch.no_grad():
         model.hetero_graphsage(het_data.x_dict, het_data.edge_index_dict)
     logging.info("Heterogeneous GraphSAGE model has been initialized.")
@@ -232,11 +219,13 @@ def initialize_hetero_graph_sapbert_model(model: HeteroGraphSAGENeighborsSapMetr
 def main(args):
     print(args)
     output_dir = args.output_dir
-
-    output_subdir = f"graphsage_n-{args.graphsage_num_neighbors}_l-{args.num_graphsage_layers}_" \
+    # TODO: Через какое-то время здесь и не только здесь добавится DGI
+    output_subdir = f"graphsage_n-{args.graphsage_num_neighbors}_l-{args.num_graphsage_layers}" \
+                    f"text_{args.text_loss_weight}_intermodal_{args.modality_distance}_{args.intermodal_loss_weight}" \
                     f"c-{args.graphsage_hidden_channels}_p-{args.graphsage_dropout_p}_add_loops_{args.add_self_loops}" \
                     f"filt_rel_{args.filter_rel_types}_graph_loss_{args.graph_loss_weight}_lr_{args.learning_rate}_" \
                     f"b_{args.batch_size}"
+
     output_dir = os.path.join(output_dir, output_subdir)
     if not os.path.exists(output_dir) and output_dir != '':
         os.makedirs(output_dir)
@@ -307,7 +296,6 @@ def main(args):
         batch_size=args.batch_size, num_workers=args.dataloader_num_workers, shuffle=True, )
 
     val_pos_pair_sampler = None
-    val_epoch_fn = None
     if args.validate:
         val_positive_pairs_path = os.path.join(args.train_dir, f"val_pos_pairs")
         val_pos_pairs_term_1_list, val_pos_pairs_term_2_list, val_pos_pairs_concept_ids = \
@@ -322,13 +310,12 @@ def main(args):
         val_num_pos_pairs = len(val_pos_pairs_term_1_id_list)
         # val_pos_pairs_idx = torch.LongTensor(range(val_num_pos_pairs))
         val_pos_pair_sampler = HeterogeneousPositivePairNeighborSamplerV2(
-        pos_pairs_term_1_id_list=val_pos_pairs_term_1_id_list, edge_index=edge_index,
-        pos_pairs_term_2_id_list=val_pos_pairs_term_2_id_list, num_samples=args.graphsage_num_neighbors,
-        pos_pairs_concept_ids_list=val_pos_pairs_concept_ids, emb_size=bert_encoder.config.hidden_size,
-        node_id2sem_group=node_id2sem_group, term_id2tokenizer_output=val_term_id2tok_out, rel_ids=edge_rel_ids,
-        node_id2token_ids_dict=node_id2token_ids_dict, seq_max_length=args.max_length,
-        batch_size=args.batch_size, num_workers=args.dataloader_num_workers, shuffle=False, )
-        val_epoch_fn = val_heterogeneous_graphsage_neighbors_sapbert
+            pos_pairs_term_1_id_list=val_pos_pairs_term_1_id_list, edge_index=edge_index,
+            pos_pairs_term_2_id_list=val_pos_pairs_term_2_id_list, num_samples=args.graphsage_num_neighbors,
+            pos_pairs_concept_ids_list=val_pos_pairs_concept_ids, emb_size=bert_encoder.config.hidden_size,
+            node_id2sem_group=node_id2sem_group, term_id2tokenizer_output=val_term_id2tok_out, rel_ids=edge_rel_ids,
+            node_id2token_ids_dict=node_id2token_ids_dict, seq_max_length=args.max_length,
+            batch_size=args.batch_size, num_workers=args.dataloader_num_workers, shuffle=False, )
     device = torch.device('cuda:0' if args.use_cuda else 'cpu')
     if args.amp:
         scaler = GradScaler()
@@ -340,6 +327,9 @@ def main(args):
                                                       graphsage_dropout_p=args.graphsage_dropout_p,
                                                       graph_loss_weight=args.graph_loss_weight,
                                                       use_cuda=args.use_cuda, loss=args.loss,
+                                                      sapbert_loss_weight=args.text_loss_weight,
+                                                      modality_distance=args.modality_distance,
+                                                      intermodal_loss_weight=args.intermodal_loss_weight,
                                                       multigpu_flag=args.parallel, use_miner=args.use_miner,
                                                       miner_margin=args.miner_margin,
                                                       type_of_triplets=args.type_of_triplets,
@@ -352,7 +342,7 @@ def main(args):
 
     start = time.time()
     train_graph_sapbert_model(model=model, train_epoch_fn=train_heterogeneous_graphsage_neighbors_sapbert,
-                              val_epoch_fn=val_epoch_fn, train_loader=train_pos_pair_sampler,
+                              train_loader=train_pos_pair_sampler,
                               val_loader=val_pos_pair_sampler, learning_rate=args.learning_rate,
                               weight_decay=args.weight_decay, num_epochs=args.num_epochs, output_dir=output_dir,
                               save_chkpnt_epoch_interval=args.save_every_N_epoch,
