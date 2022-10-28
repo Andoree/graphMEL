@@ -5,7 +5,7 @@
 #SBATCH --time=09:50:00                      # Максимальное время выполнения
 #SBATCH --cpus-per-task=1                   # Количество CPU на одну задачу
 
-python /home/echernyak/graph_entity_linking/graphmel/scripts/self_alignment_pretraining/create_positive_triplets_dataset.py --mrconso "/home/echernyak/graph_entity_linking/UMLS/2020AB/MRCONSO.RRF" \
+python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_alignment_pretraining/create_positive_triplets_dataset.py --mrconso "/home/echernyak/graph_entity_linking/UMLS/2020AB/MRCONSO.RRF" \
 --mrrel "/home/echernyak/graph_entity_linking/UMLS/2020AB/MRREL.RRF" \
 --langs "ENG" "FRE" "GER" "SPA" "DUT" "RUS" \
 --output_dir "/home/echernyak/graph_entity_linking/pos_pairs_graph_data/2020AB/MULTILINGUAL_FULL/"
