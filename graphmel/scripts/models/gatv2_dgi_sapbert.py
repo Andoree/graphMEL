@@ -15,7 +15,7 @@ from graphmel.scripts.self_alignment_pretraining.dgi import Float32DeepGraphInfo
 class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, AbstractDGIModel):
     def __init__(self, bert_encoder, gat_num_outer_layers: int, gat_num_inner_layers, gat_dropout_p: float,
                  gat_num_hidden_channels: int, gat_num_att_heads: int, gat_attention_dropout_p: float,
-                 num_relations: Union[int, None], dgi_loss_weight: float,
+                 num_relations: Union[int, None], graph_loss_weight: float, dgi_loss_weight: float,
                  intermodal_loss_weight: float, use_cuda, loss, multigpu_flag, use_miner=True, miner_margin=0.2,
                  type_of_triplets="all", agg_mode="cls", sapbert_loss_weight: float = 1., modality_distance=None):
 
@@ -39,6 +39,7 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
         self.gat_num_inner_layers = gat_num_inner_layers
 
         self.sapbert_loss_weight = sapbert_loss_weight
+        self.graph_loss_weight = graph_loss_weight
         self.dgi_loss_weight = dgi_loss_weight
         self.intermodal_loss_weight = intermodal_loss_weight
         self.modality_distance = modality_distance
@@ -105,7 +106,9 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
         dgi_loss_1 = self.dgi.loss(pos_graph_embs_1, neg_graph_embs_1, graph_summary_1)
         dgi_loss_2 = self.dgi.loss(pos_graph_embs_2, neg_graph_embs_2, graph_summary_2)
 
+        graph_loss = self.calculate_sapbert_loss(pos_graph_embs_1, pos_graph_embs_2, labels, batch_size)
+
         intermodal_loss = self.calculate_intermodal_loss(text_embed_1, text_embed_2, pos_graph_embs_1, pos_graph_embs_2,
                                                          labels, batch_size)
 
-        return text_loss, (dgi_loss_1 + dgi_loss_2) / 2, intermodal_loss
+        return text_loss, graph_loss, (dgi_loss_1 + dgi_loss_2) / 2, intermodal_loss

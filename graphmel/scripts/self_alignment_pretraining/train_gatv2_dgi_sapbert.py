@@ -53,6 +53,7 @@ def parse_args():
     parser.add_argument('--gat_dropout_p', type=float)
     parser.add_argument('--gat_attention_dropout_p', type=float)
     parser.add_argument('--use_rel_or_rela', type=str, choices=['rel', 'rela', ])
+    parser.add_argument('--graph_loss_weight', type=float, )
     parser.add_argument('--dgi_loss_weight', type=float)
     parser.add_argument('--remove_selfloops', action="store_true")
     parser.add_argument('--text_loss_weight', type=float, required=False, default=1.0)
@@ -117,43 +118,45 @@ def gatv2_dgi_sapbert_train_step(model: GATv2DGISapMetricLearning, batch, amp, d
 
     if amp:
         with autocast():
-            sapbert_loss, dgi_loss, intermodal_loss = model(term_1_input_ids=term_1_input_ids,
+            sapbert_loss, graph_loss, dgi_loss, intermodal_loss = model(term_1_input_ids=term_1_input_ids,
                                                             term_1_att_masks=term_1_att_masks,
                                                             term_2_input_ids=term_2_input_ids,
                                                             term_2_att_masks=term_2_att_masks,
                                                             concept_ids=concept_ids, adjs=adjs,
                                                             edge_type_list=edge_type_list, batch_size=batch_size)
     else:
-        sapbert_loss, dgi_loss, intermodal_loss = model(term_1_input_ids=term_1_input_ids,
+        sapbert_loss, graph_loss, dgi_loss, intermodal_loss = model(term_1_input_ids=term_1_input_ids,
                                                         term_1_att_masks=term_1_att_masks,
                                                         term_2_input_ids=term_2_input_ids,
                                                         term_2_att_masks=term_2_att_masks,
                                                         concept_ids=concept_ids, adjs=adjs,
                                                         edge_type_list=edge_type_list, batch_size=batch_size)
     # logging.info(f"Train loss: {float(loss)}")
-    return sapbert_loss, dgi_loss, intermodal_loss
+    return sapbert_loss, graph_loss, dgi_loss, intermodal_loss
 
 
 def train_gatv2_dgi_sapbert(model: GATv2DGISapMetricLearning, train_loader: PositivePairNeighborSampler,
                             optimizer: torch.optim.Optimizer, scaler, amp, device, **kwargs):
     model.train()
     # total_loss = 0
-    losses_dict = {"total": 0, "sapbert": 0, "dgi": 0, "intermodal": 0}
+
+    losses_dict = {"total": 0, "sapbert": 0, "graph": 0,  "dgi": 0, "intermodal": 0}
     num_steps = 0
     pbar = tqdm(train_loader, miniters=len(train_loader) // 100, total=len(train_loader))
     for batch in pbar:
         optimizer.zero_grad()
-        sapbert_loss, dgi_loss, intermodal_loss = gatv2_dgi_sapbert_train_step(model=model, batch=batch, amp=amp,
+        sapbert_loss, graph_loss, dgi_loss, intermodal_loss = gatv2_dgi_sapbert_train_step(model=model, batch=batch, amp=amp,
                                                                                device=device)
         sapbert_loss = sapbert_loss * model.sapbert_loss_weight
+        graph_loss = graph_loss * model.graph_loss_weight
         dgi_loss = dgi_loss * model.dgi_loss_weight
         if intermodal_loss is not None:
             intermodal_loss = intermodal_loss * model.intermodal_loss_weight
-            loss = sapbert_loss + dgi_loss + intermodal_loss
+            loss = sapbert_loss + graph_loss + dgi_loss + intermodal_loss
         else:
-            loss = sapbert_loss + dgi_loss
+            loss = sapbert_loss + graph_loss + dgi_loss
             intermodal_loss = -1.
-        pbar.set_description(f"L: {float(loss):.5f} ({float(sapbert_loss):.5f} + "
+        pbar.set_description(f"L: {float(loss):.5f} ({float(sapbert_loss):.5f} + {float(graph_loss):.5f} + "
                              f"{float(dgi_loss):.5f} + {float(intermodal_loss):.5f})")
         if amp:
             scaler.scale(loss).backward()
@@ -165,6 +168,7 @@ def train_gatv2_dgi_sapbert(model: GATv2DGISapMetricLearning, train_loader: Posi
         num_steps += 1
         losses_dict["total"] += float(loss)
         losses_dict["sapbert"] += float(sapbert_loss)
+        losses_dict["graph"] += float(graph_loss)
         losses_dict["dgi"] += float(dgi_loss)
         losses_dict["intermodal"] += float(intermodal_loss)
         # wandb.log({"Train loss": loss.item()})
@@ -179,7 +183,7 @@ def main(args):
     output_dir = args.output_dir
     output_subdir = f"gatv2_{'.'.join((str(x) for x in args.gat_num_neighbors))}_{args.gat_num_hidden_channels}" \
                     f"_{args.gat_num_outer_layers}_{args.gat_num_inner_layers}_{args.gat_dropout_p}_" \
-                    f"{args.gat_num_att_heads}_{args.gat_attention_dropout_p}_" \
+                    f"{args.gat_num_att_heads}_{args.gat_attention_dropout_p}_graph_loss_{args.graph_loss_weight}_" \
                     f"{args.use_rel_or_rela}_remove_loops_{args.remove_selfloops}_dgi_{args.dgi_loss_weight}" \
                     f"_text_loss_{args.text_loss_weight}_intermodal_{args.modality_distance}" \
                     f"_{args.intermodal_loss_weight}_lr_{args.learning_rate}_b_{args.batch_size}"
@@ -299,7 +303,7 @@ def main(args):
                                       gat_attention_dropout_p=args.gat_attention_dropout_p,
                                       gat_dropout_p=args.gat_dropout_p, sapbert_loss_weight=args.text_loss_weight,
                                       num_relations=num_relations, dgi_loss_weight=args.dgi_loss_weight,
-                                      modality_distance=modality_distance,
+                                      graph_loss_weight=args.graph_loss_weight, modality_distance=modality_distance,
                                       intermodal_loss_weight=args.intermodal_loss_weight,
                                       use_cuda=args.use_cuda, loss=args.loss,
                                       multigpu_flag=args.parallel, use_miner=args.use_miner,

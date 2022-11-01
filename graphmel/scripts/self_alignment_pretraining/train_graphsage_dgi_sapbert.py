@@ -147,9 +147,9 @@ def train_graphsage_sapbert(model: GraphSAGEDGISapMetricLearning, train_loader: 
         dgi_loss = dgi_loss * model.dgi_loss_weight
         if intermodal_loss is not None:
             intermodal_loss = intermodal_loss * model.intermodal_loss_weight
-            loss = sapbert_loss + dgi_loss + intermodal_loss
+            loss = sapbert_loss + graph_loss + dgi_loss + intermodal_loss
         else:
-            loss = sapbert_loss + dgi_loss
+            loss = sapbert_loss + graph_loss + dgi_loss
             intermodal_loss = -1.
         pbar.set_description(f"L: {float(loss):.5f} ({float(sapbert_loss):.5f} + {float(graph_loss)} + "
                              f"{float(dgi_loss):.5f} + {float(intermodal_loss):.5f})")

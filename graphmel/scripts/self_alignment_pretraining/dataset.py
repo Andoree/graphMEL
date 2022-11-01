@@ -124,6 +124,8 @@ class PositiveRelationalNeighborSampler(RawNeighborSampler):
 
         neighbor_node_ids = n_id[batch_size:]
 
+        if not isinstance(adjs, list):
+            adjs = [adjs, ]
         e_ids_list = [adj.e_id for adj in adjs]
         rel_ids_list = [self.rel_ids[e_ids] for e_ids in e_ids_list]
 
