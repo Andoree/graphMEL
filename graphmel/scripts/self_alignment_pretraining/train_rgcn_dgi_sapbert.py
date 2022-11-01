@@ -57,6 +57,7 @@ def parse_args():
     parser.add_argument('--dgi_loss_weight', type=float)
     parser.add_argument('--remove_selfloops', action="store_true")
     parser.add_argument('--text_loss_weight', type=float, required=False, default=1.0)
+    parser.add_argument('--graph_loss_weight', type=float, )
     parser.add_argument('--intermodal_loss_weight', type=float, required=False)
     parser.add_argument('--modality_distance', type=str, required=False, choices=(None, "sapbert", "cosine", "MSE"))
 
@@ -116,34 +117,35 @@ def rgcn_dgi_sapbert_train_step(model: RGCNDGISapMetricLearning, batch, amp, dev
 
     if amp:
         with autocast():
-            sapbert_loss, dgi_loss, intermodal_loss = model(term_1_input_ids=term_1_input_ids,
+            sapbert_loss, graph_loss, dgi_loss, intermodal_loss = model(term_1_input_ids=term_1_input_ids,
                                                             term_1_att_masks=term_1_att_masks,
                                                             term_2_input_ids=term_2_input_ids,
                                                             term_2_att_masks=term_2_att_masks,
                                                             concept_ids=concept_ids, adjs=adjs,
                                                             rel_types=rel_types_list, batch_size=batch_size)
     else:
-        sapbert_loss, dgi_loss, intermodal_loss = model(term_1_input_ids=term_1_input_ids,
+        sapbert_loss, graph_loss, dgi_loss, intermodal_loss = model(term_1_input_ids=term_1_input_ids,
                                                         term_1_att_masks=term_1_att_masks,
                                                         term_2_input_ids=term_2_input_ids,
                                                         term_2_att_masks=term_2_att_masks,
                                                         concept_ids=concept_ids, adjs=adjs, rel_types=rel_types_list,
                                                         batch_size=batch_size)
     # logging.info(f"Train loss: {float(loss)}")
-    return sapbert_loss, dgi_loss, intermodal_loss
+    return sapbert_loss, graph_loss, dgi_loss, intermodal_loss
 
 
 def train_rgcn_dgi_sapbert(model: RGCNDGISapMetricLearning, train_loader: PositivePairNeighborSampler,
                            optimizer: torch.optim.Optimizer, scaler, amp, device, **kwargs):
     model.train()
-    losses_dict = {"total": 0, "sapbert": 0, "dgi": 0, "intermodal": 0}
+    losses_dict = {"total": 0, "sapbert": 0, "graph": 0, "dgi": 0, "intermodal": 0}
     num_steps = 0
     pbar = tqdm(train_loader, miniters=len(train_loader) // 100, total=len(train_loader))
     for batch in pbar:
         optimizer.zero_grad()
-        sapbert_loss, dgi_loss, intermodal_loss = rgcn_dgi_sapbert_train_step(model=model, batch=batch, amp=amp,
-                                                                              device=device)
+        sapbert_loss, graph_loss, dgi_loss, intermodal_loss = rgcn_dgi_sapbert_train_step(model=model, batch=batch,
+                                                                                          amp=amp, device=device)
         sapbert_loss = sapbert_loss * model.sapbert_loss_weight
+        graph_loss = graph_loss * model.graph_loss_weight
         dgi_loss = dgi_loss * model.dgi_loss_weight
         if intermodal_loss is not None:
             intermodal_loss = intermodal_loss * model.intermodal_loss_weight
@@ -151,7 +153,7 @@ def train_rgcn_dgi_sapbert(model: RGCNDGISapMetricLearning, train_loader: Positi
         else:
             loss = sapbert_loss + dgi_loss
             intermodal_loss = -1.
-        pbar.set_description(f"L: {float(loss):.5f} ({float(sapbert_loss):.5f} + "
+        pbar.set_description(f"L: {float(loss):.5f} ({float(sapbert_loss):.5f} + {float(graph_loss):.5f} + "
                              f"{float(dgi_loss):.5f} + {float(intermodal_loss):.5f})")
         if amp:
             scaler.scale(loss).backward()
@@ -163,6 +165,7 @@ def train_rgcn_dgi_sapbert(model: RGCNDGISapMetricLearning, train_loader: Positi
         num_steps += 1
         losses_dict["total"] += float(loss)
         losses_dict["sapbert"] += float(sapbert_loss)
+        losses_dict["graph"] += float(graph_loss)
         losses_dict["dgi"] += float(dgi_loss)
         losses_dict["intermodal"] += float(intermodal_loss)
 
@@ -178,7 +181,7 @@ def main(args):
     conv_type = "fast_rgcn_conv" if args.rgcn_use_fast_conv else "rgcn_conv"
     output_subdir = f"dgi_{args.dgi_loss_weight}_rgcn_{args.rgcn_num_outer_layers}_{args.rgcn_num_inner_layers}" \
                     f"_{args.rgcn_num_neighbors}_text_{args.text_loss_weight}_remove_loops_{args.remove_selfloops}" \
-                    f"_intermodal_{args.modality_distance}_{args.intermodal_loss_weight}" \
+                    f"graph_loss_{args.graph_loss_weight}_intermodal_{args.modality_distance}_{args.intermodal_loss_weight}" \
                     f"_{args.rgcn_dropout_p}_{args.rgcn_num_hidden_channels}--{args.rgcn_num_bases}-" \
                     f"{args.rgcn_num_blocks}_{args.use_rel_or_rela}_lr_{args.learning_rate}_b_{args.batch_size}" \
                     f"_{conv_type}"
@@ -287,14 +290,14 @@ def main(args):
     else:
         scaler = None
 
-
     model = RGCNDGISapMetricLearning(bert_encoder, num_rgcn_channels=args.rgcn_num_hidden_channels,
                                      dgi_loss_weight=args.dgi_loss_weight, rgcn_dropout_p=args.rgcn_dropout_p,
                                      num_relations=num_relations, num_bases=args.rgcn_num_bases,
                                      num_blocks=args.rgcn_num_blocks, use_fast_conv=args.rgcn_use_fast_conv,
                                      num_outer_rgcn_layers=args.rgcn_num_outer_layers,
                                      num_inner_rgcn_layers=args.rgcn_num_inner_layers ,use_cuda=args.use_cuda,
-                                     sapbert_loss_weight=args.text_loss_weight, loss=args.loss,
+                                     sapbert_loss_weight=args.text_loss_weight,
+                                     graph_loss_weight=args.graph_loss_weight, loss=args.loss,
                                      modality_distance=modality_distance,
                                      intermodal_loss_weight=args.intermodal_loss_weight,
                                      multigpu_flag=args.parallel, use_miner=args.use_miner,

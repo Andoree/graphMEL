@@ -13,10 +13,10 @@ from graphmel.scripts.self_alignment_pretraining.dgi import Float32DeepGraphInfo
 
 class RGCNDGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, AbstractDGIModel):
     def __init__(self, bert_encoder, num_outer_rgcn_layers: int, num_inner_rgcn_layers: int, num_rgcn_channels: int,
-                 rgcn_dropout_p: float, dgi_loss_weight: float, intermodal_loss_weight: float, num_relations: int,
-                 num_bases: int, num_blocks: int, use_fast_conv: bool, use_cuda, loss, multigpu_flag, use_miner=True,
-                 miner_margin=0.2, type_of_triplets="all", agg_mode="cls", modality_distance=None,
-                 sapbert_loss_weight: float = 1.0):
+                 rgcn_dropout_p: float, graph_loss_weight: float, dgi_loss_weight: float, intermodal_loss_weight: float,
+                 num_relations: int, num_bases: int, num_blocks: int, use_fast_conv: bool, use_cuda, loss,
+                 multigpu_flag, use_miner=True, miner_margin=0.2, type_of_triplets="all", agg_mode="cls",
+                 modality_distance=None, sapbert_loss_weight: float = 1.0):
 
         logging.info(
             "Sap_Metric_Learning! use_cuda={} loss={} use_miner={} miner_margin={} type_of_triplets={} agg_mode={}".format(
@@ -36,6 +36,7 @@ class RGCNDGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, A
             self.bert_encoder = bert_encoder
 
         self.sapbert_loss_weight = sapbert_loss_weight
+        self.graph_loss_weight = graph_loss_weight
         self.dgi_loss_weight = dgi_loss_weight
         self.intermodal_loss_weight = intermodal_loss_weight
         self.modality_distance = modality_distance
@@ -102,7 +103,9 @@ class RGCNDGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, A
         dgi_loss_1 = self.dgi.loss(pos_graph_embs_1, neg_graph_embs_1, graph_summary_1)
         dgi_loss_2 = self.dgi.loss(pos_graph_embs_2, neg_graph_embs_2, graph_summary_2)
 
+        graph_loss = self.calculate_sapbert_loss(pos_graph_embs_1, pos_graph_embs_2, labels, batch_size)
+
         intermodal_loss = self.calculate_intermodal_loss(text_embed_1, text_embed_2, pos_graph_embs_1, pos_graph_embs_2,
                                                          labels, batch_size)
 
-        return text_loss, (dgi_loss_1 + dgi_loss_2) / 2, intermodal_loss
+        return text_loss, graph_loss, (dgi_loss_1 + dgi_loss_2) / 2, intermodal_loss
