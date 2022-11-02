@@ -149,7 +149,7 @@ def train_rgcn_dgi_sapbert(model: RGCNDGISapMetricLearning, train_loader: Positi
         dgi_loss = dgi_loss * model.dgi_loss_weight
         if intermodal_loss is not None:
             intermodal_loss = intermodal_loss * model.intermodal_loss_weight
-            loss = sapbert_loss + dgi_loss + intermodal_loss
+            loss = sapbert_loss + graph_loss + dgi_loss + intermodal_loss
         else:
             loss = sapbert_loss + dgi_loss
             intermodal_loss = -1.
