@@ -22,7 +22,6 @@ python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_align
 --intermodal_loss_weight 0.1 \
 --graph_loss_weight 0.1 \
 --modality_distance "sapbert" \
---use_intermodal_miner "no" \
 --text_loss_weight 1.0 \
 --remove_selfloops \
 --max_length=32 \
