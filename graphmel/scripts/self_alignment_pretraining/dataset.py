@@ -796,10 +796,15 @@ class HeterogeneousPositivePairNeighborSamplerV2(HGTLoader):
             node_ids = torch.LongTensor(node_ids).unsqueeze(1)
             # A feature of semantic group's node is the global node id of this node
             hetero_dataset[sem_gr].x = node_ids
+            num_sem_group_nodes = node_ids.size(0)
+            edge_index_range = torch.arange(num_sem_group_nodes, dtype=torch.long)
+            self_loop_edge_index = edge_index_range.repeat(2, 1)
+            hetero_dataset[sem_gr, "SELF-LOOP", sem_gr].edge_index = self_loop_edge_index
         # All source nodes have the same type "SRC"
         t = np.arange(num_nodes)
         t = torch.from_numpy(t).unsqueeze(1)
         hetero_dataset["SRC"].x = t
+
 
         sem_group_rel_dict = {}
         logging.info("Processing edges for heterogeneous dataset")
@@ -888,22 +893,30 @@ class HeterogeneousPositivePairNeighborSamplerV2(HGTLoader):
 
             edge_index_dict[key] = edge_index
 
-        hetero_sub_dataset_bert_input = {}
+        hetero_sub_dataset_bert_input_1 = {}
+        hetero_sub_dataset_bert_input_2 = {}
         for node_type, node_ids in hetero_sub_dataset_x_dict.items():
-            neighbor_input_ids, neighbor_att_masks = node_ids2tokenizer_output(
+            neighbor_input_ids_1, neighbor_att_masks_1 = node_ids2tokenizer_output(
                 batch=node_ids, node_id_to_token_ids_dict=self.node_id2token_ids_dict,
                 seq_max_length=self.seq_max_length)
-            neighbor_input = (neighbor_input_ids, neighbor_att_masks)
-            assert neighbor_input_ids.size() == neighbor_att_masks.size()
-            hetero_sub_dataset_bert_input[node_type] = neighbor_input
+            neighbor_input_ids_2, neighbor_att_masks_2 = node_ids2tokenizer_output(
+                batch=node_ids, node_id_to_token_ids_dict=self.node_id2token_ids_dict,
+                seq_max_length=self.seq_max_length)
+            neighbor_input_1 = (neighbor_input_ids_1, neighbor_att_masks_1)
+            neighbor_input_2 = (neighbor_input_ids_2, neighbor_att_masks_2)
+            assert neighbor_input_ids_1.size() == neighbor_att_masks_1.size()
+            assert neighbor_input_ids_2.size() == neighbor_att_masks_2.size()
+
+            hetero_sub_dataset_bert_input_1[node_type] = neighbor_input_1
+            hetero_sub_dataset_bert_input_2[node_type] = neighbor_input_2
 
         term_1_input = (term_1_input_ids, term_1_att_masks)
         term_2_input = (term_2_input_ids, term_2_att_masks,)
 
         batch_dict = {
             "term_1_input": term_1_input, "term_2_input": term_2_input, "concept_ids": triplet_concept_ids,
-            "hetero_dataset": hetero_sub_dataset, "nodes_bert_input": hetero_sub_dataset_bert_input,
-            "batch_size": batch_size,
+            "hetero_dataset": hetero_sub_dataset, "nodes_bert_input_1": hetero_sub_dataset_bert_input_1,
+            "nodes_bert_input_2": hetero_sub_dataset_bert_input_2, "batch_size": batch_size,
         }
 
         return batch_dict

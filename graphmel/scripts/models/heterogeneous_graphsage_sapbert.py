@@ -15,15 +15,21 @@ from graphmel.scripts.models.modules import ModalityDistanceLoss
 from graphmel.scripts.self_alignment_pretraining.dgi import Float32DeepGraphInfomaxV2
 
 
+
 class HeterogeneousGraphSAGE(torch.nn.Module):
-    def __init__(self, num_layers, hidden_channels, dropout_p):
+    def __init__(self, num_layers, hidden_channels, dropout_p, out_channels, set_out_input_dim_equal: bool):
         super().__init__()
         self.convs = torch.nn.ModuleList()
         # TODO: Оставил так, но может быть всё-таки подумать: точно должна быть ReLU?
         self.relu = nn.ReLU(inplace=True)
+
         self.dropout_p = dropout_p
         for i in range(num_layers):
-            self.convs.append(SAGEConv((-1, -1), hidden_channels))
+            if set_out_input_dim_equal and (i == num_layers - 1):
+                output_num_channels = out_channels
+            else:
+                output_num_channels = hidden_channels
+            self.convs.append(SAGEConv((-1, -1), output_num_channels))
 
     @autocast()
     def forward(self, x_dict, edge_index_dict):
@@ -116,7 +122,10 @@ class HeteroGraphSAGENeighborsSapMetricLearning(nn.Module, AbstractGraphSapMetri
         return emb
 
     def graph_encode(self, x_dict, edge_index_dict, batch_size):
-        graph_emb = self.hetero_graphsage(x_dict=x_dict, edge_index_dict=edge_index_dict, )["SRC"]
+
+        graph_emb = self.hetero_graphsage(x_dict=x_dict, edge_index_dict=edge_index_dict, )
+
+        graph_emb = graph_emb["SRC"]
         assert graph_emb.size(0) == batch_size
         return graph_emb
 

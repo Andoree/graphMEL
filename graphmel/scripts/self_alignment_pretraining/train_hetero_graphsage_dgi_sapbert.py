@@ -52,9 +52,12 @@ def parse_args():
     parser.add_argument('--num_graphsage_layers', type=int)
     parser.add_argument('--graphsage_hidden_channels', type=int)
     parser.add_argument('--graphsage_dropout_p', type=float, )
+    parser.add_argument('--graph_loss_weight', type=float, )
     parser.add_argument('--dgi_loss_weight', type=float)
-    parser.add_argument('--add_self_loops', action="store_true")
-    parser.add_argument('--filter_rel_types', action="store_true")
+    # parser.add_argument('--filter_rel_types', action="store_true")
+    parser.add_argument('--intermodal_loss_weight', type=float, required=False)
+    parser.add_argument('--modality_distance', type=str, required=False, choices=(None, "sapbert", "cosine", "MSE"))
+    parser.add_argument('--text_loss_weight', type=float, required=False, default=1.0)
 
     # Tokenizer settings
     parser.add_argument('--max_length', default=25, type=int)
@@ -102,11 +105,12 @@ def heterogeneous_graphsage_dgi_sapbert_train_step(model: HeteroGraphSageDgiSapM
     term_2_input_ids, term_2_att_masks = batch["term_2_input"]
     term_2_input_ids, term_2_att_masks = term_2_input_ids.to(device), term_2_att_masks.to(device)
     concept_ids = batch["concept_ids"].to(device)
-    nodes_bert_input = batch["nodes_bert_input"]
+    nodes_bert_input_1 = batch["nodes_bert_input_1"]
+    nodes_bert_input_2 = batch["nodes_bert_input_2"]
     batch_size = batch["batch_size"]
     hetero_dataset = batch["hetero_dataset"]
 
-    for node_type, bert_input in nodes_bert_input.items():
+    for node_type, bert_input in nodes_bert_input_1.items():
         bert_input_ids, bert_att_masks = bert_input
         bert_input_ids, bert_att_masks = bert_input_ids.to(device), bert_att_masks.to(device)
         bert_features = model.bert_encode(input_ids=bert_input_ids, att_masks=bert_att_masks)
@@ -116,58 +120,76 @@ def heterogeneous_graphsage_dgi_sapbert_train_step(model: HeteroGraphSageDgiSapM
 
     term_1_node_features = model.bert_encode(input_ids=term_1_input_ids, att_masks=term_1_att_masks)
     term_2_node_features = model.bert_encode(input_ids=term_2_input_ids, att_masks=term_2_att_masks)
-    query_embed_mean = torch.mean(torch.stack((term_1_node_features, term_2_node_features)), dim=0)
-    hetero_dataset["SRC"].x = query_embed_mean
-    # if add_self_loops:
-    #     hetero_dataset = T.AddSelfLoops()(hetero_dataset)
+    hetero_dataset["SRC"].x = term_1_node_features
+
     hetero_dataset = hetero_dataset.to(device)
 
-    dgi_loss = model.dgi_loss(x_dict=hetero_dataset.x_dict,
-                              edge_index_dict=hetero_dataset.edge_index_dict, batch_size=batch_size, )
+    pos_graph_embed_1, neg_graph_embed_1, graph_summary_1 = model.graph_encode(x_dict=hetero_dataset.x_dict,
+                                                                               edge_index_dict=hetero_dataset.edge_index_dict,
+                                                                               batch_size=batch_size, )
+    for node_type, bert_input in nodes_bert_input_2.items():
+        bert_input_ids, bert_att_masks = bert_input
+        bert_input_ids, bert_att_masks = bert_input_ids.to(device), bert_att_masks.to(device)
+        bert_features = model.bert_encode(input_ids=bert_input_ids, att_masks=bert_att_masks)
+        if node_type != "SRC":
+            hetero_dataset[node_type].x = bert_features
+
+    hetero_dataset["SRC"].x = term_2_node_features
+    pos_graph_embed_2, neg_graph_embed_2, graph_summary_2 = model.graph_encode(x_dict=hetero_dataset.x_dict,
+                                                                               edge_index_dict=hetero_dataset.edge_index_dict,
+                                                                               batch_size=batch_size, )
 
     if amp:
         with autocast():
-            sapbert_loss = model(query_embed1=term_1_node_features, query_embed2=term_2_node_features,
-                                 concept_ids=concept_ids, batch_size=batch_size)
+            sapbert_loss, graph_loss, dgi_loss, intermodal_loss = model(text_embed_1=term_1_node_features,
+                                                                        text_embed_2=term_2_node_features,
+                                                                        concept_ids=concept_ids,
+                                                                        pos_graph_embed_1=pos_graph_embed_1,
+                                                                        pos_graph_embed_2=pos_graph_embed_2,
+                                                                        neg_graph_embed_1=neg_graph_embed_1,
+                                                                        neg_graph_embed_2=neg_graph_embed_2,
+                                                                        graph_summary_1=graph_summary_1,
+                                                                        graph_summary_2=graph_summary_2,
+                                                                        batch_size=batch_size)
     else:
-        sapbert_loss = model(query_embed1=term_1_node_features, query_embed2=term_2_node_features,
-                             concept_ids=concept_ids, batch_size=batch_size)
+        sapbert_loss, graph_loss, dgi_loss, intermodal_loss = model(text_embed_1=term_1_node_features,
+                                                                    text_embed_2=term_2_node_features,
+                                                                    concept_ids=concept_ids,
+                                                                    pos_graph_embed_1=pos_graph_embed_1,
+                                                                    pos_graph_embed_2=pos_graph_embed_2,
+                                                                    neg_graph_embed_1=neg_graph_embed_1,
+                                                                    neg_graph_embed_2=neg_graph_embed_2,
+                                                                    graph_summary_1=graph_summary_1,
+                                                                    graph_summary_2=graph_summary_2,
+                                                                    batch_size=batch_size)
 
-    loss = sapbert_loss + dgi_loss * model.dgi_loss_weight
-
-    return loss
-
-
-def heterogeneous_graphsage_dgi_sapbert_eval_step(model: HeteroGraphSageDgiSapMetricLearning, batch, amp, device):
-    term_1_input_ids, term_1_att_masks = batch["term_1_input"]
-    term_1_input_ids, term_1_att_masks = term_1_input_ids.to(device), term_1_att_masks.to(device)
-    term_2_input_ids, term_2_att_masks = batch["term_2_input"]
-    term_2_input_ids, term_2_att_masks = term_2_input_ids.to(device), term_2_att_masks.to(device)
-
-    concept_ids = batch["concept_ids"].to(device)
-    batch_size = batch["batch_size"]
-
-    if amp:
-        with autocast():
-            sapbert_loss = model.sapbert_loss(term_1_input_ids=term_1_input_ids, term_1_att_masks=term_1_att_masks,
-                                              term_2_input_ids=term_2_input_ids, term_2_att_masks=term_2_att_masks,
-                                              concept_ids=concept_ids, batch_size=batch_size)
-    else:
-        sapbert_loss = model.sapbert_loss(term_1_input_ids=term_1_input_ids, term_1_att_masks=term_1_att_masks,
-                                          term_2_input_ids=term_2_input_ids, term_2_att_masks=term_2_att_masks,
-                                          concept_ids=concept_ids, batch_size=batch_size)
-    return sapbert_loss
+    return sapbert_loss, graph_loss, dgi_loss, intermodal_loss
 
 
 def train_heterogeneous_graphsage_dgi_sapbert(model: HeteroGraphSageDgiSapMetricLearning,
                                               train_loader: HeterogeneousPositivePairNeighborSampler,
                                               optimizer: torch.optim.Optimizer, scaler, amp, device, **kwargs):
     model.train()
-    total_loss = 0
+    # total_loss = 0
+    losses_dict = {"total": 0, "sapbert": 0, "graph": 0, "dgi": 0, "intermodal": 0}
     num_steps = 0
-    for batch in tqdm(train_loader, miniters=len(train_loader) // 100, total=len(train_loader)):
+    pbar = tqdm(train_loader, miniters=len(train_loader) // 100, total=len(train_loader))
+    for batch in pbar:
         optimizer.zero_grad()
-        loss = heterogeneous_graphsage_dgi_sapbert_train_step(model=model, batch=batch, amp=amp, device=device, )
+        sapbert_loss, graph_loss, dgi_loss, intermodal_loss = \
+            heterogeneous_graphsage_dgi_sapbert_train_step(model=model, batch=batch, amp=amp, device=device, )
+        sapbert_loss = sapbert_loss * model.sapbert_loss_weight
+        graph_loss = graph_loss * model.graph_loss_weight
+        dgi_loss = dgi_loss * model.dgi_loss_weight
+        intermodal_loss = intermodal_loss * model.intermodal_loss_weight
+        if intermodal_loss is not None:
+            intermodal_loss = intermodal_loss * model.intermodal_loss_weight
+            loss = sapbert_loss + graph_loss + dgi_loss + intermodal_loss
+        else:
+            loss = sapbert_loss + graph_loss + dgi_loss
+            intermodal_loss = -1.
+        pbar.set_description(f"L: {float(loss):.5f} ({float(sapbert_loss):.5f} + "
+                             f"{float(graph_loss):.5f} + {float(dgi_loss):.5f} + {float(intermodal_loss):.5f})")
         if amp:
             scaler.scale(loss).backward()
             scaler.step(optimizer)
@@ -176,26 +198,15 @@ def train_heterogeneous_graphsage_dgi_sapbert(model: HeteroGraphSageDgiSapMetric
             loss.backward()
             optimizer.step()
         num_steps += 1
-        total_loss += float(loss)
-    total_loss /= (num_steps + 1e-9)
+        losses_dict["total"] += float(loss)
+        losses_dict["sapbert"] += float(sapbert_loss)
+        losses_dict["graph"] += float(graph_loss)
+        losses_dict["dgi"] += float(dgi_loss)
+        losses_dict["intermodal"] += float(intermodal_loss)
+    # total_loss /= (num_steps + 1e-9)
+    losses_dict = {key: lo / (num_steps + 1e-9) for key, lo in losses_dict.items()}
 
-    return total_loss, num_steps
-
-
-def val_heterogeneous_graphsage_dgi_sapbert(model: HeteroGraphSageDgiSapMetricLearning,
-                                            val_loader: HeterogeneousPositivePairNeighborSampler,
-                                            amp, device, **kwargs):
-    model.eval()
-    total_loss = 0
-    num_steps = 0
-    with torch.no_grad():
-        for batch in tqdm(val_loader, miniters=len(val_loader) // 100, total=len(val_loader)):
-            loss = heterogeneous_graphsage_dgi_sapbert_eval_step(model=model, batch=batch, amp=amp, device=device)
-            num_steps += 1
-            total_loss += float(loss)
-            # wandb.log({"Val loss": loss.item()})
-    total_loss /= (num_steps + 1e-9)
-    return total_loss
+    return losses_dict["total"], num_steps
 
 
 def initialize_hetero_graph_sapbert_model(model: HeteroGraphSageDgiSapMetricLearning, hetero_dataset: HeteroData,
@@ -209,23 +220,51 @@ def initialize_hetero_graph_sapbert_model(model: HeteroGraphSageDgiSapMetricLear
     het_data = HeteroData()
     for node_type in all_node_types:
         het_data[node_type].x = torch.zeros((1, emb_size), dtype=torch.float)
+    for node_type in all_node_types:
+        het_data[node_type, "SELF-LOOP", node_type].edge_index = torch.zeros((2, 1), dtype=torch.long)
     for (node_type_1, rel_id, node_type_2) in all_edge_types:
         het_data[node_type_1, str(rel_id), node_type_2].edge_index = torch.zeros((2, 1), dtype=torch.long)
-
+    # het_data = T.AddSelfLoops()(het_data)
+    for key, val in het_data.edge_index_dict.items():
+        logging.info(f"initialize_hetero_graph_sapbert_model {key}={val}")
     model.hetero_graphsage = to_hetero(model.hetero_graphsage, het_data.metadata(), aggr="mean")
     model.eval()
+
     with torch.no_grad():
         model.hetero_graphsage(het_data.x_dict, het_data.edge_index_dict)
     logging.info("Heterogeneous GraphSAGE model has been initialized.")
 
 
+# def initialize_hetero_graph_sapbert_model(model: HeteroGraphSageDgiSapMetricLearning, hetero_dataset: HeteroData,
+#                                           emb_size: int):
+#     logging.info("Initializing heterogeneous GraphSAGE model.")
+#     all_node_types = hetero_dataset.node_types
+#     all_edge_types = hetero_dataset.edge_types
+#     logging.info(f"Num possible node types: {len(all_node_types)}")
+#     logging.info(f"Num possible node, edge type combinations: {len(all_edge_types)}")
+#
+#     het_data = HeteroData()
+#     for node_type in all_node_types:
+#         het_data[node_type].x = torch.zeros((1, emb_size), dtype=torch.float)
+#     for (node_type_1, rel_id, node_type_2) in all_edge_types:
+#         het_data[node_type_1, str(rel_id), node_type_2].edge_index = torch.zeros((2, 1), dtype=torch.long)
+#
+#     model.hetero_graphsage = to_hetero(model.hetero_graphsage, het_data.metadata(), aggr="mean")
+#     model.eval()
+#     with torch.no_grad():
+#         model.hetero_graphsage(het_data.x_dict, het_data.edge_index_dict)
+#     logging.info("Heterogeneous GraphSAGE model has been initialized.")
+
+
 def main(args):
     print(args)
     output_dir = args.output_dir
+
     output_subdir = f"graphsage_n-{args.graphsage_num_neighbors}_l-{args.num_graphsage_layers}_" \
-                    f"c-{args.graphsage_hidden_channels}_p-{args.graphsage_dropout_p}_" \
-                    f"filt_rel_{args.filter_rel_types}_dgi_{args.dgi_loss_weight}_lr_{args.learning_rate}_" \
-                    f"b_{args.batch_size}"
+                    f"c-{args.graphsage_hidden_channels}_p-{args.graphsage_dropout_p}" \
+                    f"_text_{args.text_loss_weight}_graph_{args.graph_loss_weight}_intermodal_{args.modality_distance}" \
+                    f"_{args.intermodal_loss_weight}_dgi_{args.dgi_loss_weight}" \
+                    f"_lr_{args.learning_rate}_b_{args.batch_size}"
     output_dir = os.path.join(output_dir, output_subdir)
     if not os.path.exists(output_dir) and output_dir != '':
         os.makedirs(output_dir)
@@ -255,8 +294,8 @@ def main(args):
                                  text_encoder_seq_length=args.max_length, drop_relations_info=False)
 
     del _
-    if args.filter_rel_types:
-        edge_tuples = filter_edges(edge_tuples=edge_tuples, rel2id=rel2id)
+    # if args.filter_rel_types:
+    #     edge_tuples = filter_edges(edge_tuples=edge_tuples, rel2id=rel2id)
     edge_index, edge_rel_ids = \
         convert_edges_tuples_to_oriented_edge_index_with_relations(edge_tuples, use_rel_or_rela='rel',
                                                                    remove_selfloops=True)
@@ -297,7 +336,6 @@ def main(args):
         emb_size=bert_encoder.config.hidden_size)
 
     val_pos_pair_sampler = None
-    val_epoch_fn = None
     if args.validate:
         val_positive_pairs_path = os.path.join(args.train_dir, f"val_pos_pairs")
         val_pos_pairs_term_1_list, val_pos_pairs_term_2_list, val_pos_pairs_concept_ids = \
@@ -319,7 +357,7 @@ def main(args):
             node_id2token_ids_dict=node_id2token_ids_dict, seq_max_length=args.max_length,
             batch_size=args.batch_size, num_workers=args.dataloader_num_workers, shuffle=False,
             emb_size=bert_encoder.config.hidden_size)
-        val_epoch_fn = val_heterogeneous_graphsage_dgi_sapbert
+
     device = torch.device('cuda:0' if args.use_cuda else 'cpu')
     if args.amp:
         scaler = GradScaler()
@@ -329,7 +367,11 @@ def main(args):
     model = HeteroGraphSageDgiSapMetricLearning(bert_encoder, num_graphsage_layers=args.num_graphsage_layers,
                                                 graphsage_hidden_channels=args.graphsage_hidden_channels,
                                                 graphsage_dropout_p=args.graphsage_dropout_p,
+                                                sapbert_loss_weight=args.text_loss_weight,
+                                                graph_loss_weight=args.graph_loss_weight,
                                                 dgi_loss_weight=args.dgi_loss_weight,
+                                                modality_distance=args.modality_distance,
+                                                intermodal_loss_weight=args.intermodal_loss_weight,
                                                 use_cuda=args.use_cuda, loss=args.loss,
                                                 multigpu_flag=args.parallel, use_miner=args.use_miner,
                                                 miner_margin=args.miner_margin, type_of_triplets=args.type_of_triplets,
@@ -342,12 +384,12 @@ def main(args):
 
     start = time.time()
     train_graph_sapbert_model(model=model, train_epoch_fn=train_heterogeneous_graphsage_dgi_sapbert,
-                              val_epoch_fn=val_epoch_fn, train_loader=train_pos_pair_sampler,
+                              train_loader=train_pos_pair_sampler,
                               val_loader=val_pos_pair_sampler, learning_rate=args.learning_rate,
                               weight_decay=args.weight_decay, num_epochs=args.num_epochs, output_dir=output_dir,
                               save_chkpnt_epoch_interval=args.save_every_N_epoch,
                               amp=args.amp, scaler=scaler, device=device, chkpnt_path=args.model_checkpoint_path,
-                              parallel=args.parallel, add_self_loops=args.add_self_loops)
+                              parallel=args.parallel, )
     end = time.time()
     training_time = end - start
     training_hour = int(training_time / 60 / 60)
