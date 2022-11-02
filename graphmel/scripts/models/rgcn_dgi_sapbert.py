@@ -15,8 +15,8 @@ class RGCNDGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, A
     def __init__(self, bert_encoder, num_outer_rgcn_layers: int, num_inner_rgcn_layers: int, num_rgcn_channels: int,
                  rgcn_dropout_p: float, graph_loss_weight: float, dgi_loss_weight: float, intermodal_loss_weight: float,
                  num_relations: int, num_bases: int, num_blocks: int, use_fast_conv: bool, use_cuda, loss,
-                 multigpu_flag, use_miner=True, miner_margin=0.2, type_of_triplets="all", agg_mode="cls",
-                 modality_distance=None, sapbert_loss_weight: float = 1.0):
+                 multigpu_flag, use_intermodal_miner=True,  use_miner=True, miner_margin=0.2, type_of_triplets="all",
+                 agg_mode="cls", modality_distance=None, sapbert_loss_weight: float = 1.0):
 
         logging.info(
             "Sap_Metric_Learning! use_cuda={} loss={} use_miner={} miner_margin={} type_of_triplets={} agg_mode={}".format(
@@ -28,6 +28,7 @@ class RGCNDGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, A
         self.loss = loss
         self.use_miner = use_miner
         self.miner_margin = miner_margin
+        self.use_intermodal_miner = use_intermodal_miner
         self.agg_mode = agg_mode
         self.bert_hidden_dim = bert_encoder.config.hidden_size
         if multigpu_flag:
@@ -41,7 +42,7 @@ class RGCNDGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, A
         self.intermodal_loss_weight = intermodal_loss_weight
         self.modality_distance = modality_distance
         if modality_distance == "sapbert":
-            if self.use_miner:
+            if self.use_intermodal_miner:
                 self.intermodal_miner = miners.TripletMarginMiner(margin=miner_margin,
                                                                   type_of_triplets=type_of_triplets)
             else:

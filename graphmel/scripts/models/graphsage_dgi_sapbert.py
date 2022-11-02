@@ -18,8 +18,8 @@ from graphmel.scripts.self_alignment_pretraining.dgi import Float32DeepGraphInfo
 class GraphSAGEDGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, AbstractDGIModel):
     def __init__(self, bert_encoder, use_cuda, loss, graphsage_num_outer_layers, graphsage_num_inner_layers,
                  graphsage_num_hidden_channels, graphsage_dropout_p, dgi_loss_weight, intermodal_loss_weight,
-                 multigpu_flag, use_miner=True, miner_margin=0.2, type_of_triplets="all", agg_mode="cls",
-                 modality_distance=None, sapbert_loss_weight: float = 1.0, graph_loss_weight=0.0):
+                 multigpu_flag, use_intermodal_miner=True, use_miner=True, miner_margin=0.2, type_of_triplets="all",
+                 agg_mode="cls", modality_distance=None, sapbert_loss_weight: float = 1.0, graph_loss_weight=0.0):
 
         logging.info(
             "Sap_Metric_Learning! use_cuda={} loss={} use_miner={} miner_margin={} type_of_triplets={} agg_mode={}".format(
@@ -30,6 +30,7 @@ class GraphSAGEDGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningMod
         self.use_cuda = use_cuda
         self.loss = loss
         self.use_miner = use_miner
+        self.use_intermodal_miner = use_intermodal_miner
         self.miner_margin = miner_margin
         self.agg_mode = agg_mode
         self.convs = nn.ModuleList()
@@ -40,7 +41,7 @@ class GraphSAGEDGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningMod
         self.intermodal_loss_weight = intermodal_loss_weight
         self.modality_distance = modality_distance
         if modality_distance == "sapbert":
-            if self.use_miner:
+            if self.use_intermodal_miner:
                 self.intermodal_miner = miners.TripletMarginMiner(margin=miner_margin,
                                                                   type_of_triplets=type_of_triplets)
             else:

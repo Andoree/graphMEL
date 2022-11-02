@@ -24,9 +24,9 @@ class AbstractGraphSapMetricLearningModel(ABC):
 
             text_graph_embed_1 = torch.cat([text_embed_1[:batch_size], graph_embed_1[:batch_size]], dim=0)
             text_graph_embed_2 = torch.cat([text_embed_2[:batch_size], graph_embed_2[:batch_size]], dim=0)
-            if self.use_miner:
-                intermodal_hard_pairs_1 = self.miner(text_graph_embed_1, labels)
-                intermodal_hard_pairs_2 = self.miner(text_graph_embed_2, labels)
+            if self.use_intermodal_miner:
+                intermodal_hard_pairs_1 = self.intermodal_miner(text_graph_embed_1, labels)
+                intermodal_hard_pairs_2 = self.intermodal_miner(text_graph_embed_2, labels)
                 intermodal_loss_1 = self.intermodal_loss(text_graph_embed_1, labels, intermodal_hard_pairs_1)
                 intermodal_loss_2 = self.intermodal_loss(text_graph_embed_2, labels, intermodal_hard_pairs_2)
                 intermodal_loss = (intermodal_loss_1 + intermodal_loss_2) / 2

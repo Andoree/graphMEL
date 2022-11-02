@@ -53,6 +53,8 @@ def parse_args():
     parser.add_argument('--intermodal_loss_weight', type=float, required=False)
     parser.add_argument('--modality_distance', type=str, required=False, choices=(None, "sapbert", "cosine", "MSE"))
     parser.add_argument('--text_loss_weight', type=float, required=False, default=1.0)
+    parser.add_argument('--use_intermodal_miner', action="store_true")
+    # parser.add_argument('--intermodal_miner_margin', default=0.2, type=float)
     parser.add_argument('--remove_selfloops', action="store_true")
 
     # Tokenizer settings
@@ -178,7 +180,7 @@ def main(args):
                     f"_{args.text_loss_weight}_{args.graphsage_num_hidden_channels}_{'.'.join((str(x) for x in args.graphsage_num_neighbors))}" \
                     f"_{args.graphsage_dropout_p}_remove_loops_{args.remove_selfloops}_graph_{args.graph_loss_weight}" \
                     f"_dgi_{args.dgi_loss_weight}_modal_{args.modality_distance}_{args.intermodal_loss_weight}" \
-                    f"_lr_{args.learning_rate}_b_{args.batch_size}"
+                    f"_intermodal_miner_{args.use_intermodal_miner}_lr_{args.learning_rate}_b_{args.batch_size}"
     output_dir = os.path.join(output_dir, output_subdir)
     if not os.path.exists(output_dir) and output_dir != '':
         os.makedirs(output_dir)
@@ -273,7 +275,8 @@ def main(args):
                                           loss=args.loss, use_cuda=args.use_cuda, multigpu_flag=args.parallel,
                                           use_miner=args.use_miner, miner_margin=args.miner_margin,
                                           type_of_triplets=args.type_of_triplets, agg_mode=args.agg_mode,
-                                          modality_distance=modality_distance).to(device)
+                                          modality_distance=modality_distance,
+                                          use_intermodal_miner=args.use_intermodal_miner).to(device)
 
     start = time.time()
     train_graph_sapbert_model(model=model, train_epoch_fn=train_graphsage_sapbert,

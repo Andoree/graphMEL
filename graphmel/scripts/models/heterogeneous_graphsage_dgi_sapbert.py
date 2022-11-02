@@ -15,8 +15,9 @@ from graphmel.scripts.models.modules import ModalityDistanceLoss
 class HeteroGraphSageDgiSapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel):
     def __init__(self, bert_encoder, num_graphsage_layers: int, graphsage_hidden_channels: int,
                  graphsage_dropout_p: float, graph_loss_weight: float, intermodal_loss_weight: float,
-                 dgi_loss_weight: float, use_cuda, loss, multigpu_flag, use_miner=True, miner_margin=0.2,
-                 type_of_triplets="all", agg_mode="cls",  modality_distance=None, sapbert_loss_weight: float = 1.0,):
+                 dgi_loss_weight: float, use_cuda, loss, multigpu_flag, use_intermodal_miner=True, use_miner=True,
+                 miner_margin=0.2, type_of_triplets="all", agg_mode="cls",  modality_distance=None,
+                 sapbert_loss_weight: float = 1.0,):
 
         logging.info(
             "Sap_Metric_Learning! use_cuda={} loss={} use_miner={} miner_margin={} type_of_triplets={} agg_mode={}"
@@ -29,6 +30,7 @@ class HeteroGraphSageDgiSapMetricLearning(nn.Module, AbstractGraphSapMetricLearn
         self.use_cuda = use_cuda
         self.loss = loss
         self.use_miner = use_miner
+        self.use_intermodal_miner = use_intermodal_miner
         self.miner_margin = miner_margin
         self.agg_mode = agg_mode
         self.bert_hidden_dim = bert_encoder.config.hidden_size
@@ -46,7 +48,7 @@ class HeteroGraphSageDgiSapMetricLearning(nn.Module, AbstractGraphSapMetricLearn
         self.modality_distance = modality_distance
 
         if modality_distance == "sapbert":
-            if self.use_miner:
+            if self.use_intermodal_miner:
                 self.intermodal_miner = miners.TripletMarginMiner(margin=miner_margin,
                                                                   type_of_triplets=type_of_triplets)
             else:
@@ -60,7 +62,6 @@ class HeteroGraphSageDgiSapMetricLearning(nn.Module, AbstractGraphSapMetricLearn
                                                        hidden_channels=graphsage_hidden_channels,
                                                        dropout_p=graphsage_dropout_p,
                                                        out_channels=self.bert_hidden_dim, set_out_input_dim_equal=True)
-
 
         self.dgi = Float32DeepGraphInfomaxV2(
             hidden_channels=self.bert_hidden_dim, encoder=self.hetero_graphsage,

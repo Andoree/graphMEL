@@ -16,8 +16,9 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
     def __init__(self, bert_encoder, gat_num_outer_layers: int, gat_num_inner_layers, gat_dropout_p: float,
                  gat_num_hidden_channels: int, gat_num_att_heads: int, gat_attention_dropout_p: float,
                  num_relations: Union[int, None], graph_loss_weight: float, dgi_loss_weight: float,
-                 intermodal_loss_weight: float, use_cuda, loss, multigpu_flag, use_miner=True, miner_margin=0.2,
-                 type_of_triplets="all", agg_mode="cls", sapbert_loss_weight: float = 1., modality_distance=None):
+                 intermodal_loss_weight: float, use_cuda, loss, multigpu_flag, use_intermodal_miner=True,
+                 use_miner=True, miner_margin=0.2, type_of_triplets="all", agg_mode="cls",
+                 sapbert_loss_weight: float = 1., modality_distance=None):
 
         logging.info(f"Sap_Metric_Learning! use_cuda={use_cuda} loss={loss} use_miner={miner_margin}"
                      f"miner_margin={miner_margin} type_of_triplets={type_of_triplets} agg_mode={agg_mode}")
@@ -28,6 +29,7 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
         self.use_cuda = use_cuda
         self.loss = loss
         self.use_miner = use_miner
+        self.use_intermodal_miner = use_intermodal_miner
         self.miner_margin = miner_margin
         self.agg_mode = agg_mode
         self.bert_hidden_dim = bert_encoder.config.hidden_size
@@ -44,7 +46,7 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
         self.intermodal_loss_weight = intermodal_loss_weight
         self.modality_distance = modality_distance
         if modality_distance == "sapbert":
-            if self.use_miner:
+            if self.use_intermodal_miner:
                 self.intermodal_miner = miners.TripletMarginMiner(margin=miner_margin,
                                                                   type_of_triplets=type_of_triplets)
             else:
