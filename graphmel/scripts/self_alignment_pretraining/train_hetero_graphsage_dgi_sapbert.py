@@ -56,6 +56,7 @@ def parse_args():
     parser.add_argument('--dgi_loss_weight', type=float)
     # parser.add_argument('--filter_rel_types', action="store_true")
     parser.add_argument('--intermodal_loss_weight', type=float, required=False)
+    parser.add_argument('--use_intermodal_miner', action="store_true")
     parser.add_argument('--modality_distance', type=str, required=False, choices=(None, "sapbert", "cosine", "MSE"))
     parser.add_argument('--text_loss_weight', type=float, required=False, default=1.0)
 
@@ -264,7 +265,7 @@ def main(args):
                     f"c-{args.graphsage_hidden_channels}_p-{args.graphsage_dropout_p}" \
                     f"_text_{args.text_loss_weight}_graph_{args.graph_loss_weight}_intermodal_{args.modality_distance}" \
                     f"_{args.intermodal_loss_weight}_dgi_{args.dgi_loss_weight}" \
-                    f"_lr_{args.learning_rate}_b_{args.batch_size}"
+                    f"_intermodal_miner_{args.use_intermodal_miner}_lr_{args.learning_rate}_b_{args.batch_size}"
     output_dir = os.path.join(output_dir, output_subdir)
     if not os.path.exists(output_dir) and output_dir != '':
         os.makedirs(output_dir)
@@ -375,7 +376,7 @@ def main(args):
                                                 use_cuda=args.use_cuda, loss=args.loss,
                                                 multigpu_flag=args.parallel, use_miner=args.use_miner,
                                                 miner_margin=args.miner_margin, type_of_triplets=args.type_of_triplets,
-                                                agg_mode=args.agg_mode)
+                                                agg_mode=args.agg_mode, use_intermodal_miner=args.use_intermodal_miner)
 
     initialize_hetero_graph_sapbert_model(model, hetero_dataset=train_pos_pair_sampler.hetero_dataset,
                                           emb_size=bert_encoder.config.hidden_size)

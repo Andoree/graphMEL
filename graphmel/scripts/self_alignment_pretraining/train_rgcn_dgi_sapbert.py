@@ -59,6 +59,7 @@ def parse_args():
     parser.add_argument('--text_loss_weight', type=float, required=False, default=1.0)
     parser.add_argument('--graph_loss_weight', type=float, )
     parser.add_argument('--intermodal_loss_weight', type=float, required=False)
+    parser.add_argument('--use_intermodal_miner', action="store_true")
     parser.add_argument('--modality_distance', type=str, required=False, choices=(None, "sapbert", "cosine", "MSE"))
 
     # Tokenizer settings
@@ -151,7 +152,7 @@ def train_rgcn_dgi_sapbert(model: RGCNDGISapMetricLearning, train_loader: Positi
             intermodal_loss = intermodal_loss * model.intermodal_loss_weight
             loss = sapbert_loss + graph_loss + dgi_loss + intermodal_loss
         else:
-            loss = sapbert_loss + dgi_loss
+            loss = sapbert_loss + graph_loss + dgi_loss
             intermodal_loss = -1.
         pbar.set_description(f"L: {float(loss):.5f} ({float(sapbert_loss):.5f} + {float(graph_loss):.5f} + "
                              f"{float(dgi_loss):.5f} + {float(intermodal_loss):.5f})")
@@ -183,8 +184,8 @@ def main(args):
                     f"_{args.rgcn_num_neighbors}_text_{args.text_loss_weight}_remove_loops_{args.remove_selfloops}" \
                     f"graph_loss_{args.graph_loss_weight}_intermodal_{args.modality_distance}_{args.intermodal_loss_weight}" \
                     f"_{args.rgcn_dropout_p}_{args.rgcn_num_hidden_channels}--{args.rgcn_num_bases}-" \
-                    f"{args.rgcn_num_blocks}_{args.use_rel_or_rela}_lr_{args.learning_rate}_b_{args.batch_size}" \
-                    f"_{conv_type}"
+                    f"{args.rgcn_num_blocks}_{args.use_rel_or_rela}_intermodal_miner_{args.use_intermodal_miner}" \
+                    f"_lr_{args.learning_rate}_b_{args.batch_size}_{conv_type}"
     output_dir = os.path.join(output_dir, output_subdir)
     if not os.path.exists(output_dir) and output_dir != '':
         os.makedirs(output_dir)
@@ -302,6 +303,7 @@ def main(args):
                                      intermodal_loss_weight=args.intermodal_loss_weight,
                                      multigpu_flag=args.parallel, use_miner=args.use_miner,
                                      miner_margin=args.miner_margin,
+                                     use_intermodal_miner=args.use_intermodal_miner,
                                      type_of_triplets=args.type_of_triplets, agg_mode=args.agg_mode).to(device)
     start = time.time()
     train_graph_sapbert_model(model=model, train_epoch_fn=train_rgcn_dgi_sapbert,
