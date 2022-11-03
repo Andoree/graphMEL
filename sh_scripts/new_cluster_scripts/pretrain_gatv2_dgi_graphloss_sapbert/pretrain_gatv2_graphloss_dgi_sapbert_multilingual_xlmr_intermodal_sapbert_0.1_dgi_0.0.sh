@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --job-name=mu_gat_dg          # Название задачи
-#SBATCH --error=/home/echernyak/graph_entity_linking/graphmel/logs/pretrain_gatv2_dgi_multilingual_full/xlmr_dgi_graph_loss_multilingual_pretrain_gatv2_xlmr_article_1_layer_cosine_0.1_dgi_0.0.err        # Файл для вывода ошибок
-#SBATCH --output=/home/echernyak/graph_entity_linking/graphmel/logs/pretrain_gatv2_dgi_multilingual_full/xlmr_dgi_graph_loss_multilingual_pretrain_gatv2_xlmr_article_1_layer_cosine_0.1_dgi_0.0.txt       # Файл для вывода результатов
+#SBATCH --error=/home/echernyak/graph_entity_linking/graphmel/logs/pretrain_gatv2_dgi_multilingual_full/xlmr_dgi_graph_loss_multilingual_pretrain_gatv2_xlmr_article_1_layer_sapbert_0.1_dgi_0.0.err        # Файл для вывода ошибок
+#SBATCH --output=/home/echernyak/graph_entity_linking/graphmel/logs/pretrain_gatv2_dgi_multilingual_full/xlmr_dgi_graph_loss_multilingual_pretrain_gatv2_xlmr_article_1_layer_sapbert_0.1_dgi_0.0.txt       # Файл для вывода результатов
 #SBATCH --time=56:00:59                      # Максимальное время выполнения
-#SBATCH --cpus-per-task=2                   # Количество CPU на одну задачу
-#SBATCH --gpus=2                   # Требуемое количество GPU
+#SBATCH --cpus-per-task=4                   # Количество CPU на одну задачу
+#SBATCH --gpus=4                   # Требуемое количество GPU
 #SBATCH --constraint=type_c|type_b|type_a
 #SBATCH --nodes=1
 
@@ -25,7 +25,8 @@ python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_align
 --dgi_loss_weight 0. \
 --remove_selfloops \
 --intermodal_loss_weight 0.1 \
---modality_distance "cosine" \
+--use_intermodal_miner \
+--modality_distance "sapbert" \
 --max_length=32 \
 --use_cuda \
 --learning_rate=2e-5 \

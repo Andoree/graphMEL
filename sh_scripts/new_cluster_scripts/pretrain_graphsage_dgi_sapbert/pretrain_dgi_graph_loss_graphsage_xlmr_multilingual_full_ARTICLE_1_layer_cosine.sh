@@ -1,12 +1,15 @@
 #!/bin/bash
-#SBATCH --job-name=mul_sage          # Название задачи
+#SBATCH --job-name=mdSAXL          # Название задачи
 #SBATCH --error=/home/echernyak/graph_entity_linking/graphmel/logs/pretrain_graphsage_dgi_multilingual_full/mbert_dgi_graph_loss_multilingual_pretrain_graphsage_xlmr_article_1_layer_cosine.err        # Файл для вывода ошибок
 #SBATCH --output=/home/echernyak/graph_entity_linking/graphmel/logs/pretrain_graphsage_dgi_multilingual_full/mbert_dgi_graph_loss_multilingual_pretrain_graphsage_xlmr_article_1_layer_cosine.txt       # Файл для вывода результатов
 #SBATCH --time=40:59:59                      # Максимальное время выполнения
-#SBATCH --cpus-per-task=2                   # Количество CPU на одну задачу
+#SBATCH --cpus-per-task=4                   # Количество CPU на одну задачу
 #SBATCH --gpus=4                   # Требуемое количество GPU
 #SBATCH --constraint=type_c|type_b|type_a
 #SBATCH --nodes=1
+
+module load Python/Anaconda_v05.2022
+conda activate graph_env
 
 export CUDA_VISIBLE_DEVICES=0,1
 nvidia-smi

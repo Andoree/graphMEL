@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=mul_sage          # Название задачи
+#SBATCH --job-name=mdSAXL         # Название задачи
 #SBATCH --error=/home/echernyak/graph_entity_linking/graphmel/logs/pretrain_graphsage_dgi_multilingual_full/mbert_dgi_graph_loss_multilingual_pretrain_graphsage_xlmr_article_1_layer_sapbert.err        # Файл для вывода ошибок
 #SBATCH --output=/home/echernyak/graph_entity_linking/graphmel/logs/pretrain_graphsage_dgi_multilingual_full/mbert_dgi_graph_loss_multilingual_pretrain_graphsage_xlmr_article_1_layer_sapbert.txt       # Файл для вывода результатов
 #SBATCH --time=40:59:59                      # Максимальное время выполнения

@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=extract_encoder_from_graph_model          # Название задачи
-#SBATCH --error=/home/echernyak/graph_entity_linking/graphmel/logs/extract_encoder_from_graph_model_graphsage_sapbert_intermodal.err        # Файл для вывода ошибок
-#SBATCH --output=/home/echernyak/graph_entity_linking/graphmel/logs/extract_encoder_from_graph_model_graphsage_sapbert_intermodal.txt       # Файл для вывода результатов
+#SBATCH --error=/home/echernyak/graph_entity_linking/graphmel/logs/extract_encoder_from_graph_model/extract_encoder_from_graph_model_graphsage_sapbert_intermodal.err        # Файл для вывода ошибок
+#SBATCH --output=/home/echernyak/graph_entity_linking/graphmel/logs/extract_encoder_from_graph_model/extract_encoder_from_graph_model_graphsage_sapbert_intermodal.txt       # Файл для вывода результатов
 #SBATCH --time=20:30:00                      # Максимальное время выполнения
 #SBATCH --cpus-per-task=3                   # Количество CPU на одну задачу
 #SBATCH --gpus=1
