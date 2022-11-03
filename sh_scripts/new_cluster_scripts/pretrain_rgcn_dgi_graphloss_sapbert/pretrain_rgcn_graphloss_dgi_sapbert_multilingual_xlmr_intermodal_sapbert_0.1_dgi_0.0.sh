@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=mu_rgcn_dg          # Название задачи
-#SBATCH --error=/home/echernyak/graph_entity_linking/graphmel/logs/pretrain_rgcn_dgi_multilingual_full/xlmr_dgi_graph_loss_multilingual_pretrain_rgcn_xlmr_article_1_layer_cosine_0.1_dgi_0.01.err        # Файл для вывода ошибок
-#SBATCH --output=/home/echernyak/graph_entity_linking/graphmel/logs/pretrain_rgcn_dgi_multilingual_full/xlmr_dgi_graph_loss_multilingual_pretrain_rgcn_xlmr_article_1_layer_cosine_0.1_dgi_0.01.txt       # Файл для вывода результатов
+#SBATCH --error=/home/echernyak/graph_entity_linking/graphmel/logs/pretrain_rgcn_dgi_multilingual_full/xlmr_dgi_graph_loss_multilingual_pretrain_rgcn_xlmr_article_1_layer_sapbert_0.1_dgi_0.0.err        # Файл для вывода ошибок
+#SBATCH --output=/home/echernyak/graph_entity_linking/graphmel/logs/pretrain_rgcn_dgi_multilingual_full/xlmr_dgi_graph_loss_multilingual_pretrain_rgcn_xlmr_article_1_layer_sapbert_0.1_dgi_0.0.txt       # Файл для вывода результатов
 #SBATCH --time=56:00:59                      # Максимальное время выполнения
 #SBATCH --cpus-per-task=2                   # Количество CPU на одну задачу
 #SBATCH --gpus=2                   # Требуемое количество GPU
@@ -22,11 +22,11 @@ python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_align
 --rgcn_num_outer_layers 1 \
 --rgcn_num_inner_layers 3 \
 --rgcn_dropout_p 0.3 \
---dgi_loss_weight 0.01 \
+--dgi_loss_weight 0.0 \
 --remove_selfloops \
 --graph_loss_weight 0.1 \
 --intermodal_loss_weight 0.1 \
---modality_distance "cosine" \
+--modality_distance "sapbert" \
 --use_intermodal_miner \
 --max_length=32 \
 --use_cuda \

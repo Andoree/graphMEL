@@ -6,6 +6,8 @@
 #SBATCH --cpus-per-task=2                   # Количество CPU на одну задачу
 #SBATCH --gpus=2                   # Требуемое количество GPU
 #SBATCH --constraint=type_c|type_b|type_a
+#SBATCH --nodes=1
+
 
 nvidia-smi
 # --remove_selfloops \
@@ -24,6 +26,7 @@ python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_align
 --remove_selfloops \
 --graph_loss_weight 0.1 \
 --intermodal_loss_weight 0.1 \
+--use_intermodal_miner \
 --modality_distance "sapbert" \
 --max_length=32 \
 --use_cuda \
