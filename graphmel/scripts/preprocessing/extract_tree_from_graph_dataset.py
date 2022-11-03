@@ -135,11 +135,11 @@ def main(args):
     
     num_concept_nodes = find_max_node_id(edge_tuples=edge_tuples)
     tui2node_id, tui2verbose = create_mrsty_index(mrsty_df=mrsty_df, initial_index=num_concept_nodes)
-
-    add_semantic_type_hierarchical_edge_tuples(mrsty_df=mrsty_df, edge_tuples=edge_tuples, rel2id=rel2id, cui2id=cui2id,
-                                               tui2node_id=tui2node_id)
-    write_semantic_type_nodes_with_names(tui2node_id=tui2node_id, tui2verbose=tui2verbose,
-                                         node2terms_path=input_node_id2terms_list_path,)
+    if args.add_semantic_type_nodes:
+        add_semantic_type_hierarchical_edge_tuples(mrsty_df=mrsty_df, edge_tuples=edge_tuples, rel2id=rel2id, cui2id=cui2id,
+                                                   tui2node_id=tui2node_id)
+        write_semantic_type_nodes_with_names(tui2node_id=tui2node_id, tui2verbose=tui2verbose,
+                                             node2terms_path=input_node_id2terms_list_path,)
 
     parent_childs_adjacency_list, child_parents_adjacency_list = \
         create_hierarchy_adjacency_lists(edge_tuples=edge_tuples, id2rel=id2rel)
@@ -154,6 +154,7 @@ if __name__ == '__main__':
                         datefmt='%Y-%m-%d %H:%M:%S', )
     parser = ArgumentParser()
     parser.add_argument('--input_graph_dataset_dir', type=str)
+    parser.add_argument('--disable_semantic_type_nodes', dest='add_semantic_type_nodes', action="store_false")
     parser.add_argument('--mrsty', type=str)
     parser.add_argument('--output_dir', type=str)
     arguments = parser.parse_args()
