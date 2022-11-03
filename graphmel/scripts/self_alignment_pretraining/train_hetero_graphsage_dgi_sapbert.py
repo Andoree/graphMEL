@@ -226,8 +226,8 @@ def initialize_hetero_graph_sapbert_model(model: HeteroGraphSageDgiSapMetricLear
     for (node_type_1, rel_id, node_type_2) in all_edge_types:
         het_data[node_type_1, str(rel_id), node_type_2].edge_index = torch.zeros((2, 1), dtype=torch.long)
     # het_data = T.AddSelfLoops()(het_data)
-    for key, val in het_data.edge_index_dict.items():
-        logging.info(f"initialize_hetero_graph_sapbert_model {key}={val}")
+    # for key, val in het_data.edge_index_dict.items():
+    #     logging.info(f"initialize_hetero_graph_sapbert_model {key}={val}")
     model.hetero_graphsage = to_hetero(model.hetero_graphsage, het_data.metadata(), aggr="mean")
     model.eval()
 
