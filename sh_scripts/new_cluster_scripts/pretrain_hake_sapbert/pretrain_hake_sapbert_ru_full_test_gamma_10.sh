@@ -6,13 +6,14 @@
 #SBATCH --cpus-per-task=2                   # Количество CPU на одну задачу
 #SBATCH --gpus=2                   # Требуемое количество GPU
 #SBATCH --constraint=type_c|type_b|type_a
+#SBATCH --nodes=1
 
 nvidia-smi
 
 export TOKENIZERS_PARALLELISM=false
 python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_alignment_pretraining/train_hake_sapbert.py --train_dir="../../data/umls_graph/2020AB_pos_pairs_datasets/RUS_pos_pairs_russian_SPLIT" \
 --text_encoder="/home/echernyak/graph_entity_linking/huggingface_models/bert-base-multilingual-uncased/" \
---dataloader_num_workers0 \
+--dataloader_num_workers=0 \
 --negative_sample_size 4 \
 --hake_gamma 10. \
 --hake_modulus_weight 1.0 \
