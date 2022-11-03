@@ -52,6 +52,7 @@ def parse_args():
     parser.add_argument('--gat_num_att_heads', type=int)
     parser.add_argument('--gat_dropout_p', type=float)
     parser.add_argument('--gat_attention_dropout_p', type=float)
+    parser.add_argument('--gat_use_relational_features', action="store_true")
     parser.add_argument('--use_rel_or_rela', type=str, choices=['rel', 'rela', ])
     parser.add_argument('--graph_loss_weight', type=float, )
     parser.add_argument('--dgi_loss_weight', type=float)
@@ -59,6 +60,7 @@ def parse_args():
     parser.add_argument('--text_loss_weight', type=float, required=False, default=1.0)
     parser.add_argument('--intermodal_loss_weight', type=float, required=False)
     parser.add_argument('--use_intermodal_miner', action="store_true")
+
     parser.add_argument('--modality_distance', type=str, required=False, choices=(None, "sapbert", "cosine", "MSE"))
 
     # Tokenizer settings
@@ -187,8 +189,8 @@ def main(args):
                     f"{args.gat_num_att_heads}_{args.gat_attention_dropout_p}_graph_loss_{args.graph_loss_weight}_" \
                     f"{args.use_rel_or_rela}_remove_loops_{args.remove_selfloops}_dgi_{args.dgi_loss_weight}" \
                     f"_text_loss_{args.text_loss_weight}_intermodal_{args.modality_distance}_intermodal_miner" \
-                    f"_{args.use_intermodal_miner}_{args.intermodal_loss_weight}_lr_{args.learning_rate}" \
-                    f"_b_{args.batch_size}"
+                    f"_{args.use_intermodal_miner}_relational_features_{args.gat_use_relational_features}" \
+                    f"_{args.intermodal_loss_weight}_lr_{args.learning_rate}_b_{args.batch_size}"
     modality_distance = args.modality_distance
     if modality_distance == "None":
         modality_distance = None
@@ -307,6 +309,7 @@ def main(args):
                                       num_relations=num_relations, dgi_loss_weight=args.dgi_loss_weight,
                                       graph_loss_weight=args.graph_loss_weight, modality_distance=modality_distance,
                                       intermodal_loss_weight=args.intermodal_loss_weight,
+                                      gat_use_relational_features=args.gat_use_relational_features,
                                       use_cuda=args.use_cuda, loss=args.loss,
                                       multigpu_flag=args.parallel, use_miner=args.use_miner,
                                       miner_margin=args.miner_margin, use_intermodal_miner=args.use_intermodal_miner,

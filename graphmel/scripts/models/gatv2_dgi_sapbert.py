@@ -15,15 +15,15 @@ from graphmel.scripts.self_alignment_pretraining.dgi import Float32DeepGraphInfo
 class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, AbstractDGIModel):
     def __init__(self, bert_encoder, gat_num_outer_layers: int, gat_num_inner_layers, gat_dropout_p: float,
                  gat_num_hidden_channels: int, gat_num_att_heads: int, gat_attention_dropout_p: float,
-                 num_relations: Union[int, None], graph_loss_weight: float, dgi_loss_weight: float,
-                 intermodal_loss_weight: float, use_cuda, loss, multigpu_flag, use_intermodal_miner=True,
-                 use_miner=True, miner_margin=0.2, type_of_triplets="all", agg_mode="cls",
+                 gat_use_relational_features, num_relations: Union[int, None], graph_loss_weight: float,
+                 dgi_loss_weight: float, intermodal_loss_weight: float, use_cuda, loss, multigpu_flag,
+                 use_intermodal_miner=True, use_miner=True, miner_margin=0.2, type_of_triplets="all", agg_mode="cls",
                  sapbert_loss_weight: float = 1., modality_distance=None):
 
         logging.info(f"Sap_Metric_Learning! use_cuda={use_cuda} loss={loss} use_miner={miner_margin}"
                      f"miner_margin={miner_margin} type_of_triplets={type_of_triplets} agg_mode={agg_mode}")
         logging.info(f"model parameters: hidden_channels={gat_num_hidden_channels}, att_heads={gat_num_att_heads}, "
-                     f"att_dropout={gat_attention_dropout_p} ")
+                     f"att_dropout={gat_attention_dropout_p} gat_use_relational_features={gat_use_relational_features}")
         super(GATv2DGISapMetricLearning, self).__init__()
         self.bert_encoder = bert_encoder
         self.use_cuda = use_cuda
@@ -33,6 +33,7 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
         self.miner_margin = miner_margin
         self.agg_mode = agg_mode
         self.bert_hidden_dim = bert_encoder.config.hidden_size
+        self.gat_use_relational_features = gat_use_relational_features
         if multigpu_flag:
             self.bert_encoder = nn.DataParallel(bert_encoder)
         else:
@@ -60,7 +61,8 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
                                         num_inner_layers=gat_num_inner_layers, num_relations=num_relations,
                                         num_hidden_channels=gat_num_hidden_channels, dropout_p=gat_dropout_p,
                                         num_att_heads=gat_num_att_heads, attention_dropout_p=gat_attention_dropout_p,
-                                        set_out_input_dim_equal=True)
+                                        set_out_input_dim_equal=True,
+                                        use_relational_features=gat_use_relational_features)
         self.dgi = Float32DeepGraphInfomax(
             hidden_channels=self.bert_hidden_dim, encoder=self.gat_encoder,
             summary=self.summary_fn, corruption=self.corruption_fn)

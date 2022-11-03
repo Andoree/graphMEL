@@ -121,10 +121,10 @@ class RGCNEncoder(nn.Module):
 
         return x
 
-
 class GATv2Encoder(nn.Module):
     def __init__(self, in_channels, num_outer_layers: int, num_inner_layers: int, num_hidden_channels, dropout_p: float,
-                 num_relations: int, num_att_heads: int, attention_dropout_p: float, set_out_input_dim_equal):
+                 num_relations: int, num_att_heads: int, attention_dropout_p: float, set_out_input_dim_equal,
+                 use_relational_features):
         super().__init__()
         self.num_outer_layers = num_outer_layers
 
@@ -149,10 +149,11 @@ class GATv2Encoder(nn.Module):
                 inner_convs.append(gat_conv)
 
             self.convs.append(inner_convs)
-
+        self.use_relational_features = use_relational_features
         self.gelu = nn.GELU()
-        self.relation_matrices = Parameter(torch.Tensor(num_relations, in_channels * 2, in_channels))
-        glorot(self.relation_matrices)
+        if self.use_relational_features:
+            self.relation_matrices = Parameter(torch.Tensor(num_relations, in_channels * 2, in_channels))
+            glorot(self.relation_matrices)
 
     def create_edge_attrs(self, embs, adjs, edge_type_list):
         edge_attrs_list = []
@@ -174,7 +175,10 @@ class GATv2Encoder(nn.Module):
         return edge_attrs_list
 
     def forward(self, embs, adjs, edge_type_list, batch_size):
-        edge_attrs_list = self.create_edge_attrs(embs=embs, adjs=adjs, edge_type_list=edge_type_list)
+        if self.use_relational_features:
+            edge_attrs_list = self.create_edge_attrs(embs=embs, adjs=adjs, edge_type_list=edge_type_list)
+        else:
+            edge_attrs_list = [None, ] * len(adjs)
         x = embs
         for i, ((edge_index, _, size), inner_convs_list, edge_attr) in enumerate(
                 zip(adjs, self.convs, edge_attrs_list)):
