@@ -11,7 +11,7 @@
 nvidia-smi
 
 export TOKENIZERS_PARALLELISM=false
-python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_alignment_pretraining/train_hake_sapbert.py --train_dir="/home/echernyak/graph_entity_linking/pos_pairs_graph_data/2020AB/ENG_FRE_GER_SPA_DUT_RUS_MULTILINGUAL_FULL" \
+python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_alignment_pretraining/train_hake_sapbert.py --train_dir="/home/echernyak/graph_entity_linking/pos_pairs_graph_data/2020AB/ENG_FRE_GER_SPA_DUT_RUS_MULTILINGUAL_FULL_TREE" \
 --text_encoder="/home/echernyak/graph_entity_linking/huggingface_models/xlm-roberta-base/" \
 --dataloader_num_workers=0 \
 --negative_sample_size 4 \
