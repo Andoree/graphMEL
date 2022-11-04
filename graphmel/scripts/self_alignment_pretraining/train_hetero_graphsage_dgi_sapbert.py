@@ -106,12 +106,11 @@ def heterogeneous_graphsage_dgi_sapbert_train_step(model: HeteroGraphSageDgiSapM
     term_2_input_ids, term_2_att_masks = batch["term_2_input"]
     term_2_input_ids, term_2_att_masks = term_2_input_ids.to(device), term_2_att_masks.to(device)
     concept_ids = batch["concept_ids"].to(device)
-    nodes_bert_input_1 = batch["nodes_bert_input_1"]
-    nodes_bert_input_2 = batch["nodes_bert_input_2"]
+    nodes_bert_input = batch["nodes_bert_input"]
     batch_size = batch["batch_size"]
     hetero_dataset = batch["hetero_dataset"]
 
-    for node_type, bert_input in nodes_bert_input_1.items():
+    for node_type, bert_input in nodes_bert_input.items():
         bert_input_ids, bert_att_masks = bert_input
         bert_input_ids, bert_att_masks = bert_input_ids.to(device), bert_att_masks.to(device)
         bert_features = model.bert_encode(input_ids=bert_input_ids, att_masks=bert_att_masks)
@@ -121,25 +120,31 @@ def heterogeneous_graphsage_dgi_sapbert_train_step(model: HeteroGraphSageDgiSapM
 
     term_1_node_features = model.bert_encode(input_ids=term_1_input_ids, att_masks=term_1_att_masks)
     term_2_node_features = model.bert_encode(input_ids=term_2_input_ids, att_masks=term_2_att_masks)
-    hetero_dataset["SRC"].x = term_1_node_features
+    hetero_dataset["SRC"].x = torch.cat([term_1_node_features, term_2_node_features], dim=0)
 
     hetero_dataset = hetero_dataset.to(device)
+    for edge_type, edge_index in hetero_dataset.edge_index_dict.items():
+        if edge_type[-1] == "SRC":
 
-    pos_graph_embed_1, neg_graph_embed_1, graph_summary_1 = model.graph_encode(x_dict=hetero_dataset.x_dict,
+            edge_index_copy = edge_index.clone()
+            edge_index_copy[1, :] = batch_size + edge_index_copy[1, :]
+            new_edge_index = torch.cat((edge_index, edge_index_copy), dim=1)
+            hetero_dataset[edge_type].edge_index = new_edge_index
+
+
+    pos_graph_embed, neg_graph_embed, graph_summary = model.graph_encode(x_dict=hetero_dataset.x_dict,
                                                                                edge_index_dict=hetero_dataset.edge_index_dict,
-                                                                               batch_size=batch_size, )
-    for node_type, bert_input in nodes_bert_input_2.items():
-        bert_input_ids, bert_att_masks = bert_input
-        bert_input_ids, bert_att_masks = bert_input_ids.to(device), bert_att_masks.to(device)
-        bert_features = model.bert_encode(input_ids=bert_input_ids, att_masks=bert_att_masks)
-        if node_type != "SRC":
-            hetero_dataset[node_type].x = bert_features
+                                                                               batch_size=batch_size * 2, )
+    pos_graph_embed_1 = pos_graph_embed[:batch_size, :]
+    pos_graph_embed_2 = pos_graph_embed[batch_size:, :]
+    neg_graph_embed_1 = neg_graph_embed[:batch_size, :]
+    neg_graph_embed_2 = neg_graph_embed[batch_size:, :]
+    graph_summary_1 = graph_summary
+    graph_summary_2 = graph_summary
 
-    hetero_dataset["SRC"].x = term_2_node_features
-    pos_graph_embed_2, neg_graph_embed_2, graph_summary_2 = model.graph_encode(x_dict=hetero_dataset.x_dict,
-                                                                               edge_index_dict=hetero_dataset.edge_index_dict,
-                                                                               batch_size=batch_size, )
-
+    # hetero_dataset["SRC"].x = term_2_node_features
+    #
+    #
     if amp:
         with autocast():
             sapbert_loss, graph_loss, dgi_loss, intermodal_loss = model(text_embed_1=term_1_node_features,
@@ -156,12 +161,9 @@ def heterogeneous_graphsage_dgi_sapbert_train_step(model: HeteroGraphSageDgiSapM
         sapbert_loss, graph_loss, dgi_loss, intermodal_loss = model(text_embed_1=term_1_node_features,
                                                                     text_embed_2=term_2_node_features,
                                                                     concept_ids=concept_ids,
-                                                                    pos_graph_embed_1=pos_graph_embed_1,
-                                                                    pos_graph_embed_2=pos_graph_embed_2,
-                                                                    neg_graph_embed_1=neg_graph_embed_1,
-                                                                    neg_graph_embed_2=neg_graph_embed_2,
-                                                                    graph_summary_1=graph_summary_1,
-                                                                    graph_summary_2=graph_summary_2,
+                                                                    pos_graph_embed=pos_graph_embed,
+                                                                    neg_graph_embed=neg_graph_embed,
+                                                                    graph_summary=graph_summary,
                                                                     batch_size=batch_size)
 
     return sapbert_loss, graph_loss, dgi_loss, intermodal_loss

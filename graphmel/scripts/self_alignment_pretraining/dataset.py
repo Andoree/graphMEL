@@ -893,30 +893,23 @@ class HeterogeneousPositivePairNeighborSamplerV2(HGTLoader):
 
             edge_index_dict[key] = edge_index
 
-        hetero_sub_dataset_bert_input_1 = {}
-        hetero_sub_dataset_bert_input_2 = {}
+        hetero_sub_dataset_bert_input = {}
         for node_type, node_ids in hetero_sub_dataset_x_dict.items():
-            neighbor_input_ids_1, neighbor_att_masks_1 = node_ids2tokenizer_output(
+            neighbor_input_ids, neighbor_att_masks = node_ids2tokenizer_output(
                 batch=node_ids, node_id_to_token_ids_dict=self.node_id2token_ids_dict,
                 seq_max_length=self.seq_max_length)
-            neighbor_input_ids_2, neighbor_att_masks_2 = node_ids2tokenizer_output(
-                batch=node_ids, node_id_to_token_ids_dict=self.node_id2token_ids_dict,
-                seq_max_length=self.seq_max_length)
-            neighbor_input_1 = (neighbor_input_ids_1, neighbor_att_masks_1)
-            neighbor_input_2 = (neighbor_input_ids_2, neighbor_att_masks_2)
-            assert neighbor_input_ids_1.size() == neighbor_att_masks_1.size()
-            assert neighbor_input_ids_2.size() == neighbor_att_masks_2.size()
+            neighbor_input = (neighbor_input_ids, neighbor_att_masks)
+            assert neighbor_input_ids.size() == neighbor_att_masks.size()
 
-            hetero_sub_dataset_bert_input_1[node_type] = neighbor_input_1
-            hetero_sub_dataset_bert_input_2[node_type] = neighbor_input_2
+            hetero_sub_dataset_bert_input[node_type] = neighbor_input
 
         term_1_input = (term_1_input_ids, term_1_att_masks)
         term_2_input = (term_2_input_ids, term_2_att_masks,)
 
         batch_dict = {
             "term_1_input": term_1_input, "term_2_input": term_2_input, "concept_ids": triplet_concept_ids,
-            "hetero_dataset": hetero_sub_dataset, "nodes_bert_input_1": hetero_sub_dataset_bert_input_1,
-            "nodes_bert_input_2": hetero_sub_dataset_bert_input_2, "batch_size": batch_size,
+            "hetero_dataset": hetero_sub_dataset, "nodes_bert_input": hetero_sub_dataset_bert_input,
+            "batch_size": batch_size,
         }
 
         return batch_dict
