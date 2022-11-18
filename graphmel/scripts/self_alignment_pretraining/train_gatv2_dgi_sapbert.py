@@ -60,6 +60,7 @@ def parse_args():
     parser.add_argument('--text_loss_weight', type=float, required=False, default=1.0)
     parser.add_argument('--intermodal_loss_weight', type=float, required=False)
     parser.add_argument('--use_intermodal_miner', action="store_true")
+    parser.add_argument('--intermodal_miner_margin', default=0.2, type=float, required=False)
 
     parser.add_argument('--modality_distance', type=str, required=False, choices=(None, "sapbert", "cosine", "MSE"))
 
@@ -189,8 +190,8 @@ def main(args):
                     f"{args.gat_num_att_heads}_{args.gat_attention_dropout_p}_graph_loss_{args.graph_loss_weight}_" \
                     f"{args.use_rel_or_rela}_remove_loops_{args.remove_selfloops}_dgi_{args.dgi_loss_weight}" \
                     f"_text_loss_{args.text_loss_weight}_intermodal_{args.modality_distance}_intermodal_miner" \
-                    f"_{args.use_intermodal_miner}_relational_features_{args.gat_use_relational_features}" \
-                    f"_{args.intermodal_loss_weight}_lr_{args.learning_rate}_b_{args.batch_size}"
+                    f"_{args.use_intermodal_miner}_{args.intermodal_miner_margin}_relational_features" \
+                    f"_{args.gat_use_relational_features}_{args.intermodal_loss_weight}_lr_{args.learning_rate}_b_{args.batch_size}"
     modality_distance = args.modality_distance
     if modality_distance == "None":
         modality_distance = None
@@ -313,6 +314,7 @@ def main(args):
                                       use_cuda=args.use_cuda, loss=args.loss,
                                       multigpu_flag=args.parallel, use_miner=args.use_miner,
                                       miner_margin=args.miner_margin, use_intermodal_miner=args.use_intermodal_miner,
+                                      intermodal_miner_margin=args.intermodal_miner_margin,
                                       type_of_triplets=args.type_of_triplets, agg_mode=args.agg_mode).to(device)
     start = time.time()
     train_graph_sapbert_model(model=model, train_epoch_fn=train_gatv2_dgi_sapbert,
