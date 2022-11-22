@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --job-name=mul_sage          # Название задачи
-#SBATCH --error=/home/echernyak/graph_entity_linking/graphmel/logs/pretrain_graphsage_dgi_multilingual_full/xlmr_dgi_graph_loss_multilingual_pretrain_graphsage_xlmr_article_1_layer_sapbert_intermodal_miner_0.4_768.err        # Файл для вывода ошибок
-#SBATCH --output=/home/echernyak/graph_entity_linking/graphmel/logs/pretrain_graphsage_dgi_multilingual_full/xlmr_dgi_graph_loss_multilingual_pretrain_graphsage_xlmr_article_1_layer_sapbert_intermodal_miner_0.4_768.txt       # Файл для вывода результатов
-#SBATCH --time=37:59:59                      # Максимальное время выполнения
+#SBATCH --error=/home/echernyak/graph_entity_linking/graphmel/logs/pretrain_graphsage_dgi_multilingual_full/xlmr_dgi_graph_loss_multilingual_pretrain_graphsage_xlmr_article_1_layer_sapbert_intermodal_miner_0.4_768_5_layers.err        # Файл для вывода ошибок
+#SBATCH --output=/home/echernyak/graph_entity_linking/graphmel/logs/pretrain_graphsage_dgi_multilingual_full/xlmr_dgi_graph_loss_multilingual_pretrain_graphsage_xlmr_article_1_layer_sapbert_intermodal_miner_0.4_768_5_layers.txt       # Файл для вывода результатов
+#SBATCH --time=39:59:59                      # Максимальное время выполнения
 #SBATCH --cpus-per-task=2                   # Количество CPU на одну задачу
 #SBATCH --gpus=2                   # Требуемое количество GPU
 #SBATCH --constraint=type_c|type_b|type_a
@@ -14,7 +14,7 @@ python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_align
 --text_encoder="/home/echernyak/graph_entity_linking/huggingface_models/xlm-roberta-base/" \
 --dataloader_num_workers=0 \
 --graphsage_num_outer_layers 1 \
---graphsage_num_inner_layers 3 \
+--graphsage_num_inner_layers 5 \
 --graphsage_num_hidden_channels 768 \
 --graphsage_num_neighbors 3 \
 --graphsage_dropout_p 0.3 \
