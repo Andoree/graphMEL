@@ -2,7 +2,7 @@
 #SBATCH --job-name=mul_sage          # Название задачи
 #SBATCH --error=/home/echernyak/graph_entity_linking/graphmel/logs/pretrain_monolingual_graphsage_graph_0.1_dgi_0.0/MONOLINGUAL_pretrain_graphsage_sapbert_checkpoint_article_1_layer_cosine_0.1.err        # Файл для вывода ошибок
 #SBATCH --output=/home/echernyak/graph_entity_linking/graphmel/logs/pretrain_monolingual_graphsage_graph_0.1_dgi_0.0/MONOLINGUAL_pretrain_graphsage_sapbert_checkpoint_article_1_layer_cosine_0.1.txt       # Файл для вывода результатов
-#SBATCH --time=18:59:59                      # Максимальное время выполнения
+#SBATCH --time=28:59:59                      # Максимальное время выполнения
 #SBATCH --cpus-per-task=2                   # Количество CPU на одну задачу
 #SBATCH --gpus=2                   # Требуемое количество GPU
 #SBATCH --constraint=type_c|type_b|type_a
@@ -29,7 +29,7 @@ python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_align
 --learning_rate=2e-5 \
 --weight_decay=0.01  \
 --batch_size=128 \
---num_epochs=1 \
+--num_epochs=3 \
 --parallel \
 --amp \
 --random_seed=42 \
@@ -38,7 +38,7 @@ python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_align
 --type_of_triplets "all" \
 --miner_margin 0.2 \
 --agg_mode "cls" \
---save_every_N_epoch=1 \
+--save_every_N_epoch=3 \
 --output_dir="/home/echernyak/graph_entity_linking/results/pretrained_graphsapbert/2020AB/DGI_GRAPH_LOSS_GraphSAGE/SPA_FULL_SAPBERT_CHECKPOINT"
 
 python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_alignment_pretraining/train_graphsage_dgi_sapbert.py --train_dir="/home/echernyak/graph_entity_linking/pos_pairs_graph_data/2020AB/DUT_DUT_FULL/" \
@@ -60,7 +60,7 @@ python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_align
 --learning_rate=2e-5 \
 --weight_decay=0.01  \
 --batch_size=128 \
---num_epochs=1 \
+--num_epochs=3 \
 --parallel \
 --amp \
 --random_seed=42 \
@@ -69,7 +69,7 @@ python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_align
 --type_of_triplets "all" \
 --miner_margin 0.2 \
 --agg_mode "cls" \
---save_every_N_epoch=1 \
+--save_every_N_epoch=3 \
 --output_dir="/home/echernyak/graph_entity_linking/results/pretrained_graphsapbert/2020AB/DGI_GRAPH_LOSS_GraphSAGE/DUT_FULL_SAPBERT_CHECKPOINT"
 
 python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_alignment_pretraining/train_graphsage_dgi_sapbert.py --train_dir="/home/echernyak/graph_entity_linking/pos_pairs_graph_data/2020AB/FRE_FRE_FULL/" \
@@ -91,7 +91,7 @@ python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_align
 --learning_rate=2e-5 \
 --weight_decay=0.01  \
 --batch_size=128 \
---num_epochs=1 \
+--num_epochs=3 \
 --parallel \
 --amp \
 --random_seed=42 \
@@ -100,7 +100,7 @@ python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_align
 --type_of_triplets "all" \
 --miner_margin 0.2 \
 --agg_mode "cls" \
---save_every_N_epoch=1 \
+--save_every_N_epoch=3 \
 --output_dir="/home/echernyak/graph_entity_linking/results/pretrained_graphsapbert/2020AB/DGI_GRAPH_LOSS_GraphSAGE/FRE_FULL_SAPBERT_CHECKPOINT"
 
 python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_alignment_pretraining/train_graphsage_dgi_sapbert.py --train_dir="/home/echernyak/graph_entity_linking/pos_pairs_graph_data/2020AB/GER_GER_FULL/" \
@@ -122,7 +122,7 @@ python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_align
 --learning_rate=2e-5 \
 --weight_decay=0.01  \
 --batch_size=128 \
---num_epochs=1 \
+--num_epochs=3 \
 --parallel \
 --amp \
 --random_seed=42 \
@@ -131,7 +131,7 @@ python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_align
 --type_of_triplets "all" \
 --miner_margin 0.2 \
 --agg_mode "cls" \
---save_every_N_epoch=1 \
+--save_every_N_epoch=3 \
 --output_dir="/home/echernyak/graph_entity_linking/results/pretrained_graphsapbert/2020AB/DGI_GRAPH_LOSS_GraphSAGE/GER_FULL_SAPBERT_CHECKPOINT"
 
 
