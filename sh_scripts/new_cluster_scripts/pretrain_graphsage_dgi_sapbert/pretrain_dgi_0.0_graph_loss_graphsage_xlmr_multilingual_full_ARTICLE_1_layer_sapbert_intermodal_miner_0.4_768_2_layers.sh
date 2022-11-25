@@ -14,7 +14,7 @@ python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_align
 --text_encoder="/home/echernyak/graph_entity_linking/huggingface_models/xlm-roberta-base/" \
 --dataloader_num_workers=0 \
 --graphsage_num_outer_layers 1 \
---graphsage_num_inner_layers 3 \
+--graphsage_num_inner_layers 2 \
 --graphsage_num_hidden_channels 768 \
 --graphsage_num_neighbors 3 \
 --graphsage_dropout_p 0.3 \

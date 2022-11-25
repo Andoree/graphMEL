@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=mul_sage          # Название задачи
+#SBATCH --job-name=monomodal          # Название задачи
 #SBATCH --error=/home/echernyak/graph_entity_linking/graphmel/logs/text_only_models/pretrain_finetuned_sapbert_checkpoint_TEXT_ONLY_MONOLINGUAL_full_ARTICLE.err        # Файл для вывода ошибок
 #SBATCH --output=/home/echernyak/graph_entity_linking/graphmel/logs/text_only_models/pretrain_finetuned_sapbert_checkpoint_TEXT_ONLY_MONOLINGUAL_full_ARTICLE.txt       # Файл для вывода результатов
 #SBATCH --time=18:59:59                      # Максимальное время выполнения
