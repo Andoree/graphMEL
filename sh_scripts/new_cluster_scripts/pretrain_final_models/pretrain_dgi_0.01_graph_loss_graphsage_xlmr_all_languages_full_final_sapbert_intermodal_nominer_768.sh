@@ -10,7 +10,7 @@
 
 export CUDA_VISIBLE_DEVICES=0,1
 nvidia-smi
-python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_alignment_pretraining/train_graphsage_dgi_sapbert.py --train_dir="/home/echernyak/graph_entity_linking/pos_pairs_graph_data/2020AB/ENG_SPA_POR_FRE_JPN_RUS_DUT_GER_ITA_CZE_SWE_KOR_LAV_HUN_CHI_NOR_POL_TUR_EST_FIN_SCR_UKR_GRE_DAN_BAQ_HEB_MULTILINGUAL_ALL_LANGUAGES_FULL/" \
+python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_alignment_pretraining/train_graphsage_dgi_sapbert.py --train_dir="/home/echernyak/graph_entity_linking/pos_pairs_graph_data/2020AB/ENG_FRE_GER_SPA_DUT_RUS_MULTILINGUAL_FULL/" \
 --text_encoder="/home/echernyak/graph_entity_linking/huggingface_models/xlm-roberta-base/" \
 --dataloader_num_workers=0 \
 --graphsage_num_outer_layers 1 \
@@ -39,6 +39,6 @@ python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_align
 --miner_margin 0.2 \
 --agg_mode "cls" \
 --save_every_N_epoch=1 \
---output_dir="/home/echernyak/graph_entity_linking/results/pretrained_graphsapbert/2020AB/FINAL_MODELS/GRAPHSAGE_DGI_0.0_MULTILINGUAL_ALL_LANGUAGES"
+--output_dir="/home/echernyak/graph_entity_linking/results/pretrained_graphsapbert/2020AB/FINAL_MODELS/GRAPHSAGE_DGI_0.0_MULTILINGUAL"
 
 
