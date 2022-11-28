@@ -8,7 +8,7 @@ from typing import Dict
 
 import pandas as pd
 
-from scripts.utils.io import read_mrconso
+from graphmel.scripts.utils.io import read_mrconso
 
 RU_LETTERS_SET = set('абвгдеёжзийклмнопрстуфхцчшщъыьэюя')
 

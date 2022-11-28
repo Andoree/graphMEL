@@ -7,7 +7,7 @@
 #SBATCH --reservation=maint
 
 # Russian full
-python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/preprocessing/map_node_ids2sem_group.py \
+python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/preprocessing/filter_mrconso_cyrillic.py \
 --mrconso "/home/echernyak/graph_entity_linking/UMLS/2020AB/MRCONSO.RRF" \
 --output_path "/home/echernyak/graph_entity_linking/UMLS/2020AB/FILTERED_CYRILLIC/MRCONSO.RRF"
 
