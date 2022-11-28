@@ -31,7 +31,7 @@ def main(args):
         os.makedirs(output_dir)
 
     mrconso_df = read_mrconso(fpath=args.mrconso)
-
+    mrconso_df.dropna(subset="STR", inplace=True)
     mrconso_df["has_ru_letters"] = mrconso_df["STR"].apply(string_has_ru_letters)
     mrconso_df["has_ru_letters"] = mrconso_df[mrconso_df["has_ru_letters"]]
     mrconso_df.drop(columns=("has_ru_letters",), inplace=True)
