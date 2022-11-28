@@ -33,7 +33,7 @@ def main(args):
     mrconso_df = read_mrconso(fpath=args.mrconso)
 
     mrconso_df["has_ru_letters"] = mrconso_df["STR"].apply(string_has_ru_letters)
-    mrconso_df = mrconso_df[mrconso_df["has_ru_letters"]]
+    mrconso_df["has_ru_letters"] = mrconso_df[mrconso_df["has_ru_letters"]]
     mrconso_df.drop(columns=("has_ru_letters",), inplace=True)
 
     pd.read_csv(output_path, header=False, sep='|', encoding='utf-8', quoting=3)
