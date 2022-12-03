@@ -23,7 +23,6 @@ python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_align
 --use_rel_or_rela "rel" \
 --graph_loss_weight 0.1 \
 --dgi_loss_weight 0.0 \
---remove_selfloops \
 --intermodal_loss_weight 0.1 \
 --modality_distance "sapbert" \
 --use_intermodal_miner \
