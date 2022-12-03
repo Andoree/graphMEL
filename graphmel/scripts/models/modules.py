@@ -121,10 +121,11 @@ class RGCNEncoder(nn.Module):
 
         return x
 
+
 class GATv2Encoder(nn.Module):
     def __init__(self, in_channels, num_outer_layers: int, num_inner_layers: int, num_hidden_channels, dropout_p: float,
                  num_relations: int, num_att_heads: int, attention_dropout_p: float, set_out_input_dim_equal,
-                 use_relational_features):
+                 add_self_loops, use_relational_features):
         super().__init__()
         self.num_outer_layers = num_outer_layers
 
@@ -145,14 +146,15 @@ class GATv2Encoder(nn.Module):
                 gat_head_output_size = output_num_channels // num_att_heads
                 gat_conv = GATv2Conv(in_channels=input_num_channels, out_channels=gat_head_output_size,
                                      heads=num_att_heads, dropout=attention_dropout_p,
-                                     add_self_loops=False, edge_dim=in_channels, share_weights=True)
+                                     add_self_loops=add_self_loops, edge_dim=in_channels, share_weights=True)
                 inner_convs.append(gat_conv)
 
             self.convs.append(inner_convs)
         self.use_relational_features = use_relational_features
         self.gelu = nn.GELU()
         if self.use_relational_features:
-            self.relation_matrices = Parameter(torch.Tensor(num_relations, in_channels * 2, in_channels))
+            self.relation_matrices = Parameter(
+                torch.Tensor(num_outer_layers, num_inner_layers, num_relations, in_channels * 2, in_channels))
             glorot(self.relation_matrices)
 
     def create_edge_attrs(self, embs, adjs, edge_type_list):
@@ -174,15 +176,23 @@ class GATv2Encoder(nn.Module):
             edge_attrs_list.append(e_emb)
         return edge_attrs_list
 
+    def get_edge_feature_matrix(self, embs, relation_matrices, edge_index, edge_type):
+
+        e_emb = torch.cat((embs[edge_index[0]], embs[edge_index[1]]), dim=1)
+        rel_matrices = relation_matrices[edge_type]
+        e_emb = self.gelu(torch.bmm(e_emb.unsqueeze(1), rel_matrices).squeeze(1))
+
+        return e_emb
+
     def forward(self, embs, adjs, edge_type_list, batch_size):
-        if self.use_relational_features:
-            edge_attrs_list = self.create_edge_attrs(embs=embs, adjs=adjs, edge_type_list=edge_type_list)
-        else:
-            edge_attrs_list = [None, ] * len(adjs)
         x = embs
-        for i, ((edge_index, _, size), inner_convs_list, edge_attr) in enumerate(
-                zip(adjs, self.convs, edge_attrs_list)):
+        for i, ((edge_index, _, size), inner_convs_list, rel_type) in enumerate(
+                zip(adjs, self.convs, edge_type_list)):
             for j, conv in enumerate(inner_convs_list):
+                edge_attr = None
+                if self.use_relational_features:
+                    edge_attr = self.get_edge_feature_matrix(embs=x, relation_matrices=self.relation_matrices[i][j],
+                                                             edge_index=edge_index, edge_type=rel_type)
                 x = conv(x, edge_index=edge_index, edge_attr=edge_attr)
                 if not (i == self.num_outer_layers - 1 and j == self.num_inner_layers - 1):
                     x = F.dropout(x, p=self.dropout_p, training=self.training)

@@ -188,7 +188,7 @@ def main(args):
     output_subdir = f"gatv2_{'.'.join((str(x) for x in args.gat_num_neighbors))}_{args.gat_num_hidden_channels}" \
                     f"_{args.gat_num_outer_layers}_{args.gat_num_inner_layers}_{args.gat_dropout_p}_" \
                     f"{args.gat_num_att_heads}_{args.gat_attention_dropout_p}_graph_loss_{args.graph_loss_weight}_" \
-                    f"{args.use_rel_or_rela}_remove_loops_{args.remove_selfloops}_dgi_{args.dgi_loss_weight}" \
+                    f"{args.use_rel_or_rela}_NEW_remove_loops_{args.remove_selfloops}_dgi_{args.dgi_loss_weight}" \
                     f"_text_loss_{args.text_loss_weight}_intermodal_{args.modality_distance}_intermodal_miner" \
                     f"_{args.use_intermodal_miner}_{args.intermodal_miner_margin}_relational_features" \
                     f"_{args.gat_use_relational_features}_{args.intermodal_loss_weight}_lr_{args.learning_rate}_b_{args.batch_size}"
@@ -234,12 +234,13 @@ def main(args):
         num_relations = len(rela2id.keys())
     else:
         raise ValueError(f"Invalid 'use_rel_or_rela' parameter: {args.use_rel_or_rela}")
-    if not args.remove_selfloops:
-        add_loops_to_edges_list(node_id2terms_list=node_id2token_ids_dict, rel2rel_id=rel2id, rela2rela_id=rela2id,
-                                edges=edges_tuples)
+
+    # if not args.remove_selfloops:
+    #    add_loops_to_edges_list(node_id2terms_list=node_id2token_ids_dict, rel2rel_id=rel2id, rela2rela_id=rela2id,
+    #                            edges=edges_tuples)
     edge_index, edge_rel_ids = \
         convert_edges_tuples_to_oriented_edge_index_with_relations(edges_tuples, args.use_rel_or_rela,
-                                                                   remove_selfloops=args.remove_selfloops)
+                                                                   remove_selfloops=True)
     assert edge_index.size()[1] == len(edge_rel_ids)
 
     num_edges = edge_index.size()[1]
@@ -312,6 +313,7 @@ def main(args):
                                       intermodal_loss_weight=args.intermodal_loss_weight,
                                       gat_use_relational_features=args.gat_use_relational_features,
                                       use_cuda=args.use_cuda, loss=args.loss,
+                                      gat_add_self_loops=(not args.remove_selfloops),
                                       multigpu_flag=args.parallel, use_miner=args.use_miner,
                                       miner_margin=args.miner_margin, use_intermodal_miner=args.use_intermodal_miner,
                                       intermodal_miner_margin=args.intermodal_miner_margin,

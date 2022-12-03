@@ -15,7 +15,7 @@ from graphmel.scripts.self_alignment_pretraining.dgi import Float32DeepGraphInfo
 class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, AbstractDGIModel):
     def __init__(self, bert_encoder, gat_num_outer_layers: int, gat_num_inner_layers, gat_dropout_p: float,
                  gat_num_hidden_channels: int, gat_num_att_heads: int, gat_attention_dropout_p: float,
-                 gat_use_relational_features, num_relations: Union[int, None], graph_loss_weight: float,
+                 gat_use_relational_features, gat_add_self_loops, num_relations: Union[int, None], graph_loss_weight: float,
                  dgi_loss_weight: float, intermodal_loss_weight: float, use_cuda, loss, multigpu_flag,
                  use_intermodal_miner=True, intermodal_miner_margin=0.2, use_miner=True, miner_margin=0.2, type_of_triplets="all", agg_mode="cls",
                  sapbert_loss_weight: float = 1., modality_distance=None):
@@ -61,7 +61,7 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
                                         num_inner_layers=gat_num_inner_layers, num_relations=num_relations,
                                         num_hidden_channels=gat_num_hidden_channels, dropout_p=gat_dropout_p,
                                         num_att_heads=gat_num_att_heads, attention_dropout_p=gat_attention_dropout_p,
-                                        set_out_input_dim_equal=True,
+                                        set_out_input_dim_equal=True, add_self_loops=gat_add_self_loops,
                                         use_relational_features=gat_use_relational_features)
         self.dgi = Float32DeepGraphInfomax(
             hidden_channels=self.bert_hidden_dim, encoder=self.gat_encoder,
