@@ -7,8 +7,8 @@ from torch.cuda.amp import autocast
 class AbstractGraphSapMetricLearningModel(ABC):
 
     @autocast()
-    def calculate_sapbert_loss(self, emb_1, emb_2, labels, batch_size):
-        text_embed = torch.cat([emb_1[:batch_size], emb_2[:batch_size]], dim=0)
+    def calculate_sapbert_loss(self, emb_1, emb_2, labels, ):
+        text_embed = torch.cat([emb_1, emb_2], dim=0)
 
         if self.use_miner:
             hard_pairs_text = self.miner(text_embed, labels)

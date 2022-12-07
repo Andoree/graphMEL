@@ -37,7 +37,6 @@ class PositivePairNeighborSampler(RawNeighborSampler):
         return len(self.pos_pairs_term_1_id_list) // self.batch_size
 
     def sample(self, batch):
-
         term_1_ids = [self.pos_pairs_term_1_id_list[idx] for idx in batch]
         term_1_tok_out = [self.term_id2tokenizer_output[idx] for idx in term_1_ids]
         term_1_input_ids = torch.stack([t_out["input_ids"][0] for t_out in term_1_tok_out])
@@ -77,7 +76,7 @@ class PositivePairNeighborSampler(RawNeighborSampler):
 
         batch_dict = {
             "term_1_input": term_1_input, "term_2_input": term_2_input, "adjs": adjs, "batch_size": batch_size,
-            "concept_ids": triplet_concept_ids
+            "concept_ids": n_id  # "concept_ids": triplet_concept_ids
         }
         return batch_dict
 
@@ -148,7 +147,8 @@ class PositiveRelationalNeighborSampler(RawNeighborSampler):
 
         batch_dict = {
             "term_1_input": term_1_input, "term_2_input": term_2_input, "adjs": adjs, "batch_size": batch_size,
-            "concept_ids": triplet_concept_ids, "rel_ids_list": rel_ids_list,
+            "concept_ids": n_id, "rel_ids_list": rel_ids_list,  # "concept_ids": triplet_concept_ids
+
         }
         return batch_dict
 
@@ -731,7 +731,7 @@ def graph_to_hetero_dataset(edge_index, hetero_dataset, all_node_types, sem_grou
 class HeterogeneousPositivePairNeighborSamplerV2(HGTLoader):
     def __init__(self, pos_pairs_term_1_id_list: List[int],
                  pos_pairs_term_2_id_list: List[int], pos_pairs_concept_ids_list: List[int],
-                 node_id2sem_group: Dict[int, str], edge_index: torch.Tensor, emb_size:int,
+                 node_id2sem_group: Dict[int, str], edge_index: torch.Tensor, emb_size: int,
                  term_id2tokenizer_output: Dict, rel_ids, node_id2token_ids_dict, seq_max_length, *args, **kwargs):
         num_nodes = len(node_id2token_ids_dict)
         self.num_pos_pairs = len(pos_pairs_term_1_id_list)
@@ -805,7 +805,6 @@ class HeterogeneousPositivePairNeighborSamplerV2(HGTLoader):
         t = torch.from_numpy(t).unsqueeze(1)
         hetero_dataset["SRC"].x = t
 
-
         sem_group_rel_dict = {}
         logging.info("Processing edges for heterogeneous dataset")
         for e_id in tqdm(range(num_edges), miniters=num_edges // 100):
@@ -847,12 +846,11 @@ class HeterogeneousPositivePairNeighborSamplerV2(HGTLoader):
     def __len__(self):
         return len(self.pos_pairs_term_1_id_list) // self.batch_size
 
-
     def transform_fn(self, batch: Any) -> HeteroData:
 
         node_dict, row_dict, col_dict, edge_dict, batch_size = batch["hetero_dataset"]
         data = self.filter_hetero_data(self.data, node_dict, row_dict, col_dict,
-                                  edge_dict, self.perm_dict)
+                                       edge_dict, self.perm_dict)
 
         data[self.input_nodes[0]].batch_size = batch_size
 
@@ -924,7 +922,7 @@ class HeterogeneousPositivePairNeighborSamplerV2(HGTLoader):
                            ) -> HeteroData:
         # Filters a heterogeneous data object to only hold nodes in `node` and
         # edges in `edge` for each node and edge type, respectively:
-        out = HeteroData() # copy.copy(data)
+        out = HeteroData()  # copy.copy(data)
 
         for node_type in data.node_types:
 
@@ -943,7 +941,6 @@ class HeterogeneousPositivePairNeighborSamplerV2(HGTLoader):
                 self.filter_edge_store_(data[edge_type], out[edge_type],
                                         row_dict[edge_type_str], col_dict[edge_type_str],
                                         edge_dict[edge_type_str], perm_dict[edge_type_str])
-
 
         return out
 
