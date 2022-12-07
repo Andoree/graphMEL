@@ -102,8 +102,8 @@ class GraphSAGEDGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningMod
         text_embed_2 = self.bert_encoder(term_2_input_ids, attention_mask=term_2_att_masks,
                                          return_dict=True)['last_hidden_state'][:, 0]
 
-        labels = torch.cat([concept_ids, concept_ids], dim=0)
-        text_loss = self.calculate_sapbert_loss(text_embed_1, text_embed_2, labels,)
+        # labels = torch.cat([concept_ids, concept_ids], dim=0)
+        text_loss = self.calculate_sapbert_loss(text_embed_1, text_embed_2, concept_ids,)
 
         pos_graph_embs_1, neg_graph_embs_1, graph_summary_1, pos_graph_embs_2, neg_graph_embs_2, graph_summary_2 = \
             self.graph_encode(text_embed_1, text_embed_2, adjs=adjs, batch_size=batch_size)
@@ -112,9 +112,9 @@ class GraphSAGEDGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningMod
         dgi_loss_2 = self.dgi.loss(pos_graph_embs_2, neg_graph_embs_2, graph_summary_2)
 
         graph_loss = self.calculate_sapbert_loss(pos_graph_embs_1[:batch_size], pos_graph_embs_2[:batch_size],
-                                                 labels[:batch_size])
+                                                 concept_ids[:batch_size])
 
         intermodal_loss = self.calculate_intermodal_loss(text_embed_1, text_embed_2, pos_graph_embs_1, pos_graph_embs_2,
-                                                         labels, batch_size)
+                                                         concept_ids, batch_size)
 
         return text_loss, graph_loss, (dgi_loss_1 + dgi_loss_2) / 2, intermodal_loss

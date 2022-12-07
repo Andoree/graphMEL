@@ -7,9 +7,9 @@ from torch.cuda.amp import autocast
 class AbstractGraphSapMetricLearningModel(ABC):
 
     @autocast()
-    def calculate_sapbert_loss(self, emb_1, emb_2, labels, ):
+    def calculate_sapbert_loss(self, emb_1, emb_2, concept_ids, ):
         text_embed = torch.cat([emb_1, emb_2], dim=0)
-
+        labels = torch.cat([concept_ids, concept_ids], dim=0)
         if self.use_miner:
             hard_pairs_text = self.miner(text_embed, labels)
             sapbert_loss = self.loss(text_embed, labels, hard_pairs_text)
@@ -18,12 +18,14 @@ class AbstractGraphSapMetricLearningModel(ABC):
         return sapbert_loss
 
     @autocast()
-    def calculate_intermodal_loss(self, text_embed_1, text_embed_2, graph_embed_1, graph_embed_2, labels, batch_size):
+    def calculate_intermodal_loss(self, text_embed_1, text_embed_2, graph_embed_1, graph_embed_2, concept_ids, batch_size):
         intermodal_loss = None
         if self.modality_distance == "sapbert":
 
             text_graph_embed_1 = torch.cat([text_embed_1[:batch_size], graph_embed_1[:batch_size]], dim=0)
             text_graph_embed_2 = torch.cat([text_embed_2[:batch_size], graph_embed_2[:batch_size]], dim=0)
+            concept_ids = concept_ids[:batch_size]
+            labels = torch.cat([concept_ids, concept_ids], dim=0)
             if self.use_intermodal_miner:
                 intermodal_hard_pairs_1 = self.intermodal_miner(text_graph_embed_1, labels)
                 intermodal_hard_pairs_2 = self.intermodal_miner(text_graph_embed_2, labels)
