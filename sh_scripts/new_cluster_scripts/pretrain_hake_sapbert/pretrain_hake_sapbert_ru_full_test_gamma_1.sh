@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=ru_hake          # Название задачи
-#SBATCH --error=/home/echernyak/graph_entity_linking/graphmel/logs/pretrain_hake_sapbert/ru_full_pretrain_hake_sapbert_gamma_1.err        # Файл для вывода ошибок
-#SBATCH --output=/home/echernyak/graph_entity_linking/graphmel/logs/pretrain_hake_sapbert/ru_full_pretrain_hake_sapbert_gamma_1.txt       # Файл для вывода результатов
+#SBATCH --error=/home/etutubalina/graph_entity_linking/graphmel/logs/pretrain_hake_sapbert/ru_full_pretrain_hake_sapbert_gamma_1.err        # Файл для вывода ошибок
+#SBATCH --output=/home/etutubalina/graph_entity_linking/graphmel/logs/pretrain_hake_sapbert/ru_full_pretrain_hake_sapbert_gamma_1.txt       # Файл для вывода результатов
 #SBATCH --time=09:00:59                      # Максимальное время выполнения
 #SBATCH --cpus-per-task=2                   # Количество CPU на одну задачу
 #SBATCH --gpus=2                   # Требуемое количество GPU
@@ -10,8 +10,8 @@
 nvidia-smi
 
 export TOKENIZERS_PARALLELISM=false
-python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_alignment_pretraining/train_hake_sapbert.py --train_dir="/home/echernyak/graph_entity_linking/pos_pairs_graph_data/2020AB/RUS_RUSSIAN_FULL_TREE/" \
---text_encoder="/home/echernyak/graph_entity_linking/huggingface_models/bert-base-multilingual-uncased/" \
+python /home/etutubalina/graph_entity_linking/graphmel/graphmel/scripts/self_alignment_pretraining/train_hake_sapbert.py --train_dir="/home/etutubalina/graph_entity_linking/pos_pairs_graph_data/2020AB/RUS_RUSSIAN_FULL_TREE/" \
+--text_encoder="/home/etutubalina/graph_entity_linking/huggingface_models/bert-base-multilingual-uncased/" \
 --dataloader_num_workers=0 \
 --negative_sample_size 4 \
 --hake_gamma 1. \
@@ -34,7 +34,7 @@ python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_align
 --miner_margin 0.2 \
 --agg_mode "cls" \
 --save_every_N_epoch=1 \
---output_dir="/home/echernyak/graph_entity_linking/results/pretrained_graphsapbert/2020AB/HAKE_SAPBERT/RU_FULL_TEST_MBERT"
+--output_dir="/home/etutubalina/graph_entity_linking/results/pretrained_graphsapbert/2020AB/HAKE_SAPBERT/RU_FULL_TEST_MBERT"
 
 
 

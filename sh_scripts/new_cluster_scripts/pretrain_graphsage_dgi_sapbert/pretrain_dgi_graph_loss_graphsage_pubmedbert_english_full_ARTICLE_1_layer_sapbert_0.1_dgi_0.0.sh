@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=mdSAXL         # Название задачи
-#SBATCH --error=/home/echernyak/graph_entity_linking/graphmel/logs/pretrain_graphsage_dgi_multilingual_full/pubmedbert_english_checkpoint_dgi_graph_loss_pretrain_graphsage_sapbert_checkpoint_article_1_layer_sapbert_0.1_dgi_0.0.err        # Файл для вывода ошибок
-#SBATCH --output=/home/echernyak/graph_entity_linking/graphmel/logs/pretrain_graphsage_dgi_multilingual_full/pubmedbert_english_checkpoint_dgi_graph_loss_pretrain_graphsage_sapbert_checkpoint_article_1_layer_sapbert_0.1_dgi_0.0.txt       # Файл для вывода результатов
+#SBATCH --error=/home/etutubalina/graph_entity_linking/graphmel/logs/pretrain_graphsage_dgi_multilingual_full/pubmedbert_english_checkpoint_dgi_graph_loss_pretrain_graphsage_sapbert_checkpoint_article_1_layer_sapbert_0.1_dgi_0.0.err        # Файл для вывода ошибок
+#SBATCH --output=/home/etutubalina/graph_entity_linking/graphmel/logs/pretrain_graphsage_dgi_multilingual_full/pubmedbert_english_checkpoint_dgi_graph_loss_pretrain_graphsage_sapbert_checkpoint_article_1_layer_sapbert_0.1_dgi_0.0.txt       # Файл для вывода результатов
 #SBATCH --time=48:59:59                      # Максимальное время выполнения
 #SBATCH --cpus-per-task=4                   # Количество CPU на одну задачу
 #SBATCH --gpus=2                   # Требуемое количество GPU
@@ -10,8 +10,8 @@
 
 export CUDA_VISIBLE_DEVICES=0,1
 nvidia-smi
-python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_alignment_pretraining/train_graphsage_dgi_sapbert.py --train_dir="/home/echernyak/graph_entity_linking/pos_pairs_graph_data/2020AB/ENG_ENGLISH_FULL/" \
---text_encoder="/home/echernyak/graph_entity_linking/huggingface_models/microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext/" \
+python /home/etutubalina/graph_entity_linking/graphmel/graphmel/scripts/self_alignment_pretraining/train_graphsage_dgi_sapbert.py --train_dir="/home/etutubalina/graph_entity_linking/pos_pairs_graph_data/2020AB/ENG_ENGLISH_FULL/" \
+--text_encoder="/home/etutubalina/graph_entity_linking/huggingface_models/microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext/" \
 --dataloader_num_workers=0 \
 --graphsage_num_outer_layers 1 \
 --graphsage_num_inner_layers 3 \
@@ -40,6 +40,6 @@ python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_align
 --miner_margin 0.2 \
 --agg_mode "cls" \
 --save_every_N_epoch=1 \
---output_dir="/home/echernyak/graph_entity_linking/results/pretrained_graphsapbert/2020AB/DGI_GRAPH_LOSS_GraphSAGE/ENGLISH_FULL_PUBMEDBERT"
+--output_dir="/home/etutubalina/graph_entity_linking/results/pretrained_graphsapbert/2020AB/DGI_GRAPH_LOSS_GraphSAGE/ENGLISH_FULL_PUBMEDBERT"
 
 

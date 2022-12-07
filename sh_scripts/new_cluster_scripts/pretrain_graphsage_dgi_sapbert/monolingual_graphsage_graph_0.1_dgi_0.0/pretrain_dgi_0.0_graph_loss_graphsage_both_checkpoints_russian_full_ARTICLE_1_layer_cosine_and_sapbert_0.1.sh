@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=mul_sage          # Название задачи
-#SBATCH --error=/home/echernyak/graph_entity_linking/graphmel/logs/pretrain_monolingual_graphsage_graph_0.1_dgi_0.0/pretrain_dgi_0.0_graph_loss_graphsage_both_checkpoints_russian_full_ARTICLE_1_layer_cosine_and_sapbert_0.1.err        # Файл для вывода ошибок
-#SBATCH --output=/home/echernyak/graph_entity_linking/graphmel/logs/pretrain_monolingual_graphsage_graph_0.1_dgi_0.0/pretrain_dgi_0.0_graph_loss_graphsage_both_checkpoints_russian_full_ARTICLE_1_layer_cosine_and_sapbert_0.1.txt       # Файл для вывода результатов
+#SBATCH --error=/home/etutubalina/graph_entity_linking/graphmel/logs/pretrain_monolingual_graphsage_graph_0.1_dgi_0.0/pretrain_dgi_0.0_graph_loss_graphsage_both_checkpoints_russian_full_ARTICLE_1_layer_cosine_and_sapbert_0.1.err        # Файл для вывода ошибок
+#SBATCH --output=/home/etutubalina/graph_entity_linking/graphmel/logs/pretrain_monolingual_graphsage_graph_0.1_dgi_0.0/pretrain_dgi_0.0_graph_loss_graphsage_both_checkpoints_russian_full_ARTICLE_1_layer_cosine_and_sapbert_0.1.txt       # Файл для вывода результатов
 #SBATCH --time=16:59:59                      # Максимальное время выполнения
 #SBATCH --cpus-per-task=2                   # Количество CPU на одну задачу
 #SBATCH --gpus=2                   # Требуемое количество GPU
@@ -11,8 +11,8 @@
 export CUDA_VISIBLE_DEVICES=0,1
 nvidia-smi
 echo "Starting Russian GraphSAGE + graph loss cosine from SapBERT checkpoint"
-python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_alignment_pretraining/train_graphsage_dgi_sapbert.py --train_dir="/home/echernyak/graph_entity_linking/pos_pairs_graph_data/2020AB/RUS_RUSSIAN_FULL/" \
---text_encoder="/home/echernyak/graph_entity_linking/huggingface_models/cambridgeltl/SapBERT-UMLS-2020AB-all-lang-from-XLMR/" \
+python /home/etutubalina/graph_entity_linking/graphmel/graphmel/scripts/self_alignment_pretraining/train_graphsage_dgi_sapbert.py --train_dir="/home/etutubalina/graph_entity_linking/pos_pairs_graph_data/2020AB/RUS_RUSSIAN_FULL/" \
+--text_encoder="/home/etutubalina/graph_entity_linking/huggingface_models/cambridgeltl/SapBERT-UMLS-2020AB-all-lang-from-XLMR/" \
 --dataloader_num_workers=0 \
 --graphsage_num_outer_layers 1 \
 --graphsage_num_inner_layers 3 \
@@ -40,11 +40,11 @@ python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_align
 --miner_margin 0.2 \
 --agg_mode "cls" \
 --save_every_N_epoch=1 \
---output_dir="/home/echernyak/graph_entity_linking/results/pretrained_graphsapbert/2020AB/DGI_GRAPH_LOSS_GraphSAGE/RUSSIAN_FULL_SAPBERT_CHECKPOINT"
+--output_dir="/home/etutubalina/graph_entity_linking/results/pretrained_graphsapbert/2020AB/DGI_GRAPH_LOSS_GraphSAGE/RUSSIAN_FULL_SAPBERT_CHECKPOINT"
 
 echo "Starting Russian GraphSAGE + graph loss sapbert from SapBERT checkpoint"
-python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_alignment_pretraining/train_graphsage_dgi_sapbert.py --train_dir="/home/echernyak/graph_entity_linking/pos_pairs_graph_data/2020AB/RUS_RUSSIAN_FULL/" \
---text_encoder="/home/echernyak/graph_entity_linking/huggingface_models/cambridgeltl/SapBERT-UMLS-2020AB-all-lang-from-XLMR/" \
+python /home/etutubalina/graph_entity_linking/graphmel/graphmel/scripts/self_alignment_pretraining/train_graphsage_dgi_sapbert.py --train_dir="/home/etutubalina/graph_entity_linking/pos_pairs_graph_data/2020AB/RUS_RUSSIAN_FULL/" \
+--text_encoder="/home/etutubalina/graph_entity_linking/huggingface_models/cambridgeltl/SapBERT-UMLS-2020AB-all-lang-from-XLMR/" \
 --dataloader_num_workers=0 \
 --graphsage_num_outer_layers 1 \
 --graphsage_num_inner_layers 3 \
@@ -73,11 +73,11 @@ python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_align
 --miner_margin 0.2 \
 --agg_mode "cls" \
 --save_every_N_epoch=1 \
---output_dir="/home/echernyak/graph_entity_linking/results/pretrained_graphsapbert/2020AB/DGI_GRAPH_LOSS_GraphSAGE/RUSSIAN_FULL_SAPBERT_CHECKPOINT"
+--output_dir="/home/etutubalina/graph_entity_linking/results/pretrained_graphsapbert/2020AB/DGI_GRAPH_LOSS_GraphSAGE/RUSSIAN_FULL_SAPBERT_CHECKPOINT"
 
 echo "Starting Russian GraphSAGE + graph loss cosine from XLMR checkpoint"
-python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_alignment_pretraining/train_graphsage_dgi_sapbert.py --train_dir="/home/echernyak/graph_entity_linking/pos_pairs_graph_data/2020AB/RUS_RUSSIAN_FULL/" \
---text_encoder="/home/echernyak/graph_entity_linking/huggingface_models/xlm-roberta-base/" \
+python /home/etutubalina/graph_entity_linking/graphmel/graphmel/scripts/self_alignment_pretraining/train_graphsage_dgi_sapbert.py --train_dir="/home/etutubalina/graph_entity_linking/pos_pairs_graph_data/2020AB/RUS_RUSSIAN_FULL/" \
+--text_encoder="/home/etutubalina/graph_entity_linking/huggingface_models/xlm-roberta-base/" \
 --dataloader_num_workers=0 \
 --graphsage_num_outer_layers 1 \
 --graphsage_num_inner_layers 3 \
@@ -105,11 +105,11 @@ python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_align
 --miner_margin 0.2 \
 --agg_mode "cls" \
 --save_every_N_epoch=1 \
---output_dir="/home/echernyak/graph_entity_linking/results/pretrained_graphsapbert/2020AB/DGI_GRAPH_LOSS_GraphSAGE/RUSSIAN_XLMR_CHECKPOINT"
+--output_dir="/home/etutubalina/graph_entity_linking/results/pretrained_graphsapbert/2020AB/DGI_GRAPH_LOSS_GraphSAGE/RUSSIAN_XLMR_CHECKPOINT"
 
 echo "Starting Russian GraphSAGE + graph loss sapbert from XLMR checkpoint"
-python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_alignment_pretraining/train_graphsage_dgi_sapbert.py --train_dir="/home/echernyak/graph_entity_linking/pos_pairs_graph_data/2020AB/RUS_RUSSIAN_FULL/" \
---text_encoder="/home/echernyak/graph_entity_linking/huggingface_models/xlm-roberta-base/" \
+python /home/etutubalina/graph_entity_linking/graphmel/graphmel/scripts/self_alignment_pretraining/train_graphsage_dgi_sapbert.py --train_dir="/home/etutubalina/graph_entity_linking/pos_pairs_graph_data/2020AB/RUS_RUSSIAN_FULL/" \
+--text_encoder="/home/etutubalina/graph_entity_linking/huggingface_models/xlm-roberta-base/" \
 --dataloader_num_workers=0 \
 --graphsage_num_outer_layers 1 \
 --graphsage_num_inner_layers 3 \
@@ -138,6 +138,6 @@ python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_align
 --miner_margin 0.2 \
 --agg_mode "cls" \
 --save_every_N_epoch=1 \
---output_dir="/home/echernyak/graph_entity_linking/results/pretrained_graphsapbert/2020AB/DGI_GRAPH_LOSS_GraphSAGE/RUSSIAN_XLMR_CHECKPOINT"
+--output_dir="/home/etutubalina/graph_entity_linking/results/pretrained_graphsapbert/2020AB/DGI_GRAPH_LOSS_GraphSAGE/RUSSIAN_XLMR_CHECKPOINT"
 
 

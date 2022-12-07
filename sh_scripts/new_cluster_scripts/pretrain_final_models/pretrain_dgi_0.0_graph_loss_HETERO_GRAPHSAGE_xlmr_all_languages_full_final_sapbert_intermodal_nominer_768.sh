@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=mu_hesage          # Название задачи
-#SBATCH --error=/home/echernyak/graph_entity_linking/graphmel/logs/pretrain_graph_models_final/pretrain_dgi_0.0_graph_loss_HETERO_GRAPHSAGE_xlmr_all_languages_full_final_sapbert_intermodal_nominer_768.err         # Файл для вывода ошибок
-#SBATCH --output=/home/echernyak/graph_entity_linking/graphmel/logs/pretrain_graph_models_final/pretrain_dgi_0.0_graph_loss_HETERO_GRAPHSAGE_xlmr_all_languages_full_final_sapbert_intermodal_nominer_768.txt       # Файл для вывода результатов
+#SBATCH --error=/home/etutubalina/graph_entity_linking/graphmel/logs/pretrain_graph_models_final/pretrain_dgi_0.0_graph_loss_HETERO_GRAPHSAGE_xlmr_all_languages_full_final_sapbert_intermodal_nominer_768.err         # Файл для вывода ошибок
+#SBATCH --output=/home/etutubalina/graph_entity_linking/graphmel/logs/pretrain_graph_models_final/pretrain_dgi_0.0_graph_loss_HETERO_GRAPHSAGE_xlmr_all_languages_full_final_sapbert_intermodal_nominer_768.txt       # Файл для вывода результатов
 #SBATCH --time=150:00:59                      # Максимальное время выполнения
 #SBATCH --cpus-per-task=5                   # Количество CPU на одну задачу
 #SBATCH --gpus=4                   # Требуемое количество GPU
@@ -12,8 +12,8 @@
 export CUDA_VISIBLE_DEVICES=0,1,2,3
 export TOKENIZERS_PARALLELISM=false
 nvidia-smi
-python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_alignment_pretraining/train_hetero_graphsage_dgi_sapbert.py --train_dir="/home/echernyak/graph_entity_linking/pos_pairs_graph_data/2020AB/ENG_SPA_POR_FRE_JPN_RUS_DUT_GER_ITA_CZE_SWE_KOR_LAV_HUN_CHI_NOR_POL_TUR_EST_FIN_SCR_UKR_GRE_DAN_BAQ_HEB_MULTILINGUAL_ALL_LANGUAGES_FULL/" \
---text_encoder="/home/echernyak/graph_entity_linking/huggingface_models/xlm-roberta-base/" \
+python /home/etutubalina/graph_entity_linking/graphmel/graphmel/scripts/self_alignment_pretraining/train_hetero_graphsage_dgi_sapbert.py --train_dir="/home/etutubalina/graph_entity_linking/pos_pairs_graph_data/2020AB/ENG_SPA_POR_FRE_JPN_RUS_DUT_GER_ITA_CZE_SWE_KOR_LAV_HUN_CHI_NOR_POL_TUR_EST_FIN_SCR_UKR_GRE_DAN_BAQ_HEB_MULTILINGUAL_ALL_LANGUAGES_FULL/" \
+--text_encoder="/home/etutubalina/graph_entity_linking/huggingface_models/xlm-roberta-base/" \
 --dataloader_num_workers=0 \
 --graphsage_num_neighbors 1 \
 --num_graphsage_layers 3 \
@@ -39,6 +39,6 @@ python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_align
 --miner_margin 0.2 \
 --agg_mode "cls" \
 --save_every_N_epoch=1 \
---output_dir="/home/echernyak/graph_entity_linking/results/pretrained_graphsapbert/2020AB/FINAL_MODELS/HETERO_GRAPHSAGE_DGI_0.0_MULTILINGUAL_ALL_LANGUAGES"
+--output_dir="/home/etutubalina/graph_entity_linking/results/pretrained_graphsapbert/2020AB/FINAL_MODELS/HETERO_GRAPHSAGE_DGI_0.0_MULTILINGUAL_ALL_LANGUAGES"
 
 

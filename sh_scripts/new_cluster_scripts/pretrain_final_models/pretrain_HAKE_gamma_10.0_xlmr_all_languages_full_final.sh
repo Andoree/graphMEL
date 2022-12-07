@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=mu_hake          # Название задачи
-#SBATCH --error=/home/echernyak/graph_entity_linking/graphmel/logs/pretrain_graph_models_final/pretrain_HAKE_gamma_10.0_xlmr_all_languages_full_final.err        # Файл для вывода ошибок
-#SBATCH --output=/home/echernyak/graph_entity_linking/graphmel/logs/pretrain_graph_models_final/pretrain_HAKE_gamma_10.0_xlmr_all_languages_full_final.txt       # Файл для вывода результатов
+#SBATCH --error=/home/etutubalina/graph_entity_linking/graphmel/logs/pretrain_graph_models_final/pretrain_HAKE_gamma_10.0_xlmr_all_languages_full_final.err        # Файл для вывода ошибок
+#SBATCH --output=/home/etutubalina/graph_entity_linking/graphmel/logs/pretrain_graph_models_final/pretrain_HAKE_gamma_10.0_xlmr_all_languages_full_final.txt       # Файл для вывода результатов
 #SBATCH --time=108:00:59                      # Максимальное время выполнения
 #SBATCH --cpus-per-task=5                   # Количество CPU на одну задачу
 #SBATCH --gpus=4                   # Требуемое количество GPU
@@ -11,8 +11,8 @@
 nvidia-smi
 
 export TOKENIZERS_PARALLELISM=false
-python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_alignment_pretraining/train_hake_sapbert.py --train_dir="/home/echernyak/graph_entity_linking/pos_pairs_graph_data/2020AB/TODO/" \
---text_encoder="/home/echernyak/graph_entity_linking/huggingface_models/xlm-roberta-base/" \
+python /home/etutubalina/graph_entity_linking/graphmel/graphmel/scripts/self_alignment_pretraining/train_hake_sapbert.py --train_dir="/home/etutubalina/graph_entity_linking/pos_pairs_graph_data/2020AB/TODO/" \
+--text_encoder="/home/etutubalina/graph_entity_linking/huggingface_models/xlm-roberta-base/" \
 --dataloader_num_workers=0 \
 --negative_sample_size 3 \
 --hake_gamma 10.0 \
@@ -35,7 +35,7 @@ python /home/echernyak/graph_entity_linking/graphmel/graphmel/scripts/self_align
 --miner_margin 0.2 \
 --agg_mode "cls" \
 --save_every_N_epoch=1 \
---output_dir="/home/echernyak/graph_entity_linking/results/pretrained_graphsapbert/2020AB/FINAL_MODELS/HAKE_MULTILINGUAL_ALL_LANGUAGES"
+--output_dir="/home/etutubalina/graph_entity_linking/results/pretrained_graphsapbert/2020AB/FINAL_MODELS/HAKE_MULTILINGUAL_ALL_LANGUAGES"
 
 
 
