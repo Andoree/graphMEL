@@ -1,10 +1,42 @@
-from abc import ABC
+from abc import ABC, abstractproperty
 
 import torch
 from torch.cuda.amp import autocast
 
 
 class AbstractGraphSapMetricLearningModel(ABC):
+
+    def calc_text_loss_return_text_embeddings(self, term_1_input_ids, term_1_att_masks, term_2_input_ids,
+                                              term_2_att_masks, concept_ids, batch_size):
+        if self.freeze_neighbors:
+            text_embed_grad_1 = self.bert_encoder(term_1_input_ids[:batch_size],
+                                             attention_mask=term_1_att_masks[:batch_size],
+                                             return_dict=True)['last_hidden_state'][:, 0]
+            text_embed_grad_2 = self.bert_encoder(term_2_input_ids[:batch_size],
+                                             attention_mask=term_2_att_masks[:batch_size],
+                                             return_dict=True)['last_hidden_state'][:, 0]
+
+            with torch.no_grad():
+                text_embed_nograd_1 = self.bert_encoder(term_1_input_ids[batch_size:],
+                                                      attention_mask=term_1_att_masks[batch_size:],
+                                                      return_dict=True)['last_hidden_state'][:, 0]
+                text_embed_nograd_2 = self.bert_encoder(term_2_input_ids[batch_size:],
+                                                        attention_mask=term_2_att_masks[batch_size:],
+                                                        return_dict=True)['last_hidden_state'][:, 0]
+            text_embed_1 = torch.cat((text_embed_grad_1, text_embed_nograd_1), dim=0)
+            text_embed_2 = torch.cat((text_embed_grad_2, text_embed_nograd_2), dim=0)
+
+            text_loss = self.calculate_sapbert_loss(text_embed_grad_1, text_embed_grad_2, concept_ids[:batch_size], )
+
+        else:
+            text_embed_1 = self.bert_encoder(term_1_input_ids, attention_mask=term_1_att_masks,
+                                             return_dict=True)['last_hidden_state'][:, 0]
+            text_embed_2 = self.bert_encoder(term_2_input_ids, attention_mask=term_2_att_masks,
+                                             return_dict=True)['last_hidden_state'][:, 0]
+
+            text_loss = self.calculate_sapbert_loss(text_embed_1, text_embed_2, concept_ids,)
+        return text_loss, text_embed_1, text_embed_2
+
 
     @autocast()
     def calculate_sapbert_loss(self, emb_1, emb_2, concept_ids, ):

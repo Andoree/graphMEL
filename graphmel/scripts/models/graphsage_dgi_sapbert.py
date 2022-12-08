@@ -18,8 +18,9 @@ from graphmel.scripts.self_alignment_pretraining.dgi import Float32DeepGraphInfo
 class GraphSAGEDGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, AbstractDGIModel):
     def __init__(self, bert_encoder, use_cuda, loss, graphsage_num_outer_layers, graphsage_num_inner_layers,
                  graphsage_num_hidden_channels, graphsage_dropout_p, dgi_loss_weight, intermodal_loss_weight,
-                 multigpu_flag, use_intermodal_miner=True, intermodal_miner_margin=0.2, use_miner=True, miner_margin=0.2, type_of_triplets="all",
-                 agg_mode="cls", modality_distance=None, sapbert_loss_weight: float = 1.0, graph_loss_weight=0.0):
+                 multigpu_flag, use_intermodal_miner=True, intermodal_miner_margin=0.2, use_miner=True,
+                 miner_margin=0.2, type_of_triplets="all", agg_mode="cls", modality_distance=None,
+                 sapbert_loss_weight: float = 1.0, graph_loss_weight=0.0, freeze_neighbors=False):
 
         logging.info(
             "Sap_Metric_Learning! use_cuda={} loss={} use_miner={} miner_margin={} type_of_triplets={} agg_mode={}".format(
@@ -40,6 +41,7 @@ class GraphSAGEDGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningMod
         self.dgi_loss_weight = dgi_loss_weight
         self.intermodal_loss_weight = intermodal_loss_weight
         self.modality_distance = modality_distance
+        self.freeze_neighbors = freeze_neighbors
 
         if modality_distance == "sapbert":
             if self.use_intermodal_miner:
@@ -96,14 +98,9 @@ class GraphSAGEDGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningMod
 
         output : (N, topk)
         """
-
-        text_embed_1 = self.bert_encoder(term_1_input_ids, attention_mask=term_1_att_masks,
-                                         return_dict=True)['last_hidden_state'][:, 0]
-        text_embed_2 = self.bert_encoder(term_2_input_ids, attention_mask=term_2_att_masks,
-                                         return_dict=True)['last_hidden_state'][:, 0]
-
-        # labels = torch.cat([concept_ids, concept_ids], dim=0)
-        text_loss = self.calculate_sapbert_loss(text_embed_1, text_embed_2, concept_ids,)
+        text_loss, text_embed_1, text_embed_2 = \
+            self.calc_text_loss_return_text_embeddings(term_1_input_ids, term_1_att_masks,
+                                                       term_2_input_ids, term_2_att_masks, concept_ids, batch_size)
 
         pos_graph_embs_1, neg_graph_embs_1, graph_summary_1, pos_graph_embs_2, neg_graph_embs_2, graph_summary_2 = \
             self.graph_encode(text_embed_1, text_embed_2, adjs=adjs, batch_size=batch_size)

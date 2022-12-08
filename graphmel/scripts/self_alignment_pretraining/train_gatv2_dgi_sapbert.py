@@ -61,7 +61,7 @@ def parse_args():
     parser.add_argument('--intermodal_loss_weight', type=float, required=False)
     parser.add_argument('--use_intermodal_miner', action="store_true")
     parser.add_argument('--intermodal_miner_margin', default=0.2, type=float, required=False)
-
+    parser.add_argument('--freeze_neighbors', action="store_true", )
     parser.add_argument('--modality_distance', type=str, required=False, choices=(None, "sapbert", "cosine", "MSE"))
 
     # Tokenizer settings
@@ -191,6 +191,7 @@ def main(args):
                     f"{args.use_rel_or_rela}_NEW_remove_loops_{args.remove_selfloops}_dgi_{args.dgi_loss_weight}" \
                     f"_text_loss_{args.text_loss_weight}_intermodal_{args.modality_distance}_intermodal_miner" \
                     f"_{args.use_intermodal_miner}_{args.intermodal_miner_margin}_relational_features" \
+                    f"_freeze_neigh_{args.freeze_neighbors}" \
                     f"_{args.gat_use_relational_features}_{args.intermodal_loss_weight}_lr_{args.learning_rate}_b_{args.batch_size}"
     modality_distance = args.modality_distance
     if modality_distance == "None":
@@ -312,7 +313,7 @@ def main(args):
                                       graph_loss_weight=args.graph_loss_weight, modality_distance=modality_distance,
                                       intermodal_loss_weight=args.intermodal_loss_weight,
                                       gat_use_relational_features=args.gat_use_relational_features,
-                                      use_cuda=args.use_cuda, loss=args.loss,
+                                      use_cuda=args.use_cuda, loss=args.loss, freeze_neighbors=args.freeze_neighbors,
                                       gat_add_self_loops=(not args.remove_selfloops),
                                       multigpu_flag=args.parallel, use_miner=args.use_miner,
                                       miner_margin=args.miner_margin, use_intermodal_miner=args.use_intermodal_miner,

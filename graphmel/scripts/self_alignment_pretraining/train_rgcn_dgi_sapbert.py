@@ -61,6 +61,7 @@ def parse_args():
     parser.add_argument('--intermodal_loss_weight', type=float, required=False)
     parser.add_argument('--use_intermodal_miner', action="store_true")
     parser.add_argument('--intermodal_miner_margin', default=0.2, type=float, required=False)
+    parser.add_argument('--freeze_neighbors', action="store_true", )
     parser.add_argument('--modality_distance', type=str, required=False, choices=(None, "sapbert", "cosine", "MSE"))
 
     # Tokenizer settings
@@ -186,7 +187,8 @@ def main(args):
                     f"graph_loss_{args.graph_loss_weight}_intermodal_{args.modality_distance}_{args.intermodal_loss_weight}" \
                     f"_{args.rgcn_dropout_p}_{args.rgcn_num_hidden_channels}--{args.rgcn_num_bases}-" \
                     f"{args.rgcn_num_blocks}_{args.use_rel_or_rela}_intermodal_miner_{args.use_intermodal_miner}" \
-                    f"_{args.intermodal_miner_margin}_lr_{args.learning_rate}_b_{args.batch_size}_{conv_type}"
+                    f"_{args.intermodal_miner_margin}_freeze_neigh_{args.freeze_neighbors}" \
+                    f"_lr_{args.learning_rate}_b_{args.batch_size}_{conv_type}"
     output_dir = os.path.join(output_dir, output_subdir)
     if not os.path.exists(output_dir) and output_dir != '':
         os.makedirs(output_dir)
@@ -303,7 +305,7 @@ def main(args):
                                      modality_distance=modality_distance,
                                      intermodal_loss_weight=args.intermodal_loss_weight,
                                      multigpu_flag=args.parallel, use_miner=args.use_miner,
-                                     miner_margin=args.miner_margin,
+                                     miner_margin=args.miner_margin, freeze_neighbors=args.freeze_neighbors,
                                      use_intermodal_miner=args.use_intermodal_miner,
                                      intermodal_miner_margin=args.intermodal_miner_margin,
                                      type_of_triplets=args.type_of_triplets, agg_mode=args.agg_mode).to(device)

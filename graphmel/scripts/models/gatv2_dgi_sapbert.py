@@ -18,7 +18,7 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
                  gat_use_relational_features, gat_add_self_loops, num_relations: Union[int, None], graph_loss_weight: float,
                  dgi_loss_weight: float, intermodal_loss_weight: float, use_cuda, loss, multigpu_flag,
                  use_intermodal_miner=True, intermodal_miner_margin=0.2, use_miner=True, miner_margin=0.2, type_of_triplets="all", agg_mode="cls",
-                 sapbert_loss_weight: float = 1., modality_distance=None):
+                 sapbert_loss_weight: float = 1., modality_distance=None, freeze_neighbors=False):
 
         logging.info(f"Sap_Metric_Learning! use_cuda={use_cuda} loss={loss} use_miner={miner_margin}"
                      f"miner_margin={miner_margin} type_of_triplets={type_of_triplets} agg_mode={agg_mode}")
@@ -46,6 +46,7 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
         self.dgi_loss_weight = dgi_loss_weight
         self.intermodal_loss_weight = intermodal_loss_weight
         self.modality_distance = modality_distance
+        self.freeze_neighbors = freeze_neighbors
         if modality_distance == "sapbert":
             if self.use_intermodal_miner:
                 self.intermodal_miner = miners.TripletMarginMiner(margin=intermodal_miner_margin,
@@ -95,13 +96,9 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
 
         output : (N, topk)
         """
-        text_embed_1 = self.bert_encoder(term_1_input_ids, attention_mask=term_1_att_masks,
-                                         return_dict=True)['last_hidden_state'][:, 0]
-        text_embed_2 = self.bert_encoder(term_2_input_ids, attention_mask=term_2_att_masks,
-                                         return_dict=True)['last_hidden_state'][:, 0]
-
-        # labels = torch.cat([concept_ids, concept_ids], dim=0)
-        text_loss = self.calculate_sapbert_loss(text_embed_1, text_embed_2, concept_ids, )
+        text_loss, text_embed_1, text_embed_2 = \
+            self.calc_text_loss_return_text_embeddings(term_1_input_ids, term_1_att_masks,
+                                                       term_2_input_ids, term_2_att_masks, concept_ids, batch_size)
 
         pos_graph_embs_1, neg_graph_embs_1, graph_summary_1, pos_graph_embs_2, neg_graph_embs_2, graph_summary_2 = \
             self.graph_encode(text_embed_1, text_embed_2, adjs=adjs, edge_type_list=edge_type_list,
