@@ -19,10 +19,10 @@ class AbstractGraphSapMetricLearningModel(ABC):
             with torch.no_grad():
                 text_embed_nograd_1 = self.bert_encoder(term_1_input_ids[batch_size:],
                                                       attention_mask=term_1_att_masks[batch_size:],
-                                                      return_dict=True)['last_hidden_state'][:, 0]
+                                                      return_dict=True)['last_hidden_state'][:, 0].detach()
                 text_embed_nograd_2 = self.bert_encoder(term_2_input_ids[batch_size:],
                                                         attention_mask=term_2_att_masks[batch_size:],
-                                                        return_dict=True)['last_hidden_state'][:, 0]
+                                                        return_dict=True)['last_hidden_state'][:, 0].detach()
             text_embed_1 = torch.cat((text_embed_grad_1, text_embed_nograd_1), dim=0)
             text_embed_2 = torch.cat((text_embed_grad_2, text_embed_nograd_2), dim=0)
 
