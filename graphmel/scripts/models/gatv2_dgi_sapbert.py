@@ -18,7 +18,8 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
                  gat_use_relational_features, gat_add_self_loops, num_relations: Union[int, None], graph_loss_weight: float,
                  dgi_loss_weight: float, intermodal_loss_weight: float, use_cuda, loss, multigpu_flag,
                  use_intermodal_miner=True, intermodal_miner_margin=0.2, use_miner=True, miner_margin=0.2, type_of_triplets="all", agg_mode="cls",
-                 sapbert_loss_weight: float = 1., modality_distance=None, freeze_neighbors=False):
+                 sapbert_loss_weight: float = 1., modality_distance=None, freeze_neighbors=False,
+                 apply_text_loss_to_all_neighbors=False):
 
         logging.info(f"Sap_Metric_Learning! use_cuda={use_cuda} loss={loss} use_miner={miner_margin}"
                      f"miner_margin={miner_margin} type_of_triplets={type_of_triplets} agg_mode={agg_mode}")
@@ -47,6 +48,7 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
         self.intermodal_loss_weight = intermodal_loss_weight
         self.modality_distance = modality_distance
         self.freeze_neighbors = freeze_neighbors
+        self.apply_text_loss_to_all_neighbors = apply_text_loss_to_all_neighbors
         if modality_distance == "sapbert":
             if self.use_intermodal_miner:
                 self.intermodal_miner = miners.TripletMarginMiner(margin=intermodal_miner_margin,

@@ -62,6 +62,7 @@ def parse_args():
     parser.add_argument('--use_intermodal_miner', action="store_true")
     parser.add_argument('--intermodal_miner_margin', default=0.2, type=float, required=False)
     parser.add_argument('--freeze_neighbors', action="store_true", )
+    parser.add_argument('--apply_text_loss_to_all_neighbors', action="store_true", )
     parser.add_argument('--modality_distance', type=str, required=False, choices=(None, "sapbert", "cosine", "MSE"))
 
     # Tokenizer settings
@@ -191,7 +192,7 @@ def main(args):
                     f"{args.use_rel_or_rela}_NEW_remove_loops_{args.remove_selfloops}_dgi_{args.dgi_loss_weight}" \
                     f"_text_loss_{args.text_loss_weight}_intermodal_{args.modality_distance}_intermodal_miner" \
                     f"_{args.use_intermodal_miner}_{args.intermodal_miner_margin}_relational_features" \
-                    f"_freeze_neigh_{args.freeze_neighbors}" \
+                    f"_freeze_neigh_{args.freeze_neighbors}_text_loss_neighbors_{args.apply_text_loss_to_all_neighbors}" \
                     f"_{args.gat_use_relational_features}_{args.intermodal_loss_weight}_lr_{args.learning_rate}_b_{args.batch_size}"
     modality_distance = args.modality_distance
     if modality_distance == "None":
@@ -318,7 +319,8 @@ def main(args):
                                       multigpu_flag=args.parallel, use_miner=args.use_miner,
                                       miner_margin=args.miner_margin, use_intermodal_miner=args.use_intermodal_miner,
                                       intermodal_miner_margin=args.intermodal_miner_margin,
-                                      type_of_triplets=args.type_of_triplets, agg_mode=args.agg_mode).to(device)
+                                      type_of_triplets=args.type_of_triplets, agg_mode=args.agg_mode,
+                                      apply_text_loss_to_all_neighbors=args.apply_text_loss_to_all_neighbors).to(device)
     start = time.time()
     train_graph_sapbert_model(model=model, train_epoch_fn=train_gatv2_dgi_sapbert,
                               train_loader=train_pos_pair_sampler,

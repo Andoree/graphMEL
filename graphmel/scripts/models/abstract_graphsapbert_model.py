@@ -33,8 +33,11 @@ class AbstractGraphSapMetricLearningModel(ABC):
                                              return_dict=True)['last_hidden_state'][:, 0]
             text_embed_2 = self.bert_encoder(term_2_input_ids, attention_mask=term_2_att_masks,
                                              return_dict=True)['last_hidden_state'][:, 0]
-
-            text_loss = self.calculate_sapbert_loss(text_embed_1, text_embed_2, concept_ids,)
+            if self.apply_text_loss_to_all_neighbors:
+                text_loss = self.calculate_sapbert_loss(text_embed_1, text_embed_2, concept_ids,)
+            else:
+                text_loss = self.calculate_sapbert_loss(text_embed_1[:batch_size], text_embed_2[:batch_size],
+                                                        concept_ids[:batch_size], )
         return text_loss, text_embed_1, text_embed_2
 
 

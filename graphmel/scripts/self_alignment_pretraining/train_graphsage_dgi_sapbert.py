@@ -56,6 +56,7 @@ def parse_args():
     parser.add_argument('--use_intermodal_miner', action="store_true")
     parser.add_argument('--intermodal_miner_margin', default=0.2, type=float, required=False)
     parser.add_argument('--freeze_neighbors', action="store_true",)
+    parser.add_argument('--apply_text_loss_to_all_neighbors', action="store_true", )
     parser.add_argument('--remove_selfloops', action="store_true")
 
     # Tokenizer settings
@@ -182,6 +183,7 @@ def main(args):
                     f"_{args.graphsage_dropout_p}_remove_loops_{args.remove_selfloops}_graph_{args.graph_loss_weight}" \
                     f"_dgi_{args.dgi_loss_weight}_modal_{args.modality_distance}_{args.intermodal_loss_weight}" \
                     f"_intermodal_miner_{args.use_intermodal_miner}_{args.intermodal_miner_margin}" \
+                    f"_text_loss_neighbors_{args.apply_text_loss_to_all_neighbors}" \
                     f"_freeze_neigh_{args.freeze_neighbors}_lr_{args.learning_rate}_b_{args.batch_size}"
     output_dir = os.path.join(output_dir, output_subdir)
     if not os.path.exists(output_dir) and output_dir != '':
@@ -279,7 +281,8 @@ def main(args):
                                           type_of_triplets=args.type_of_triplets, agg_mode=args.agg_mode,
                                           modality_distance=modality_distance, freeze_neighbors=args.freeze_neighbors,
                                           use_intermodal_miner=args.use_intermodal_miner,
-                                          intermodal_miner_margin=args.intermodal_miner_margin).to(device)
+                                          intermodal_miner_margin=args.intermodal_miner_margin,
+                                          apply_text_loss_to_all_neighbors=args.apply_text_loss_to_all_neighbors).to(device)
 
     start = time.time()
     train_graph_sapbert_model(model=model, train_epoch_fn=train_graphsage_sapbert,
