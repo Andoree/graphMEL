@@ -1,9 +1,9 @@
 #!/bin/bash
 #SBATCH --job-name=mul_sage          # Название задачи
-#SBATCH --error=/home/etutubalina/graph_entity_linking/graphmel/logs/pretrain_graph_models_final/pretrain_dgi_0.0_graph_loss_graphsage_xlmr_full_final_sapbert_intermodal_768_0.2_FINAL_ALL_LANGUAGES_b_256.err        # Файл для вывода ошибок
-#SBATCH --output=/home/etutubalina/graph_entity_linking/graphmel/logs/pretrain_graph_models_final/pretrain_dgi_0.0_graph_loss_graphsage_xlmr_full_final_sapbert_intermodal_768_0.2_FINAL_ALL_LANGUAGES_b_256.txt       # Файл для вывода результатов
+#SBATCH --error=/home/etutubalina/graph_entity_linking/graphmel/logs/pretrain_graph_models_final/pretrain_dgi_0.0_graph_loss_graphsage_xlmr_full_final_sapbert_intermodal_768_0.2_FINAL_ALL_LANGUAGES_b_256_v2.err        # Файл для вывода ошибок
+#SBATCH --output=/home/etutubalina/graph_entity_linking/graphmel/logs/pretrain_graph_models_final/pretrain_dgi_0.0_graph_loss_graphsage_xlmr_full_final_sapbert_intermodal_768_0.2_FINAL_ALL_LANGUAGES_b_256_v2.txt       # Файл для вывода результатов
 #SBATCH --time=37:59:59                      # Максимальное время выполнения
-#SBATCH --cpus-per-task=3                   # Количество CPU на одну задачу
+#SBATCH --cpus-per-task=4                   # Количество CPU на одну задачу
 #SBATCH --gpus=2                   # Требуемое количество GPU
 #SBATCH --constraint=type_c|type_b|type_a
 #SBATCH --nodes=1

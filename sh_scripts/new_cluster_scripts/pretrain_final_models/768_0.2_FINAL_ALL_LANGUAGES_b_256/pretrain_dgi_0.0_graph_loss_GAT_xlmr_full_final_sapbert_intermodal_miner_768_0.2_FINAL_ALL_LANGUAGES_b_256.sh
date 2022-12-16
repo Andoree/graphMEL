@@ -4,7 +4,7 @@
 #SBATCH --output=/home/etutubalina/graph_entity_linking/graphmel/logs/pretrain_graph_models_final/pretrain_dgi_0.0_graph_loss_GAT_xlmr_full_final_sapbert_intermodal_miner_768_0.2_FINAL_ALL_LANGUAGES_b_256.txt       # Файл для вывода результатов
 #SBATCH --time=37:58:59                      # Максимальное время выполнения
 #SBATCH --cpus-per-task=4                   # Количество CPU на одну задачу
-#SBATCH --gpus=3                   # Требуемое количество GPU
+#SBATCH --gpus=4                   # Требуемое количество GPU
 #SBATCH --constraint=type_c|type_b|type_a
 #SBATCH --nodes=1
 
