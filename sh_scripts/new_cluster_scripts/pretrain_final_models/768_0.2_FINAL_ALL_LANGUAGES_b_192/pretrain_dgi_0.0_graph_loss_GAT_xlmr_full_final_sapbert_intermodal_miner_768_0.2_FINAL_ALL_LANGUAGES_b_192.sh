@@ -20,7 +20,6 @@ python /home/etutubalina/graph_entity_linking/graphmel/graphmel/scripts/self_ali
 --gat_num_att_heads 2 \
 --gat_dropout_p 0.3 \
 --gat_attention_dropout_p 0.1 \
---gat_use_relational_features \
 --use_rel_or_rela "rel" \
 --graph_loss_weight 0.1 \
 --dgi_loss_weight 0.0 \
