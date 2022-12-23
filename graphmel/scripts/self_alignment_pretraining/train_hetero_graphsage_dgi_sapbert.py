@@ -183,7 +183,9 @@ def heterogeneous_graphsage_dgi_sapbert_train_step(model: HeteroGraphSageDgiSapM
 def train_heterogeneous_graphsage_dgi_sapbert(model: HeteroGraphSageDgiSapMetricLearning,
                                               train_loader: HeterogeneousPositivePairNeighborSampler,
                                               optimizer: torch.optim.Optimizer, scaler, amp, device, **kwargs):
+
     model.train()
+    freeze_non_target_nodes = kwargs["freeze_non_target_nodes"]
     # total_loss = 0
     losses_dict = {"total": 0, "sapbert": 0, "graph": 0, "dgi": 0, "intermodal": 0}
     num_steps = 0
@@ -191,7 +193,8 @@ def train_heterogeneous_graphsage_dgi_sapbert(model: HeteroGraphSageDgiSapMetric
     for batch in pbar:
         optimizer.zero_grad()
         sapbert_loss, graph_loss, dgi_loss, intermodal_loss = \
-            heterogeneous_graphsage_dgi_sapbert_train_step(model=model, batch=batch, amp=amp, device=device, )
+            heterogeneous_graphsage_dgi_sapbert_train_step(model=model, batch=batch, amp=amp, device=device,
+                                                           freeze_non_target_nodes=freeze_non_target_nodes)
         sapbert_loss = sapbert_loss * model.sapbert_loss_weight
         graph_loss = graph_loss * model.graph_loss_weight
         dgi_loss = dgi_loss * model.dgi_loss_weight
