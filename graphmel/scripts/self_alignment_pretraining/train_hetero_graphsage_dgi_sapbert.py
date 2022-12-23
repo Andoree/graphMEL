@@ -55,10 +55,12 @@ def parse_args():
     parser.add_argument('--graph_loss_weight', type=float, )
     parser.add_argument('--dgi_loss_weight', type=float)
     # parser.add_argument('--filter_rel_types', action="store_true")
+
     parser.add_argument('--intermodal_loss_weight', type=float, required=False)
     parser.add_argument('--use_intermodal_miner', action="store_true")
     parser.add_argument('--modality_distance', type=str, required=False, choices=(None, "sapbert", "cosine", "MSE"))
     parser.add_argument('--text_loss_weight', type=float, required=False, default=1.0)
+    parser.add_argument('--freeze_non_target_nodes', action="store_true")
 
     # Tokenizer settings
     parser.add_argument('--max_length', default=25, type=int)
@@ -100,7 +102,8 @@ def parse_args():
     return args
 
 
-def heterogeneous_graphsage_dgi_sapbert_train_step(model: HeteroGraphSageDgiSapMetricLearning, batch, amp, device, ):
+def heterogeneous_graphsage_dgi_sapbert_train_step(model: HeteroGraphSageDgiSapMetricLearning, batch, amp, device,
+                                                   freeze_non_target_nodes):
     term_1_input_ids, term_1_att_masks = batch["term_1_input"]
     term_1_input_ids, term_1_att_masks = term_1_input_ids.to(device), term_1_att_masks.to(device)
     term_2_input_ids, term_2_att_masks = batch["term_2_input"]
@@ -112,8 +115,16 @@ def heterogeneous_graphsage_dgi_sapbert_train_step(model: HeteroGraphSageDgiSapM
 
     for node_type, bert_input in nodes_bert_input.items():
         bert_input_ids, bert_att_masks = bert_input
-        bert_input_ids, bert_att_masks = bert_input_ids.to(device), bert_att_masks.to(device)
-        bert_features = model.bert_encode(input_ids=bert_input_ids, att_masks=bert_att_masks)
+        if freeze_non_target_nodes:
+            with torch.no_grad():
+                model.eval()
+                bert_input_ids, bert_att_masks = bert_input_ids.to(device), bert_att_masks.to(device)
+                bert_features = model.bert_encode(input_ids=bert_input_ids, att_masks=bert_att_masks).detach()
+                model.train()
+        else:
+            bert_input_ids, bert_att_masks = bert_input_ids.to(device), bert_att_masks.to(device)
+            bert_features = model.bert_encode(input_ids=bert_input_ids, att_masks=bert_att_masks)
+
 
         if node_type != "SRC":
             hetero_dataset[node_type].x = bert_features
@@ -267,7 +278,8 @@ def main(args):
                     f"c-{args.graphsage_hidden_channels}_p-{args.graphsage_dropout_p}" \
                     f"_text_{args.text_loss_weight}_graph_{args.graph_loss_weight}_intermodal_{args.modality_distance}" \
                     f"_{args.intermodal_loss_weight}_dgi_{args.dgi_loss_weight}" \
-                    f"_intermodal_miner_{args.use_intermodal_miner}_lr_{args.learning_rate}_b_{args.batch_size}"
+                    f"_intermodal_miner_{args.use_intermodal_miner}_freeze_non_target_{args.freeze_non_target_nodes}" \
+                    f"_lr_{args.learning_rate}_b_{args.batch_size}"
     output_dir = os.path.join(output_dir, output_subdir)
     if not os.path.exists(output_dir) and output_dir != '':
         os.makedirs(output_dir)
@@ -392,7 +404,7 @@ def main(args):
                               weight_decay=args.weight_decay, num_epochs=args.num_epochs, output_dir=output_dir,
                               save_chkpnt_epoch_interval=args.save_every_N_epoch,
                               amp=args.amp, scaler=scaler, device=device, chkpnt_path=args.model_checkpoint_path,
-                              parallel=args.parallel, )
+                              parallel=args.parallel, freeze_non_target_nodes=args.freeze_non_target_nodes)
     end = time.time()
     training_time = end - start
     training_hour = int(training_time / 60 / 60)
