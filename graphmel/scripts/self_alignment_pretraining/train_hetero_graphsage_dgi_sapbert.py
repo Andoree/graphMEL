@@ -170,12 +170,15 @@ def heterogeneous_graphsage_dgi_sapbert_train_step(model: HeteroGraphSageDgiSapM
                                                                         batch_size=batch_size)
     else:
         sapbert_loss, graph_loss, dgi_loss, intermodal_loss = model(text_embed_1=term_1_node_features,
-                                                                    text_embed_2=term_2_node_features,
-                                                                    concept_ids=concept_ids,
-                                                                    pos_graph_embed=pos_graph_embed,
-                                                                    neg_graph_embed=neg_graph_embed,
-                                                                    graph_summary=graph_summary,
-                                                                    batch_size=batch_size)
+                                                                        text_embed_2=term_2_node_features,
+                                                                        concept_ids=concept_ids,
+                                                                        pos_graph_embed_1=pos_graph_embed_1,
+                                                                        pos_graph_embed_2=pos_graph_embed_2,
+                                                                        neg_graph_embed_1=neg_graph_embed_1,
+                                                                        neg_graph_embed_2=neg_graph_embed_2,
+                                                                        graph_summary_1=graph_summary_1,
+                                                                        graph_summary_2=graph_summary_2,
+                                                                        batch_size=batch_size)
 
     return sapbert_loss, graph_loss, dgi_loss, intermodal_loss
 
@@ -281,7 +284,7 @@ def main(args):
                     f"c-{args.graphsage_hidden_channels}_p-{args.graphsage_dropout_p}" \
                     f"_text_{args.text_loss_weight}_graph_{args.graph_loss_weight}_intermodal_{args.modality_distance}" \
                     f"_{args.intermodal_loss_weight}_dgi_{args.dgi_loss_weight}" \
-                    f"_intermodal_miner_{args.use_intermodal_miner}_freeze_non_target_{args.freeze_non_target_nodes}" \
+                    f"_intermodal_miner_{args.use_intermodal_miner}_freeze_neigh_{args.freeze_non_target_nodes}" \
                     f"_lr_{args.learning_rate}_b_{args.batch_size}"
     output_dir = os.path.join(output_dir, output_subdir)
     if not os.path.exists(output_dir) and output_dir != '':

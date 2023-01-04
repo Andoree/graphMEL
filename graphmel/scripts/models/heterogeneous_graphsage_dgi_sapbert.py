@@ -157,9 +157,12 @@ class HeteroGraphSageDgiSapMetricLearning(nn.Module, AbstractGraphSapMetricLearn
         """
 
         labels = torch.cat([concept_ids, concept_ids], dim=0)
-        sapbert_loss = self.calculate_sapbert_loss(text_embed_1, text_embed_2, labels, batch_size)
 
-        graph_loss = self.calculate_sapbert_loss(pos_graph_embed_1, pos_graph_embed_2, labels, batch_size)
+        sapbert_loss = self.calculate_sapbert_loss(text_embed_1[:batch_size], text_embed_2[:batch_size],
+                                                   labels[:batch_size])
+
+        graph_loss = self.calculate_sapbert_loss(pos_graph_embed_1[:batch_size], pos_graph_embed_2[:batch_size],
+                                                 labels[:batch_size])
 
         dgi_loss_1 = self.dgi.loss(pos_graph_embed_1, neg_graph_embed_1, graph_summary_1)
         dgi_loss_2 = self.dgi.loss(pos_graph_embed_2, neg_graph_embed_2, graph_summary_2)
