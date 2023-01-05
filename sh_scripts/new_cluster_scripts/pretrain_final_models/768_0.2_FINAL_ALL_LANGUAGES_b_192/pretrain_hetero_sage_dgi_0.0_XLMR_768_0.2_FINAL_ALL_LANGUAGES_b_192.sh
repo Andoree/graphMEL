@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=mu_hesage          # Название задачи
-#SBATCH --error=/home/etutubalina/graph_entity_linking/graphmel/logs/pretrain_heterosage_graphloss_dgi_multilingual_full/pretrain_hetero_sage_dgi_0.0_XLMR_768_0.2_FINAL_ALL_LANGUAGES_b_192.err         # Файл для вывода ошибок
-#SBATCH --output=/home/etutubalina/graph_entity_linking/graphmel/logs/pretrain_heterosage_graphloss_dgi_multilingual_full/pretrain_hetero_sage_dgi_0.0_XLMR_768_0.2_FINAL_ALL_LANGUAGES_b_192.txt       # Файл для вывода результатов
+#SBATCH --error=/home/etutubalina/graph_entity_linking/graphmel/logs/pretrain_heterosage_graphloss_dgi_multilingual_full/pretrain_hetero_sage_dgi_0.0_XLMR_768_0.2_FINAL_ALL_LANGUAGES_b_192_freeze_neigh.err         # Файл для вывода ошибок
+#SBATCH --output=/home/etutubalina/graph_entity_linking/graphmel/logs/pretrain_heterosage_graphloss_dgi_multilingual_full/pretrain_hetero_sage_dgi_0.0_XLMR_768_0.2_FINAL_ALL_LANGUAGES_b_192_freeze_neigh.txt       # Файл для вывода результатов
 #SBATCH --time=128:00:59                      # Максимальное время выполнения
 #SBATCH --cpus-per-task=4                   # Количество CPU на одну задачу
 #SBATCH --gpus=4                   # Требуемое количество GPU
