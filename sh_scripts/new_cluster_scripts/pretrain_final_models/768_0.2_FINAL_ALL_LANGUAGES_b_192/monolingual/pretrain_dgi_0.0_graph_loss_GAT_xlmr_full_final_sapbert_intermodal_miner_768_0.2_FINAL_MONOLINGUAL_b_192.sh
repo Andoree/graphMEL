@@ -33,7 +33,7 @@ python /home/etutubalina/graph_entity_linking/graphmel/graphmel/scripts/self_ali
 --learning_rate=2e-5 \
 --weight_decay=0.01  \
 --batch_size=192 \
---num_epochs=2 \
+--num_epochs=5 \
 --amp \
 --parallel \
 --random_seed=42 \
@@ -42,7 +42,7 @@ python /home/etutubalina/graph_entity_linking/graphmel/graphmel/scripts/self_ali
 --type_of_triplets "all" \
 --miner_margin 0.2 \
 --agg_mode "cls" \
---save_every_N_epoch=1 \
+--save_every_N_epoch=5 \
 --output_dir="/home/etutubalina/graph_entity_linking/results/pretrained_graphsapbert/2020AB/768_0.2_FINAL_MONOLINGUAL_b_192/XLMR_GAT_DGI_0.0_SPA"
 
 
@@ -70,7 +70,7 @@ python /home/etutubalina/graph_entity_linking/graphmel/graphmel/scripts/self_ali
 --learning_rate=2e-5 \
 --weight_decay=0.01  \
 --batch_size=192 \
---num_epochs=2 \
+--num_epochs=5 \
 --amp \
 --parallel \
 --random_seed=42 \
@@ -79,7 +79,7 @@ python /home/etutubalina/graph_entity_linking/graphmel/graphmel/scripts/self_ali
 --type_of_triplets "all" \
 --miner_margin 0.2 \
 --agg_mode "cls" \
---save_every_N_epoch=1 \
+--save_every_N_epoch=5 \
 --output_dir="/home/etutubalina/graph_entity_linking/results/pretrained_graphsapbert/2020AB/768_0.2_FINAL_MONOLINGUAL_b_192/XLMR_GAT_DGI_0.0_DUT"
 
 
@@ -107,7 +107,7 @@ python /home/etutubalina/graph_entity_linking/graphmel/graphmel/scripts/self_ali
 --learning_rate=2e-5 \
 --weight_decay=0.01  \
 --batch_size=192 \
---num_epochs=2 \
+--num_epochs=5 \
 --amp \
 --parallel \
 --random_seed=42 \
@@ -116,7 +116,7 @@ python /home/etutubalina/graph_entity_linking/graphmel/graphmel/scripts/self_ali
 --type_of_triplets "all" \
 --miner_margin 0.2 \
 --agg_mode "cls" \
---save_every_N_epoch=1 \
+--save_every_N_epoch=5 \
 --output_dir="/home/etutubalina/graph_entity_linking/results/pretrained_graphsapbert/2020AB/768_0.2_FINAL_MONOLINGUAL_b_192/XLMR_GAT_DGI_0.0_FRE"
 
 
@@ -143,7 +143,7 @@ python /home/etutubalina/graph_entity_linking/graphmel/graphmel/scripts/self_ali
 --learning_rate=2e-5 \
 --weight_decay=0.01  \
 --batch_size=192 \
---num_epochs=2 \
+--num_epochs=5 \
 --amp \
 --parallel \
 --random_seed=42 \
@@ -152,7 +152,7 @@ python /home/etutubalina/graph_entity_linking/graphmel/graphmel/scripts/self_ali
 --type_of_triplets "all" \
 --miner_margin 0.2 \
 --agg_mode "cls" \
---save_every_N_epoch=1 \
+--save_every_N_epoch=5 \
 --output_dir="/home/etutubalina/graph_entity_linking/results/pretrained_graphsapbert/2020AB/768_0.2_FINAL_MONOLINGUAL_b_192/XLMR_GAT_DGI_0.0_GER"
 
 

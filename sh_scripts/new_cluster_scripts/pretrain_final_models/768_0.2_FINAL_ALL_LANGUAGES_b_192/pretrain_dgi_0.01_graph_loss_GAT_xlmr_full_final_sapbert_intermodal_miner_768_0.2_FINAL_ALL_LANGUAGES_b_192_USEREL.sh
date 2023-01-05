@@ -1,9 +1,9 @@
 #!/bin/bash
 #SBATCH --job-name=mu_gat_dg          # Название задачи
-#SBATCH --error=/home/etutubalina/graph_entity_linking/graphmel/logs/pretrain_graph_models_final/pretrain_dgi_0.01_graph_loss_GAT_xlmr_full_final_sapbert_intermodal_miner_768_0.2_FINAL_ALL_LANGUAGES_b_192_USEREL.err        # Файл для вывода ошибок
-#SBATCH --output=/home/etutubalina/graph_entity_linking/graphmel/logs/pretrain_graph_models_final/pretrain_dgi_0.01_graph_loss_GAT_xlmr_full_final_sapbert_intermodal_miner_768_0.2_FINAL_ALL_LANGUAGES_b_192_USEREL.txt       # Файл для вывода результатов
+#SBATCH --error=/home/etutubalina/graph_entity_linking/graphmel/logs/pretrain_graph_models_final/pretrain_dgi_0.01_graph_loss_GAT_xlmr_full_final_sapbert_intermodal_miner_768_0.2_FINAL_ALL_LANGUAGES_b_192_USEREL_2.err        # Файл для вывода ошибок
+#SBATCH --output=/home/etutubalina/graph_entity_linking/graphmel/logs/pretrain_graph_models_final/pretrain_dgi_0.01_graph_loss_GAT_xlmr_full_final_sapbert_intermodal_miner_768_0.2_FINAL_ALL_LANGUAGES_b_192_USEREL_2.txt       # Файл для вывода результатов
 #SBATCH --time=37:58:59                      # Максимальное время выполнения
-#SBATCH --cpus-per-task=4                   # Количество CPU на одну задачу
+#SBATCH --cpus-per-task=5                   # Количество CPU на одну задачу
 #SBATCH --gpus=4                  # Требуемое количество GPU
 #SBATCH --constraint=type_c|type_b|type_a
 #SBATCH --nodes=1
@@ -44,7 +44,7 @@ python /home/etutubalina/graph_entity_linking/graphmel/graphmel/scripts/self_ali
 --miner_margin 0.2 \
 --agg_mode "cls" \
 --save_every_N_epoch=1 \
---output_dir="/home/etutubalina/graph_entity_linking/results/pretrained_graphsapbert/2020AB/768_0.2_FINAL_ALL_LANGUAGES_b_192/GAT_DGI_ALL_LANGUAGES"
+--output_dir="/home/etutubalina/graph_entity_linking/results/pretrained_graphsapbert/2020AB/768_0.2_FINAL_ALL_LANGUAGES_b_192/DELETE"
 
 
 
