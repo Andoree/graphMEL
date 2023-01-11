@@ -31,20 +31,21 @@ def main(args):
         os.makedirs(output_dir)
 
     mrconso_df = read_mrconso(fpath=args.mrconso)
-    mrconso_df.dropna(subset="STR", inplace=True)
+    mrconso_df.dropna(subset=("STR",), inplace=True)
+
     mrconso_df["has_ru_letters"] = mrconso_df["STR"].apply(string_has_ru_letters)
     mrconso_df["has_ru_letters"] = mrconso_df[mrconso_df["has_ru_letters"]]
     mrconso_df.drop(columns=("has_ru_letters",), inplace=True)
 
-    pd.read_csv(output_path, header=False, sep='|', encoding='utf-8', quoting=3)
+    mrconso_df.to_csv(output_path, header=False, sep='|', encoding='utf-8', quoting=3)
 
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s',
                         datefmt='%Y-%m-%d %H:%M:%S', )
     parser = ArgumentParser()
-    parser.add_argument('--mrconso', type=str, default=f"C:/University/NLP/UMLS/2020AB-full/2020AB/META/MRCONSO.RRF")
-    parser.add_argument('--output_path', type=str, default="delete.RRF")
+    parser.add_argument('--mrconso', type=str)
+    parser.add_argument('--output_path', type=str)
 
     arguments = parser.parse_args()
     main(arguments)
