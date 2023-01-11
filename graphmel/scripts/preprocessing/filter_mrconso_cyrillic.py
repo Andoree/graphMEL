@@ -34,10 +34,10 @@ def main(args):
     mrconso_df.dropna(subset=("STR",), inplace=True)
 
     mrconso_df["has_ru_letters"] = mrconso_df["STR"].apply(string_has_ru_letters)
-    mrconso_df["has_ru_letters"] = mrconso_df[mrconso_df["has_ru_letters"]]
-    mrconso_df.drop(columns=("has_ru_letters",), inplace=True)
-
-    mrconso_df.to_csv(output_path, header=False, sep='|', encoding='utf-8', quoting=3)
+    mrconso_df = mrconso_df[mrconso_df["has_ru_letters"]]
+    mrconso_df.drop(columns="has_ru_letters", inplace=True)
+    
+    mrconso_df.to_csv(output_path, index=False, header=False, sep='|', encoding='utf-8', quoting=3)
 
 
 if __name__ == '__main__':
