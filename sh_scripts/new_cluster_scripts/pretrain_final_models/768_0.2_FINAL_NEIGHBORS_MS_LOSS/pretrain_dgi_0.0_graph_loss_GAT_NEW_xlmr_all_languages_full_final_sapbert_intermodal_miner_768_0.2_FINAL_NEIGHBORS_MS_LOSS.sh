@@ -4,7 +4,7 @@
 #SBATCH --output=/home/etutubalina/graph_entity_linking/graphmel/logs/pretrain_graph_models_final/pretrain_dgi_0.0_graph_loss_GAT_NEW_xlmr_all_languages_full_final_sapbert_intermodal_miner_768_0.2_FINAL_NEIGHBORS_MS_LOSS.txt       # Файл для вывода результатов
 #SBATCH --time=37:58:59                      # Максимальное время выполнения
 #SBATCH --cpus-per-task=4                   # Количество CPU на одну задачу
-#SBATCH --gpus=2                   # Требуемое количество GPU
+#SBATCH --gpus=3                   # Требуемое количество GPU
 #SBATCH --constraint=type_c|type_b|type_a
 #SBATCH --nodes=1
 
@@ -20,6 +20,7 @@ python /home/etutubalina/graph_entity_linking/graphmel/graphmel/scripts/self_ali
 --gat_num_att_heads 2 \
 --gat_dropout_p 0.3 \
 --gat_attention_dropout_p 0.1 \
+--gat_use_relational_features \
 --use_rel_or_rela "rel" \
 --graph_loss_weight 0.1 \
 --dgi_loss_weight 0.0 \
