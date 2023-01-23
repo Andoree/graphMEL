@@ -18,7 +18,7 @@ def main(args):
             if not os.path.exists(output_data_filename_path) and output_data_filename_path != '':
                 os.makedirs(output_data_filename_path)
             with codecs.open(input_data_filename_path, 'r', encoding="utf-8") as inp_file, \
-                    codecs.open(output_data_filename_path, 'r', encoding="utf-8") as out_file:
+                    codecs.open(output_data_filename_path, 'w+', encoding="utf-8") as out_file:
                 for line in inp_file:
                     line = line.strip().rstrip('|')
                     out_file.write(f"{line}\n")
