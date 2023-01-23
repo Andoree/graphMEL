@@ -15,8 +15,8 @@ def main(args):
         for filename in os.listdir(full_input_dataset_dir):
             input_data_filename_path = os.path.join(full_input_dataset_dir, filename)
             output_data_filename_path = os.path.join(full_output_dataset_dir, filename)
-            if not os.path.exists(output_data_filename_path) and output_data_filename_path != '':
-                os.makedirs(output_data_filename_path)
+            if not os.path.exists(full_output_dataset_dir) and full_output_dataset_dir != '':
+                os.makedirs(full_output_dataset_dir)
             with codecs.open(input_data_filename_path, 'r', encoding="utf-8") as inp_file, \
                     codecs.open(output_data_filename_path, 'w+', encoding="utf-8") as out_file:
                 for line in inp_file:
