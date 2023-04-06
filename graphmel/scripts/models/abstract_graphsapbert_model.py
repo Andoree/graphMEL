@@ -116,13 +116,13 @@ class AbstractGraphSapMetricLearningModel(ABC):
                 frozen_embs = node_embs
                 trainable_embs = text_embs
             frozen_embs = frozen_embs.detach()
-            loss = 1. - F.cosine_similarity(trainable_embs, frozen_embs)
+            loss = (1. - F.cosine_similarity(trainable_embs, frozen_embs)).mean()
         else:
             frozen_text_embs = text_embs.detach()
             frozen_node_embs = node_embs.detach()
 
-            frozen_node_embs_cosine_dist = 1. - F.cosine_similarity(text_embs, frozen_node_embs)
-            frozen_text_embs_cosine_dist = 1. - F.cosine_similarity(node_embs, frozen_text_embs)
+            frozen_node_embs_cosine_dist = (1. - F.cosine_similarity(text_embs, frozen_node_embs)).mean()
+            frozen_text_embs_cosine_dist = (1. - F.cosine_similarity(node_embs, frozen_text_embs)).mean()
 
             # Higher loss - higher update weight
             node_emb_update_weight = node_loss_float / (text_loss_float + node_loss_float)
