@@ -33,6 +33,9 @@ class AbstractDGIModel(ABC):
         return embs, corrupted_adjs_list
 
     def graph_encode(self, text_embed_1, text_embed_2, adjs, batch_size, **kwargs):
+        if self.use_detached_text:
+            text_embed_1 = text_embed_1.detach()
+            text_embed_2 = text_embed_2.detach()
         pos_graph_embs_1, neg_graph_embs_1, graph_summary_1 = self.dgi(text_embed_1, adjs, batch_size=batch_size,
                                                                        **kwargs)
         pos_graph_embs_2, neg_graph_embs_2, graph_summary_2 = self.dgi(text_embed_2, adjs, batch_size=batch_size,

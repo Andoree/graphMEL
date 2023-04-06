@@ -64,6 +64,10 @@ def parse_args():
     parser.add_argument('--freeze_neighbors', action="store_true", )
     parser.add_argument('--apply_text_loss_to_all_neighbors', action="store_true", )
     parser.add_argument('--modality_distance', type=str, required=False, choices=(None, "sapbert", "cosine", "MSE"))
+    parser.add_argument('--intermodal_loss_type', type=str, required=False, default="sapbert",
+                        choices=("sapbert", "cosine", ))
+    parser.add_argument('--intermodal_strategy', type=str, required=False, choices=(None, "hard", "soft",))
+    parser.add_argument('--use_detached_text', action="store_true", )
 
     # Tokenizer settings
     parser.add_argument('--max_length', default=25, type=int)
@@ -186,14 +190,17 @@ def train_gatv2_dgi_sapbert(model: GATv2DGISapMetricLearning, train_loader: Posi
 def main(args):
     print(args)
     output_dir = args.output_dir
+
     output_subdir = f"gatv2_{'.'.join((str(x) for x in args.gat_num_neighbors))}_{args.gat_num_hidden_channels}" \
                     f"_{args.gat_num_outer_layers}_{args.gat_num_inner_layers}_{args.gat_dropout_p}_" \
                     f"{args.gat_num_att_heads}_{args.gat_attention_dropout_p}_graph_loss_{args.graph_loss_weight}_" \
-                    f"{args.use_rel_or_rela}_NEW_remove_loops_{args.remove_selfloops}_dgi_{args.dgi_loss_weight}" \
-                    f"_text_loss_{args.text_loss_weight}_intermodal_{args.modality_distance}_intermodal_miner" \
-                    f"_{args.use_intermodal_miner}_{args.intermodal_miner_margin}_relational_features" \
-                    f"_freeze_neigh_{args.freeze_neighbors}_text_loss_neighbors_{args.apply_text_loss_to_all_neighbors}" \
-                    f"_{args.gat_use_relational_features}_{args.intermodal_loss_weight}_lr_{args.learning_rate}_b_{args.batch_size}"
+                    f"{args.use_rel_or_rela}_NEW_rl_{args.remove_selfloops}_dgi_{args.dgi_loss_weight}" \
+                    f"_tl_{args.text_loss_weight}_inter_{args.modality_distance}_intermodal_miner" \
+                    f"_{args.use_intermodal_miner}_{args.intermodal_miner_margin}_relational_features_" \
+                    f"{args.gat_use_relational_features}_freeze_neigh_{args.freeze_neighbors}" \
+                    f"_tl_neighbors_{args.apply_text_loss_to_all_neighbors}_ilt_{args.intermodal_loss_type}" \
+                    f"_istrat_{args.intermodal_strategy}_det_txt_{args.use_detached_text}" \
+                    f"_{args.intermodal_loss_weight}_lr_{args.learning_rate}_b_{args.batch_size}"
     modality_distance = args.modality_distance
     if modality_distance == "None":
         modality_distance = None
@@ -320,7 +327,12 @@ def main(args):
                                       miner_margin=args.miner_margin, use_intermodal_miner=args.use_intermodal_miner,
                                       intermodal_miner_margin=args.intermodal_miner_margin,
                                       type_of_triplets=args.type_of_triplets, agg_mode=args.agg_mode,
+                                      intermodal_loss_type=args.intermodal_loss_type,
+                                      intermodal_strategy=args.intermodal_strategy,
+                                      use_detached_text=args.use_detached_text,
                                       apply_text_loss_to_all_neighbors=args.apply_text_loss_to_all_neighbors).to(device)
+
+
     start = time.time()
     train_graph_sapbert_model(model=model, train_epoch_fn=train_gatv2_dgi_sapbert,
                               train_loader=train_pos_pair_sampler,

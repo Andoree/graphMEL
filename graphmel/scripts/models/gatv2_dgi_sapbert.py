@@ -15,11 +15,14 @@ from graphmel.scripts.self_alignment_pretraining.dgi import Float32DeepGraphInfo
 class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, AbstractDGIModel):
     def __init__(self, bert_encoder, gat_num_outer_layers: int, gat_num_inner_layers, gat_dropout_p: float,
                  gat_num_hidden_channels: int, gat_num_att_heads: int, gat_attention_dropout_p: float,
-                 gat_use_relational_features, gat_add_self_loops, num_relations: Union[int, None], graph_loss_weight: float,
+                 gat_use_relational_features, gat_add_self_loops, num_relations: Union[int, None],
+                 graph_loss_weight: float,
                  dgi_loss_weight: float, intermodal_loss_weight: float, use_cuda, loss, multigpu_flag,
-                 use_intermodal_miner=True, intermodal_miner_margin=0.2, use_miner=True, miner_margin=0.2, type_of_triplets="all", agg_mode="cls",
+                 use_intermodal_miner=True, intermodal_miner_margin=0.2, use_miner=True, miner_margin=0.2,
+                 type_of_triplets="all", agg_mode="cls",
                  sapbert_loss_weight: float = 1., modality_distance=None, freeze_neighbors=False,
-                 apply_text_loss_to_all_neighbors=False):
+                 apply_text_loss_to_all_neighbors=False, intermodal_loss_type="sapbert",
+                 intermodal_strategy=None, use_detached_text=False):
 
         logging.info(f"Sap_Metric_Learning! use_cuda={use_cuda} loss={loss} use_miner={miner_margin}"
                      f"miner_margin={miner_margin} type_of_triplets={type_of_triplets} agg_mode={agg_mode}")
@@ -49,16 +52,24 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
         self.modality_distance = modality_distance
         self.freeze_neighbors = freeze_neighbors
         self.apply_text_loss_to_all_neighbors = apply_text_loss_to_all_neighbors
-        if modality_distance == "sapbert":
-            if self.use_intermodal_miner:
-                self.intermodal_miner = miners.TripletMarginMiner(margin=intermodal_miner_margin,
-                                                                  type_of_triplets=type_of_triplets)
-            else:
-                self.intermodal_miner = None
-            self.intermodal_loss = losses.MultiSimilarityLoss(alpha=2, beta=50, base=0.5)
+        self.intermodal_loss_type = intermodal_loss_type
+        if self.intermodal_loss_type == "sapbbert":
+            if modality_distance == "sapbert":
+                if self.use_intermodal_miner:
+                    self.intermodal_miner = miners.TripletMarginMiner(margin=intermodal_miner_margin,
+                                                                      type_of_triplets=type_of_triplets)
+                else:
+                    self.intermodal_miner = None
+                self.intermodal_loss = losses.MultiSimilarityLoss(alpha=2, beta=50, base=0.5)
 
-        elif modality_distance is not None:
-            self.intermodal_loss = ModalityDistanceLoss(dist_name=modality_distance)
+            elif modality_distance is not None:
+                self.intermodal_loss = ModalityDistanceLoss(dist_name=modality_distance)
+        elif self.intermodal_loss_type == "cosine":
+            assert intermodal_strategy in ("hard", "soft")
+        else:
+            raise Exception(f"Invalid: intermodal_loss_type: {intermodal_loss_type}")
+        self.intermodal_strategy = intermodal_strategy
+        self.use_detached_text = use_detached_text
 
         self.gat_encoder = GATv2Encoder(in_channels=self.bert_hidden_dim, num_outer_layers=gat_num_outer_layers,
                                         num_inner_layers=gat_num_inner_layers, num_relations=num_relations,
@@ -111,8 +122,25 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
 
         graph_loss = self.calculate_sapbert_loss(pos_graph_embs_1[:batch_size], pos_graph_embs_2[:batch_size],
                                                  concept_ids[:batch_size])
-
-        intermodal_loss = self.calculate_intermodal_loss(text_embed_1, text_embed_2, pos_graph_embs_1, pos_graph_embs_2,
-                                                         concept_ids, batch_size)
+        if self.intermodal_loss_type == "sapbert":
+            intermodal_loss = self.calculate_intermodal_loss(text_embed_1, text_embed_2, pos_graph_embs_1,
+                                                             pos_graph_embs_2,
+                                                             concept_ids, batch_size)
+        elif self.intermodal_loss_type == "cosine":
+            intermodal_loss_1 = self.calculate_weighted_intermodal_loss(text_sapbert_loss=text_loss,
+                                                                        node_sapbert_loss=graph_loss,
+                                                                        text_embs=text_embed_1,
+                                                                        node_embs=pos_graph_embs_1,
+                                                                        strategy=self.intermodal_strategy,
+                                                                        batch_size=batch_size)
+            intermodal_loss_2 = self.calculate_weighted_intermodal_loss(text_sapbert_loss=text_loss,
+                                                                        node_sapbert_loss=graph_loss,
+                                                                        text_embs=text_embed_2,
+                                                                        node_embs=pos_graph_embs_2,
+                                                                        strategy=self.intermodal_strategy,
+                                                                        batch_size=batch_size)
+            intermodal_loss = (intermodal_loss_1 + intermodal_loss_2) / 2
+        else:
+            raise Exception(f"Invalid intermodal_loss_type: {self.intermodal_loss_type}")
 
         return text_loss, graph_loss, (dgi_loss_1 + dgi_loss_2) / 2, intermodal_loss

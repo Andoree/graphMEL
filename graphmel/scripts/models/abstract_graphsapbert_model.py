@@ -2,6 +2,7 @@ from abc import ABC, abstractproperty
 
 import torch
 from torch.cuda.amp import autocast
+from torch.nn import functional as F
 
 
 class AbstractGraphSapMetricLearningModel(ABC):
@@ -10,16 +11,16 @@ class AbstractGraphSapMetricLearningModel(ABC):
                                               term_2_att_masks, concept_ids, batch_size):
         if self.freeze_neighbors:
             text_embed_grad_1 = self.bert_encoder(term_1_input_ids[:batch_size],
-                                             attention_mask=term_1_att_masks[:batch_size],
-                                             return_dict=True)['last_hidden_state'][:, 0]
+                                                  attention_mask=term_1_att_masks[:batch_size],
+                                                  return_dict=True)['last_hidden_state'][:, 0]
             text_embed_grad_2 = self.bert_encoder(term_2_input_ids[:batch_size],
-                                             attention_mask=term_2_att_masks[:batch_size],
-                                             return_dict=True)['last_hidden_state'][:, 0]
+                                                  attention_mask=term_2_att_masks[:batch_size],
+                                                  return_dict=True)['last_hidden_state'][:, 0]
 
             with torch.no_grad():
                 text_embed_nograd_1 = self.bert_encoder(term_1_input_ids[batch_size:],
-                                                      attention_mask=term_1_att_masks[batch_size:],
-                                                      return_dict=True)['last_hidden_state'][:, 0].detach()
+                                                        attention_mask=term_1_att_masks[batch_size:],
+                                                        return_dict=True)['last_hidden_state'][:, 0].detach()
                 text_embed_nograd_2 = self.bert_encoder(term_2_input_ids[batch_size:],
                                                         attention_mask=term_2_att_masks[batch_size:],
                                                         return_dict=True)['last_hidden_state'][:, 0].detach()
@@ -34,12 +35,11 @@ class AbstractGraphSapMetricLearningModel(ABC):
             text_embed_2 = self.bert_encoder(term_2_input_ids, attention_mask=term_2_att_masks,
                                              return_dict=True)['last_hidden_state'][:, 0]
             if self.apply_text_loss_to_all_neighbors:
-                text_loss = self.calculate_sapbert_loss(text_embed_1, text_embed_2, concept_ids,)
+                text_loss = self.calculate_sapbert_loss(text_embed_1, text_embed_2, concept_ids, )
             else:
                 text_loss = self.calculate_sapbert_loss(text_embed_1[:batch_size], text_embed_2[:batch_size],
                                                         concept_ids[:batch_size], )
         return text_loss, text_embed_1, text_embed_2
-
 
     @autocast()
     def calculate_sapbert_loss(self, emb_1, emb_2, concept_ids, ):
@@ -53,7 +53,8 @@ class AbstractGraphSapMetricLearningModel(ABC):
         return sapbert_loss
 
     @autocast()
-    def calculate_intermodal_loss(self, text_embed_1, text_embed_2, graph_embed_1, graph_embed_2, concept_ids, batch_size):
+    def calculate_intermodal_loss(self, text_embed_1, text_embed_2, graph_embed_1, graph_embed_2, concept_ids,
+                                  batch_size):
         intermodal_loss = None
         if self.modality_distance == "sapbert":
 
@@ -95,3 +96,37 @@ class AbstractGraphSapMetricLearningModel(ABC):
         text_loss = self.calculate_sapbert_loss(text_embed_1, text_embed_2, labels, batch_size)
 
         return text_loss
+
+    @autocast()
+    def calculate_weighted_intermodal_loss(self, text_sapbert_loss, node_sapbert_loss, text_embs, node_embs, strategy,
+                                           batch_size):
+        if text_embs.size(0) != batch_size:
+            text_embs = text_embs[:batch_size]
+        if node_embs.size(0) != batch_size:
+            node_embs = node_embs[:batch_size]
+
+        assert strategy in ('hard', 'soft')
+        text_loss_float = text_sapbert_loss.item()
+        node_loss_float = node_sapbert_loss.item()
+        if strategy == 'hard':
+            if text_loss_float < node_loss_float:
+                frozen_embs = text_embs
+                trainable_embs = node_embs
+            else:
+                frozen_embs = node_embs
+                trainable_embs = text_embs
+            frozen_embs = frozen_embs.detach()
+            loss = 1. - F.cosine_similarity(trainable_embs, frozen_embs)
+        else:
+            frozen_text_embs = text_embs.detach()
+            frozen_node_embs = node_embs.detach()
+
+            frozen_node_embs_cosine_dist = 1. - F.cosine_similarity(text_embs, frozen_node_embs)
+            frozen_text_embs_cosine_dist = 1. - F.cosine_similarity(node_embs, frozen_text_embs)
+
+            # Higher loss - higher update weight
+            node_emb_update_weight = node_loss_float / (text_loss_float + node_loss_float)
+
+            loss = node_emb_update_weight * frozen_text_embs_cosine_dist + \
+                   (1 - node_emb_update_weight) * frozen_node_embs_cosine_dist
+        return loss
