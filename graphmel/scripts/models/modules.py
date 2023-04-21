@@ -152,6 +152,7 @@ class GATv2Encoder(nn.Module):
             self.convs.append(inner_convs)
         self.use_relational_features = use_relational_features
         self.gelu = nn.GELU()
+        self.lin_proj = nn.Linear(in_channels, in_channels)
         if self.use_relational_features:
             self.relation_matrices = Parameter(
                 torch.Tensor(num_outer_layers, num_inner_layers, num_relations, in_channels * 2, in_channels))
@@ -197,4 +198,5 @@ class GATv2Encoder(nn.Module):
                 if not (i == self.num_outer_layers - 1 and j == self.num_inner_layers - 1):
                     x = F.dropout(x, p=self.dropout_p, training=self.training)
                     x = self.gelu(x)
+        x = self.lin_proj(x)
         return x
