@@ -22,7 +22,7 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
                  type_of_triplets="all", agg_mode="cls",
                  sapbert_loss_weight: float = 1., modality_distance=None, freeze_neighbors=False,
                  apply_text_loss_to_all_neighbors=False, intermodal_loss_type="sapbert",
-                 intermodal_strategy=None, use_detached_text=False):
+                 intermodal_strategy=None, use_detached_text=False, remove_activations=False):
 
         logging.info(f"Sap_Metric_Learning! use_cuda={use_cuda} loss={loss} use_miner={miner_margin}"
                      f"miner_margin={miner_margin} type_of_triplets={type_of_triplets} agg_mode={agg_mode}")
@@ -70,13 +70,15 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
             raise Exception(f"Invalid: intermodal_loss_type: {intermodal_loss_type}")
         self.intermodal_strategy = intermodal_strategy
         self.use_detached_text = use_detached_text
+        self.remove_activations = remove_activations
 
         self.gat_encoder = GATv2Encoder(in_channels=self.bert_hidden_dim, num_outer_layers=gat_num_outer_layers,
                                         num_inner_layers=gat_num_inner_layers, num_relations=num_relations,
                                         num_hidden_channels=gat_num_hidden_channels, dropout_p=gat_dropout_p,
                                         num_att_heads=gat_num_att_heads, attention_dropout_p=gat_attention_dropout_p,
                                         set_out_input_dim_equal=True, add_self_loops=gat_add_self_loops,
-                                        use_relational_features=gat_use_relational_features)
+                                        use_relational_features=gat_use_relational_features,
+                                        remove_activations=remove_activations)
         self.dgi = Float32DeepGraphInfomax(
             hidden_channels=self.bert_hidden_dim, encoder=self.gat_encoder,
             summary=self.summary_fn, corruption=self.corruption_fn)

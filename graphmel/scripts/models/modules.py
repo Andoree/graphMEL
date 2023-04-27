@@ -125,7 +125,7 @@ class RGCNEncoder(nn.Module):
 class GATv2Encoder(nn.Module):
     def __init__(self, in_channels, num_outer_layers: int, num_inner_layers: int, num_hidden_channels, dropout_p: float,
                  num_relations: int, num_att_heads: int, attention_dropout_p: float, set_out_input_dim_equal,
-                 add_self_loops, use_relational_features):
+                 add_self_loops, use_relational_features, remove_activations):
         super().__init__()
         self.num_outer_layers = num_outer_layers
 
@@ -151,8 +151,11 @@ class GATv2Encoder(nn.Module):
 
             self.convs.append(inner_convs)
         self.use_relational_features = use_relational_features
+        self.remove_activations = remove_activations
         self.gelu = nn.GELU()
-        self.lin_proj = nn.Linear(in_channels, in_channels)
+        self.lin_proj = None
+        if not self.remove_activations:
+            self.lin_proj = nn.Linear(in_channels, in_channels)
         if self.use_relational_features:
             self.relation_matrices = Parameter(
                 torch.Tensor(num_outer_layers, num_inner_layers, num_relations, in_channels * 2, in_channels))
@@ -172,7 +175,11 @@ class GATv2Encoder(nn.Module):
             assert e_src_emb.dim() == e_trg_emb.dim() == 2
 
             e_emb = torch.cat((e_src_emb, e_trg_emb), dim=1)
-            e_emb = self.gelu(torch.bmm(e_emb.unsqueeze(1), rel_matrices).squeeze(1))
+            e_emb = torch.bmm(e_emb.unsqueeze(1), rel_matrices).squeeze(1)
+            if self.remove_activations:
+                e_emb = e_emb
+            else:
+                e_emb = self.gelu(e_emb)
 
             edge_attrs_list.append(e_emb)
         return edge_attrs_list
@@ -197,6 +204,8 @@ class GATv2Encoder(nn.Module):
                 x = conv(x, edge_index=edge_index, edge_attr=edge_attr)
                 if not (i == self.num_outer_layers - 1 and j == self.num_inner_layers - 1):
                     x = F.dropout(x, p=self.dropout_p, training=self.training)
-                    x = self.gelu(x)
-        x = self.lin_proj(x)
+                    if not self.remove_activations:
+                        x = self.gelu(x)
+        if not self.remove_activations:
+            x = self.lin_proj(x)
         return x

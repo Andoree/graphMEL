@@ -68,6 +68,7 @@ def parse_args():
                         choices=("sapbert", "cosine", ))
     parser.add_argument('--intermodal_strategy', type=str, required=False, choices=(None, "hard", "soft",))
     parser.add_argument('--use_detached_text', action="store_true", )
+    parser.add_argument('--remove_activations', action="store_true", )
 
     # Tokenizer settings
     parser.add_argument('--max_length', default=25, type=int)
@@ -190,17 +191,18 @@ def train_gatv2_dgi_sapbert(model: GATv2DGISapMetricLearning, train_loader: Posi
 def main(args):
     print(args)
     output_dir = args.output_dir
+    activ_str =  "NO_ACTIV" if args.remove_activations else "ACTIV"
 
     output_subdir = f"gatv2_{'.'.join((str(x) for x in args.gat_num_neighbors))}_{args.gat_num_hidden_channels}" \
                     f"_{args.gat_num_outer_layers}_{args.gat_num_inner_layers}_{args.gat_dropout_p}_" \
                     f"{args.gat_num_att_heads}_{args.gat_attention_dropout_p}_graph_loss_{args.graph_loss_weight}_" \
                     f"{args.use_rel_or_rela}_NEW_rl_{args.remove_selfloops}_dgi_{args.dgi_loss_weight}" \
                     f"_tl_{args.text_loss_weight}_inter_{args.modality_distance}_intermodal_miner" \
-                    f"_{args.use_intermodal_miner}_{args.intermodal_miner_margin}_relational_features_" \
+                    f"_{args.use_intermodal_miner}_{args.intermodal_miner_margin}_rel_feat_" \
                     f"{args.gat_use_relational_features}_freeze_neigh_{args.freeze_neighbors}" \
                     f"_tl_neighbors_{args.apply_text_loss_to_all_neighbors}_ilt_{args.intermodal_loss_type}" \
                     f"_istrat_{args.intermodal_strategy}_det_txt_{args.use_detached_text}" \
-                    f"_{args.intermodal_loss_weight}_lr_{args.learning_rate}_b_{args.batch_size}"
+                    f"_{args.intermodal_loss_weight}_lr_{args.learning_rate}_b_{args.batch_size}_{activ_str}"
     modality_distance = args.modality_distance
     if modality_distance == "None":
         modality_distance = None
@@ -310,7 +312,7 @@ def main(args):
         scaler = GradScaler()
     else:
         scaler = None
-
+    # TODO: В SH-скрипты, argparser
     model = GATv2DGISapMetricLearning(bert_encoder, gat_num_hidden_channels=args.gat_num_hidden_channels,
                                       gat_num_att_heads=args.gat_num_att_heads,
                                       gat_num_outer_layers=args.gat_num_outer_layers,
@@ -330,6 +332,7 @@ def main(args):
                                       intermodal_loss_type=args.intermodal_loss_type,
                                       intermodal_strategy=args.intermodal_strategy,
                                       use_detached_text=args.use_detached_text,
+                                      remove_activations=args.remove_activations,
                                       apply_text_loss_to_all_neighbors=args.apply_text_loss_to_all_neighbors).to(device)
 
 
