@@ -312,7 +312,6 @@ def main(args):
         scaler = GradScaler()
     else:
         scaler = None
-    # TODO: В SH-скрипты, argparser
     model = GATv2DGISapMetricLearning(bert_encoder, gat_num_hidden_channels=args.gat_num_hidden_channels,
                                       gat_num_att_heads=args.gat_num_att_heads,
                                       gat_num_outer_layers=args.gat_num_outer_layers,

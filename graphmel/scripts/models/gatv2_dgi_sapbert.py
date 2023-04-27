@@ -111,7 +111,7 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
 
         output : (N, topk)
         """
-        text_loss, text_embed_1, text_embed_2 = \
+        text_loss, text_embed_1, text_embed_2, hard_pairs = \
             self.calc_text_loss_return_text_embeddings(term_1_input_ids, term_1_att_masks,
                                                        term_2_input_ids, term_2_att_masks, concept_ids, batch_size)
 
@@ -122,12 +122,13 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
         dgi_loss_1 = self.dgi.loss(pos_graph_embs_1, neg_graph_embs_1, graph_summary_1)
         dgi_loss_2 = self.dgi.loss(pos_graph_embs_2, neg_graph_embs_2, graph_summary_2)
 
-        graph_loss = self.calculate_sapbert_loss(pos_graph_embs_1[:batch_size], pos_graph_embs_2[:batch_size],
-                                                 concept_ids[:batch_size])
+        graph_loss, hard_pairs = self.calculate_sapbert_loss(pos_graph_embs_1[:batch_size], pos_graph_embs_2[:batch_size],
+                                                 concept_ids[:batch_size], hard_pairs=hard_pairs)
         if self.intermodal_loss_type == "sapbert":
             intermodal_loss = self.calculate_intermodal_loss(text_embed_1, text_embed_2, pos_graph_embs_1,
                                                              pos_graph_embs_2,
-                                                             concept_ids, batch_size)
+                                                             concept_ids, batch_size,
+                                                             hard_pairs=hard_pairs )
         elif self.intermodal_loss_type == "cosine":
             intermodal_loss_1 = self.calculate_weighted_intermodal_loss(text_sapbert_loss=text_loss,
                                                                         node_sapbert_loss=graph_loss,
