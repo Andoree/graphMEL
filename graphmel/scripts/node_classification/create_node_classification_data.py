@@ -112,7 +112,6 @@ if __name__ == '__main__':
                         datefmt='%Y-%m-%d %H:%M:%S', )
     parser = ArgumentParser()
     parser.add_argument('--input_data_dir')
-    parser.add_argument('--sem_types_file')
     parser.add_argument('--keep_rels', nargs='+')
     parser.add_argument('--save_tree_roots_dir')
     parser.add_argument('--output_dir')
