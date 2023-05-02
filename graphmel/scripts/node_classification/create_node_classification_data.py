@@ -43,6 +43,8 @@ def get_node_classes(parent_children_adj_lists: Dict[int, Set[int]],
                      save_roots_dir: str) -> Dict[int, List[str]]:
     root_node_ids = [n_id for n_id, parent_ids in child_parents_adj_lists.items() if len(parent_ids) == 0]
     logging.info(f"There are {len(root_node_ids)} root nodes")
+    if not os.path.exists(save_roots_dir) and save_roots_dir != "":
+        os.makedirs(save_roots_dir)
     save_roots_path = os.path.join(save_roots_dir, "root_concepts.txt")
 
     with codecs.open(save_roots_path, 'w+') as out_file:
