@@ -110,7 +110,7 @@ def get_node_classes(parent_children_adj_lists: Dict[int, Set[int]],
             out_file.write(f"{k}\t{v}\n")
         n_ids_num_known_types = len(res_n_id_sem_group_is_known)
         out_file.write(f"has_sem_group\t{n_ids_num_known_types}\n")
-        out_file.write(f"unknown_sem_group\t{len(n_unknown_sem_group_n_ids)}\n")
+        out_file.write(f"unknown_sem_group\t{n_unknown_sem_group_n_ids}\n")
 
     return res_n_id2class_label
 
