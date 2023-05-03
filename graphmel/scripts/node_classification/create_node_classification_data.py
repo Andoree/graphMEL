@@ -45,7 +45,7 @@ def traverse_node(current_node_id: int,
         class_label = f"UNK-{node_depth}"
     else:
         raise Exception
-
+    visited_node_ids.add(current_node_id)
     if res_n_id2class_label.get(current_node_id) is None:
         res_n_id2class_label[current_node_id] = []
     res_n_id2class_label[current_node_id].append(class_label)
@@ -53,7 +53,7 @@ def traverse_node(current_node_id: int,
         for child_id in parent_children_adj_lists[current_node_id]:
             if child_id in visited_node_ids:
                 continue
-            visited_node_ids.add(child_id)
+            # visited_node_ids.add(child_id)
             traverse_node(current_node_id=child_id,
                           visited_node_ids=visited_node_ids,
                           parent_children_adj_lists=parent_children_adj_lists,
@@ -63,7 +63,7 @@ def traverse_node(current_node_id: int,
                           res_n_id2class_label=res_n_id2class_label,
                           res_n_id_sem_group_is_known=res_n_id_sem_group_is_known,
                           cases_stats=cases_stats)
-            visited_node_ids.remove(child_id)
+            # visited_node_ids.remove(child_id)
 
 
 def get_node_classes(parent_children_adj_lists: Dict[int, Set[int]],
@@ -92,7 +92,7 @@ def get_node_classes(parent_children_adj_lists: Dict[int, Set[int]],
     node_depth = 0
     for node_id in tqdm(root_node_ids):
         root_sem_gr = node_id2sem_group.get(node_id, None)
-        visited_node_ids.add(node_id)
+        # visited_node_ids.add(node_id)
         traverse_node(current_node_id=node_id,
                       visited_node_ids=visited_node_ids,
                       parent_children_adj_lists=parent_children_adj_lists,
@@ -102,7 +102,7 @@ def get_node_classes(parent_children_adj_lists: Dict[int, Set[int]],
                       res_n_id2class_label=res_n_id2class_label,
                       res_n_id_sem_group_is_known=res_n_id_sem_group_is_known,
                       cases_stats=cases_stats)
-        visited_node_ids.remove(node_id)
+        # visited_node_ids.remove(node_id)
 
     n_unknown_sem_group_n_ids = len(res_n_id_sem_group_is_known.difference(set(node_id2terms_list.keys())))
     with codecs.open(sem_type_stats_path, 'w+') as out_file:
