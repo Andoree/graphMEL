@@ -91,7 +91,7 @@ def main(args):
     logging.info(f"There are {edges_df.shape[0]} edges before filtering")
     edges_df = edges_df[edges_df["rel_id"].isin(keep_rel_ids)]
     logging.info(f"There are {edges_df.shape[0]} edges after REL filtering")
-    it = (row["src_n_id"], row["trg_n_id"], row["rel_id"], row["rela_id"] for i, row in edges_df.iterrows())
+    it = ((row["src_n_id"], row["trg_n_id"], row["rel_id"], row["rela_id"]) for i, row in edges_df.iterrows())
     parent_childs_a_lst, child_parents_a_lst = create_hierarchy_adjacency_lists(edge_tuples=it, id2rel=id2rel)
 
     node_id2sem_group = pd.read_csv(node_id2sem_group_path, sep='\t', header=None,
