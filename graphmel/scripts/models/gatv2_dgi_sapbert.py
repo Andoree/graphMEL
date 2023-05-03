@@ -53,7 +53,7 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
         self.freeze_neighbors = freeze_neighbors
         self.apply_text_loss_to_all_neighbors = apply_text_loss_to_all_neighbors
         self.intermodal_loss_type = intermodal_loss_type
-        if self.intermodal_loss_type == "sapbbert":
+        if self.intermodal_loss_type == "sapbert":
             if modality_distance == "sapbert":
                 if self.use_intermodal_miner:
                     self.intermodal_miner = miners.TripletMarginMiner(margin=intermodal_miner_margin,
