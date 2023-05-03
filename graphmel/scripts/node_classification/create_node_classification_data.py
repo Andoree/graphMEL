@@ -21,7 +21,7 @@ def traverse_node(current_node_id: int,
                   node_id2sem_group: Dict[int, str],
                   res_n_id2class_label: Dict[int, List[str]],
                   res_n_id_sem_group_is_known: Set[int],
-                  cases_stats: typing.Counter[str, int]):
+                  cases_stats):
     curr_node_sem_gr = node_id2sem_group.get(current_node_id)
     # Case 1: equal
     if parent_sem_gr is not None and curr_node_sem_gr is not None:
