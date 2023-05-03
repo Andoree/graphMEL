@@ -22,18 +22,18 @@ def traverse_node(current_node_id: int,
     if res_n_id2class_label.get(current_node_id) is None:
         res_n_id2class_label[current_node_id] = []
     res_n_id2class_label[current_node_id].append(class_label)
-
-    for child_id in parent_children_adj_lists[current_node_id]:
-        if child_id in visited_node_ids:
-            continue
-        visited_node_ids.add(child_id)
-        traverse_node(current_node_id=child_id,
-                      visited_node_ids=visited_node_ids,
-                      parent_children_adj_lists=parent_children_adj_lists,
-                      node_depth=node_depth + 1,
-                      node_id2sem_group=node_id2sem_group,
-                      res_n_id2class_label=res_n_id2class_label)
-        visited_node_ids.remove(child_id)
+    if not parent_children_adj_lists.get(current_node_id) is None:
+        for child_id in parent_children_adj_lists[current_node_id]:
+            if child_id in visited_node_ids:
+                continue
+            visited_node_ids.add(child_id)
+            traverse_node(current_node_id=child_id,
+                          visited_node_ids=visited_node_ids,
+                          parent_children_adj_lists=parent_children_adj_lists,
+                          node_depth=node_depth + 1,
+                          node_id2sem_group=node_id2sem_group,
+                          res_n_id2class_label=res_n_id2class_label)
+            visited_node_ids.remove(child_id)
 
 
 def get_node_classes(parent_children_adj_lists: Dict[int, Set[int]],
@@ -41,7 +41,9 @@ def get_node_classes(parent_children_adj_lists: Dict[int, Set[int]],
                      node_id2sem_group: Dict[int, str],
                      node_id2terms_list: Dict[int, List[str]],
                      save_roots_dir: str) -> Dict[int, List[str]]:
-    root_node_ids = [n_id for n_id, parent_ids in child_parents_adj_lists.items() if len(parent_ids) == 0]
+    # root_node_ids = [n_id for n_id, parent_ids in child_parents_adj_lists.items() if len(parent_ids) == 0]
+    root_node_ids = [n_id for n_id in node_id2terms_list.keys() if \
+                     child_parents_adj_lists.get(n_id) is None or len(child_parents_adj_lists[n_id]) == 0]
     logging.info(f"There are {len(root_node_ids)} root nodes")
     if not os.path.exists(save_roots_dir) and save_roots_dir != "":
         os.makedirs(save_roots_dir)
