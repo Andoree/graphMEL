@@ -22,7 +22,7 @@ def traverse_node(current_node_id: int,
                   res_n_id2class_label: Dict[int, List[str]],
                   res_n_id_sem_group_is_known: Set[int],
                   cases_stats):
-    curr_node_sem_gr = node_id2sem_group.get(current_node_id)
+    curr_node_sem_gr = node_id2sem_group.get(int(current_node_id))
     # Case 1: equal
     if parent_sem_gr is not None and curr_node_sem_gr is not None:
         cases_stats["equal"] += 1
@@ -110,7 +110,7 @@ def get_node_classes(parent_children_adj_lists: Dict[int, Set[int]],
             out_file.write(f"{k}\t{v}\n")
         n_ids_num_known_types = len(res_n_id_sem_group_is_known)
         out_file.write(f"has_sem_group\t{n_ids_num_known_types}\n")
-        out_file.write(f"unknown_sem_group\t{len(n_unknown_sem_group_n_ids)}\n")
+        out_file.write(f"unknown_sem_group\t{n_unknown_sem_group_n_ids}\n")
 
     return res_n_id2class_label
 
@@ -134,6 +134,10 @@ def main(args):
     logging.info("Loading edges")
     edges_df = pd.read_csv(edges_path, sep='\t', header=None,
                            names=edge_cols)
+    edges_df["src_n_id"] = edges_df["src_n_id"].astype(dtype=int)
+    edges_df["trg_n_id"] = edges_df["trg_n_id"].astype(dtype=int)
+    edges_df["rel_id"] = edges_df["rel_id"].astype(dtype=int)
+    edges_df["rela_id"] = edges_df["rela_id"].astype(dtype=int)
 
     logging.info(f"There are {edges_df.shape[0]} edges before filtering")
     edges_df = edges_df[edges_df["rel_id"].isin(keep_rel_ids)]
@@ -142,9 +146,10 @@ def main(args):
     parent_childs_a_lst, child_parents_a_lst = create_hierarchy_adjacency_lists(edge_tuples=edges_df.values,
                                                                                 id2rel=id2rel)
 
-    node_id2sem_group = pd.read_csv(node_id2sem_group_path, sep='\t', header=None,
-                                    names=("node_id", "sem_group"))
-    unique_sem_groups = node_id2sem_group["sem_group"].unique()
+    node_id2sem_group = {int(k): v for k, v in load_dict(node_id2sem_group_path, sep='\t').items()}
+    # pd.read_csv(node_id2sem_group_path, sep='\t', header=None,
+    #                             names=("node_id", "sem_group"))
+    unique_sem_groups = set(node_id2sem_group.values())
     logging.info(f"There are {len(unique_sem_groups)} sem groups: {unique_sem_groups}")
 
     res_n_id2class_label = get_node_classes(parent_children_adj_lists=parent_childs_a_lst,
@@ -152,6 +157,14 @@ def main(args):
                                             node_id2sem_group=node_id2sem_group,
                                             node_id2terms_list=node_id2terms_list,
                                             save_roots_dir=args.save_tree_roots_dir)
+    c = collections.Counter()
+    for lst in res_n_id2class_label.values():
+        c.update(lst)
+
+    class_stats_path = os.path.join(output_dir, "class_stats")
+    with codecs.open(class_stats_path, 'w+', encoding="utf-8") as out_file:
+        for k, v in c.items():
+            out_file.write(f"{k}\t{v}\n")
 
     output_save_path = os.path.join(output_dir, "node_classes")
     save_node_id2terms_list(save_path=output_save_path, mapping=res_n_id2class_label, )
@@ -161,9 +174,13 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s',
                         datefmt='%Y-%m-%d %H:%M:%S', )
     parser = ArgumentParser()
-    parser.add_argument('--input_data_dir')
-    parser.add_argument('--keep_rels', nargs='+')
-    parser.add_argument('--save_tree_roots_dir')
-    parser.add_argument('--output_dir')
+    parser.add_argument('--input_data_dir', )
+    # default="/home/c204/University/NLP/graphmel/delete/FRE_FRE_FULL")
+    parser.add_argument('--keep_rels', nargs='+', )
+    # default=["RN", "RB", "PAR", "CHD"],)
+    parser.add_argument('--save_tree_roots_dir', )
+    # default="/home/c204/University/NLP/graphmel/delete/FRE_FRE_FULL_NEW")
+    parser.add_argument('--output_dir', )
+    # default="/home/c204/University/NLP/graphmel/delete/FRE_FRE_FULL_NEW")
     args = parser.parse_args()
     main(args)
