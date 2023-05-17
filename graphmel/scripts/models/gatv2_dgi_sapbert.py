@@ -22,7 +22,8 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
                  type_of_triplets="all", agg_mode="cls",
                  sapbert_loss_weight: float = 1., modality_distance=None, freeze_neighbors=False,
                  apply_text_loss_to_all_neighbors=False, intermodal_loss_type="sapbert",
-                 intermodal_strategy=None, use_detached_text=False, remove_activations=False):
+                 intermodal_strategy=None, use_detached_text=False, remove_activations=False,
+                 common_hard_pairs=False):
 
         logging.info(f"Sap_Metric_Learning! use_cuda={use_cuda} loss={loss} use_miner={miner_margin}"
                      f"miner_margin={miner_margin} type_of_triplets={type_of_triplets} agg_mode={agg_mode}")
@@ -71,6 +72,7 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
         self.intermodal_strategy = intermodal_strategy
         self.use_detached_text = use_detached_text
         self.remove_activations = remove_activations
+        self.common_hard_pairs = common_hard_pairs
 
         self.gat_encoder = GATv2Encoder(in_channels=self.bert_hidden_dim, num_outer_layers=gat_num_outer_layers,
                                         num_inner_layers=gat_num_inner_layers, num_relations=num_relations,
@@ -121,14 +123,23 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
 
         dgi_loss_1 = self.dgi.loss(pos_graph_embs_1, neg_graph_embs_1, graph_summary_1)
         dgi_loss_2 = self.dgi.loss(pos_graph_embs_2, neg_graph_embs_2, graph_summary_2)
-
-        graph_loss, hard_pairs = self.calculate_sapbert_loss(pos_graph_embs_1[:batch_size], pos_graph_embs_2[:batch_size],
-                                                 concept_ids[:batch_size], hard_pairs=hard_pairs)
+        if self.common_hard_pairs:
+            graph_loss, hard_pairs = self.calculate_sapbert_loss(pos_graph_embs_1[:batch_size], pos_graph_embs_2[:batch_size],
+                                                     concept_ids[:batch_size], hard_pairs=hard_pairs)
+        else:
+            graph_loss, hard_pairs = self.calculate_sapbert_loss(pos_graph_embs_1[:batch_size],
+                                                                 pos_graph_embs_2[:batch_size],
+                                                                 concept_ids[:batch_size],)
         if self.intermodal_loss_type == "sapbert":
-            intermodal_loss = self.calculate_intermodal_loss(text_embed_1, text_embed_2, pos_graph_embs_1,
-                                                             pos_graph_embs_2,
-                                                             concept_ids, batch_size,
-                                                             hard_pairs=hard_pairs )
+            if self.common_hard_pairs:
+                intermodal_loss = self.calculate_intermodal_loss(text_embed_1, text_embed_2, pos_graph_embs_1,
+                                                                 pos_graph_embs_2,
+                                                                 concept_ids, batch_size,
+                                                                 hard_pairs=hard_pairs)
+            else:
+                intermodal_loss = self.calculate_intermodal_loss(text_embed_1, text_embed_2, pos_graph_embs_1,
+                                                                 pos_graph_embs_2,
+                                                                 concept_ids, batch_size,)
         elif self.intermodal_loss_type == "cosine":
             intermodal_loss_1 = self.calculate_weighted_intermodal_loss(text_sapbert_loss=text_loss,
                                                                         node_sapbert_loss=graph_loss,
