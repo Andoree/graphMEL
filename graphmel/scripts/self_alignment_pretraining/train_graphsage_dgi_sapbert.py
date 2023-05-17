@@ -55,9 +55,10 @@ def parse_args():
     parser.add_argument('--text_loss_weight', type=float, required=False, default=1.0)
     parser.add_argument('--use_intermodal_miner', action="store_true")
     parser.add_argument('--intermodal_miner_margin', default=0.2, type=float, required=False)
-    parser.add_argument('--freeze_neighbors', action="store_true",)
+    parser.add_argument('--freeze_neighbors', action="store_true", )
     parser.add_argument('--apply_text_loss_to_all_neighbors', action="store_true", )
     parser.add_argument('--common_hard_pairs', action="store_true")
+    parser.add_argument('--remove_selfloops', action="store_true")
 
     # Tokenizer settings
     parser.add_argument('--max_length', default=25, type=int)
@@ -121,16 +122,18 @@ def train_graphsage_dgi_sapbert_step(model: GraphSAGEDGISapMetricLearning, batch
     if amp:
         with autocast():
             sapbert_loss, graph_loss, dgi_loss, intermodal_loss = model(term_1_input_ids=term_1_input_ids,
-                                                            term_1_att_masks=term_1_att_masks,
-                                                            term_2_input_ids=term_2_input_ids,
-                                                            term_2_att_masks=term_2_att_masks,
-                                                            concept_ids=concept_ids, adjs=adjs, batch_size=batch_size)
+                                                                        term_1_att_masks=term_1_att_masks,
+                                                                        term_2_input_ids=term_2_input_ids,
+                                                                        term_2_att_masks=term_2_att_masks,
+                                                                        concept_ids=concept_ids, adjs=adjs,
+                                                                        batch_size=batch_size)
     else:
         sapbert_loss, graph_loss, dgi_loss, intermodal_loss = model(term_1_input_ids=term_1_input_ids,
-                                                        term_1_att_masks=term_1_att_masks,
-                                                        term_2_input_ids=term_2_input_ids,
-                                                        term_2_att_masks=term_2_att_masks,
-                                                        concept_ids=concept_ids, adjs=adjs, batch_size=batch_size)
+                                                                    term_1_att_masks=term_1_att_masks,
+                                                                    term_2_input_ids=term_2_input_ids,
+                                                                    term_2_att_masks=term_2_att_masks,
+                                                                    concept_ids=concept_ids, adjs=adjs,
+                                                                    batch_size=batch_size)
 
     return sapbert_loss, graph_loss, dgi_loss, intermodal_loss
 
@@ -144,8 +147,9 @@ def train_graphsage_sapbert(model: GraphSAGEDGISapMetricLearning, train_loader: 
     pbar = tqdm(train_loader, miniters=len(train_loader) // 100, total=len(train_loader))
     for batch in pbar:
         optimizer.zero_grad()
-        sapbert_loss, graph_loss, dgi_loss, intermodal_loss = train_graphsage_dgi_sapbert_step(model=model, batch=batch, amp=amp,
-                                                                                   device=device)
+        sapbert_loss, graph_loss, dgi_loss, intermodal_loss = train_graphsage_dgi_sapbert_step(model=model, batch=batch,
+                                                                                               amp=amp,
+                                                                                               device=device)
         sapbert_loss = sapbert_loss * model.sapbert_loss_weight
         graph_loss = graph_loss * model.graph_loss_weight
         dgi_loss = dgi_loss * model.dgi_loss_weight
@@ -174,6 +178,7 @@ def train_graphsage_sapbert(model: GraphSAGEDGISapMetricLearning, train_loader: 
     losses_dict = {key: lo / (num_steps + 1e-9) for key, lo in losses_dict.items()}
 
     return losses_dict["total"], num_steps
+
 
 def main(args):
     print(args)
