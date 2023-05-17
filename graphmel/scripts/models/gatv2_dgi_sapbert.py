@@ -23,7 +23,7 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
                  sapbert_loss_weight: float = 1., modality_distance=None, freeze_neighbors=False,
                  apply_text_loss_to_all_neighbors=False, intermodal_loss_type="sapbert",
                  intermodal_strategy=None, use_detached_text=False, remove_activations=False,
-                 common_hard_pairs=False):
+                 common_hard_pairs=False, fuse_unimodal_embeddings=False):
 
         logging.info(f"Sap_Metric_Learning! use_cuda={use_cuda} loss={loss} use_miner={miner_margin}"
                      f"miner_margin={miner_margin} type_of_triplets={type_of_triplets} agg_mode={agg_mode}")
@@ -73,6 +73,22 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
         self.use_detached_text = use_detached_text
         self.remove_activations = remove_activations
         self.common_hard_pairs = common_hard_pairs
+        self.fuse_unimodal_embeddings = fuse_unimodal_embeddings
+        if self.fuse_unimodal_embeddings:
+            self.textual_weight_layer = nn.Sequential(
+                nn.Linear(2 * self.bert_hidden_dim, self.bert_hidden_dim),
+                nn.GELU(),
+                nn.Linear(self.bert_hidden_dim, 1),
+                nn.Sigmoid()
+            )
+            assert self.dgi_loss_weight == 0
+
+            self.text_emb2bimodal_transformation = nn.Sequential(
+                nn.Linear(self.bert_hidden_dim, self.bert_hidden_dim),
+                nn.GELU(),
+                nn.Linear(self.bert_hidden_dim, self.bert_hidden_dim),
+            )
+
 
         self.gat_encoder = GATv2Encoder(in_channels=self.bert_hidden_dim, num_outer_layers=gat_num_outer_layers,
                                         num_inner_layers=gat_num_inner_layers, num_relations=num_relations,
@@ -120,9 +136,27 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
         pos_graph_embs_1, neg_graph_embs_1, graph_summary_1, pos_graph_embs_2, neg_graph_embs_2, graph_summary_2 = \
             self.graph_encode(text_embed_1, text_embed_2, adjs=adjs, edge_type_list=edge_type_list,
                               batch_size=batch_size)
+        if self.fuse_unimodal_embeddings:
+            assert pos_graph_embs_1.dim() == text_embed_1.dim() == 2
+            assert pos_graph_embs_2.dim() == text_embed_2.dim() == 2
+            concat_text_graph_embed_1 = torch.cat((text_embed_1[:batch_size], pos_graph_embs_1[:batch_size]), dim=-1)
+            concat_text_graph_embed_2 = torch.cat((text_embed_2[:batch_size], pos_graph_embs_2[:batch_size]), dim=-1)
 
-        dgi_loss_1 = self.dgi.loss(pos_graph_embs_1, neg_graph_embs_1, graph_summary_1)
-        dgi_loss_2 = self.dgi.loss(pos_graph_embs_2, neg_graph_embs_2, graph_summary_2)
+            # <batch, 2 *  emb_size> -> <batch, 1>
+            text_weight_1 = self.textual_weight_layer(concat_text_graph_embed_1)
+            text_weight_2 = self.textual_weight_layer(concat_text_graph_embed_2)
+
+            text_embed_transformed_1 = self.text_emb2bimodal_transformation(text_embed_1[:batch_size])
+            text_embed_transformed_2 = self.text_emb2bimodal_transformation(text_embed_2[:batch_size])
+
+            pos_graph_embs_1 = text_weight_1 * text_embed_transformed_1[:batch_size] + \
+                               (1 - text_weight_1) * pos_graph_embs_1[:batch_size]
+            pos_graph_embs_2 = text_weight_2 * text_embed_transformed_2[:batch_size] + \
+                               (1 - text_weight_2) * pos_graph_embs_2[:batch_size]
+            dgi_loss_1, dgi_loss_2 = 0., 0.
+        else:
+            dgi_loss_1 = self.dgi.loss(pos_graph_embs_1, neg_graph_embs_1, graph_summary_1)
+            dgi_loss_2 = self.dgi.loss(pos_graph_embs_2, neg_graph_embs_2, graph_summary_2)
         if self.common_hard_pairs:
             graph_loss, hard_pairs = self.calculate_sapbert_loss(pos_graph_embs_1[:batch_size], pos_graph_embs_2[:batch_size],
                                                      concept_ids[:batch_size], hard_pairs=hard_pairs)

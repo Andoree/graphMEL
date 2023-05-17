@@ -70,6 +70,8 @@ def parse_args():
     parser.add_argument('--use_detached_text', action="store_true", )
     parser.add_argument('--remove_activations', action="store_true", )
     parser.add_argument('--common_hard_pairs', action="store_true")
+    parser.add_argument('--fuse_unimodal_embeddings', action="store_true")
+
 
     # Tokenizer settings
     parser.add_argument('--max_length', default=25, type=int)
@@ -194,6 +196,7 @@ def main(args):
     output_dir = args.output_dir
     activ_str =  "NO_ACTIV" if args.remove_activations else "ACTIV"
     chp_str = "common_hp" if args.common_hard_pairs else ""
+    fuse_s = "FUSE" if args.fuse_unimodal_embeddings else ""
 
     output_subdir = f"gatv2_{'.'.join((str(x) for x in args.gat_num_neighbors))}_{args.gat_num_hidden_channels}" \
                     f"_{args.gat_num_outer_layers}_{args.gat_num_inner_layers}_{args.gat_dropout_p}_" \
@@ -203,8 +206,8 @@ def main(args):
                     f"_{args.use_intermodal_miner}_{args.intermodal_miner_margin}_rel_feat_" \
                     f"{args.gat_use_relational_features}_freeze_neigh_{args.freeze_neighbors}" \
                     f"_tl_neighbors_{args.apply_text_loss_to_all_neighbors}_ilt_{args.intermodal_loss_type}" \
-                    f"_istrat_{args.intermodal_strategy}_det_txt_{args.use_detached_text}" \
-                    f"_{args.intermodal_loss_weight}_lr_{args.learning_rate}_b_{args.batch_size}_{activ_str}_{chp_str}"
+                    f"_istrat_{args.intermodal_strategy}_det_txt_{args.use_detached_text}_{args.intermodal_loss_weight}" \
+                    f"_lr_{args.learning_rate}_b_{args.batch_size}_{activ_str}_{chp_str}_{fuse_s}"
     modality_distance = args.modality_distance
     if modality_distance == "None":
         modality_distance = None
@@ -334,7 +337,8 @@ def main(args):
                                       intermodal_strategy=args.intermodal_strategy,
                                       use_detached_text=args.use_detached_text,
                                       remove_activations=args.remove_activations,
-                                      apply_text_loss_to_all_neighbors=args.apply_text_loss_to_all_neighbors,).to(device)
+                                      apply_text_loss_to_all_neighbors=args.apply_text_loss_to_all_neighbors,
+                                      fuse_unimodal_embeddings=args.fuse_unimodal_embeddings).to(device)
 
 
     start = time.time()
