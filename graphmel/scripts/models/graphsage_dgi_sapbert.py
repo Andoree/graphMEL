@@ -21,7 +21,7 @@ class GraphSAGEDGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningMod
                  multigpu_flag, use_intermodal_miner=True, intermodal_miner_margin=0.2, use_miner=True,
                  miner_margin=0.2, type_of_triplets="all", agg_mode="cls", modality_distance=None,
                  sapbert_loss_weight: float = 1.0, graph_loss_weight=0.0, freeze_neighbors=False,
-                 apply_text_loss_to_all_neighbors=False, common_hard_pairs=False):
+                 apply_text_loss_to_all_neighbors=False, common_hard_pairs=False, use_detached_text=False):
 
         logging.info(
             "Sap_Metric_Learning! use_cuda={} loss={} use_miner={} miner_margin={} type_of_triplets={} agg_mode={}".format(
@@ -45,6 +45,7 @@ class GraphSAGEDGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningMod
         self.freeze_neighbors = freeze_neighbors
         self.apply_text_loss_to_all_neighbors = apply_text_loss_to_all_neighbors
         self.common_hard_pairs = common_hard_pairs
+        self.use_detached_text = use_detached_text
 
         if modality_distance == "sapbert":
             if self.use_intermodal_miner:
