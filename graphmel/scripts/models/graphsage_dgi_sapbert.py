@@ -21,7 +21,7 @@ class GraphSAGEDGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningMod
                  multigpu_flag, use_intermodal_miner=True, intermodal_miner_margin=0.2, use_miner=True,
                  miner_margin=0.2, type_of_triplets="all", agg_mode="cls", modality_distance=None,
                  sapbert_loss_weight: float = 1.0, graph_loss_weight=0.0, freeze_neighbors=False,
-                 apply_text_loss_to_all_neighbors=False):
+                 apply_text_loss_to_all_neighbors=False, common_hard_pairs=False):
 
         logging.info(
             "Sap_Metric_Learning! use_cuda={} loss={} use_miner={} miner_margin={} type_of_triplets={} agg_mode={}".format(
@@ -44,6 +44,7 @@ class GraphSAGEDGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningMod
         self.modality_distance = modality_distance
         self.freeze_neighbors = freeze_neighbors
         self.apply_text_loss_to_all_neighbors = apply_text_loss_to_all_neighbors
+        self.common_hard_pairs = common_hard_pairs
 
         if modality_distance == "sapbert":
             if self.use_intermodal_miner:
@@ -109,11 +110,21 @@ class GraphSAGEDGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningMod
 
         dgi_loss_1 = self.dgi.loss(pos_graph_embs_1, neg_graph_embs_1, graph_summary_1)
         dgi_loss_2 = self.dgi.loss(pos_graph_embs_2, neg_graph_embs_2, graph_summary_2)
+        if not self.common_hard_pairs:
+            graph_loss, hard_pairs = self.calculate_sapbert_loss(pos_graph_embs_1[:batch_size],
+                                                                 pos_graph_embs_2[:batch_size],
+                                                     concept_ids[:batch_size],)
 
-        graph_loss, hard_pairs = self.calculate_sapbert_loss(pos_graph_embs_1[:batch_size], pos_graph_embs_2[:batch_size],
-                                                 concept_ids[:batch_size], hard_pairs=hard_pairs)
+            intermodal_loss = self.calculate_intermodal_loss(text_embed_1, text_embed_2, pos_graph_embs_1,
+                                                             pos_graph_embs_2,
+                                                             concept_ids, batch_size,)
+        else:
+            graph_loss, hard_pairs = self.calculate_sapbert_loss(pos_graph_embs_1[:batch_size],
+                                                                 pos_graph_embs_2[:batch_size],
+                                                                 concept_ids[:batch_size], hard_pairs=hard_pairs)
 
-        intermodal_loss = self.calculate_intermodal_loss(text_embed_1, text_embed_2, pos_graph_embs_1, pos_graph_embs_2,
-                                                         concept_ids, batch_size, hard_pairs=hard_pairs)
+            intermodal_loss = self.calculate_intermodal_loss(text_embed_1, text_embed_2, pos_graph_embs_1,
+                                                             pos_graph_embs_2,
+                                                             concept_ids, batch_size, hard_pairs=hard_pairs)
 
         return text_loss, graph_loss, (dgi_loss_1 + dgi_loss_2) / 2, intermodal_loss
