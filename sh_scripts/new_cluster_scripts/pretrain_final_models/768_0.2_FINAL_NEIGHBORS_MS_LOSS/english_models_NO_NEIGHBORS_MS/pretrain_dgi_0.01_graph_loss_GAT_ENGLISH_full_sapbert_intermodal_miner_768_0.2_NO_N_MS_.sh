@@ -1,9 +1,9 @@
 #!/bin/bash
-#SBATCH --job-name=mu_gat_dg          # Название задачи
+#SBATCH --job-name=en_gat_dg          # Название задачи
 #SBATCH --error=/home/etutubalina/graph_entity_linking/graphmel/logs/pretrain_graph_models_final/pretrain_dgi_0.01_graph_loss_GAT_ENGLISH_full_sapbert_intermodal_miner_768_0.2_NO_N_MS.err        # Файл для вывода ошибок
 #SBATCH --output=/home/etutubalina/graph_entity_linking/graphmel/logs/pretrain_graph_models_final/pretrain_dgi_0.01_graph_loss_GAT_ENGLISH_full_sapbert_intermodal_miner_768_0.2_NO_N_MS.txt       # Файл для вывода результатов
 #SBATCH --time=22:55:59                      # Максимальное время выполнения
-#SBATCH --cpus-per-task=3                   # Количество CPU на одну задачу
+#SBATCH --cpus-per-task=2                   # Количество CPU на одну задачу
 #SBATCH --gpus=2                   # Требуемое количество GPU
 #SBATCH --constraint=type_c|type_b|type_a
 #SBATCH --nodes=1
