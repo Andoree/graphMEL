@@ -24,7 +24,7 @@ def main():
         data_df = pd.read_csv(input_dataset_path, sep='\t')
         with codecs.open(output_file_path, "w+", encoding="utf-8") as out_file:
             for i, row in data_df.iterrows():
-                term = row["term"]
+                term = row["Term"]
                 concept_id = row["General SNOMED ID"]
                 out_file.write(f"-1||0|0||Disease||{term}||{concept_id}\n")
 
