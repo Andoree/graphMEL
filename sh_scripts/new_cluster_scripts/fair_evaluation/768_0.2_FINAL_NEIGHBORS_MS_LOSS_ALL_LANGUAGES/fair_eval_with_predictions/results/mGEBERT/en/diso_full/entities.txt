@@ -1,0 +1,452 @@
+meningitis
+pregnant
+photosensitive epilepsy
+musculoskeletal tumors
+perforated
+volvulus
+hypopituitarism
+recurrence
+cancer of the rectum
+subarachnoid hemorrhage
+painful back
+stress
+breast feeding
+obesity
+vitamin a deficiency
+hemiplegia
+sacrococcygeal teratoma
+cryptorchism
+pulmonary infection
+pericardial defect
+poisonings
+carbon monoxide poisoning
+polio
+postpolio syndrome
+bleeds
+intracranial bleed
+throat bleed
+abdominal bleed
+renal insufficiency
+renal insufficiency
+end stage renal failure
+retirement
+argentine hemorrhagic fever
+illness
+fever
+paraparesis
+spondylitis
+rheumatic diseases
+sports injuries
+femoral neck fractures
+intracranial aneurysms
+overdose
+methicillin resistant staphylococcus aureus
+problem
+atrial fibrillation
+pulmonary embolism
+brain tumor
+benzene poisoning
+breast carcinoma
+disease progression
+non small cell lung cancer
+gastric adenocarcinoma
+head and neck cancer
+posterior dislocation
+dislocation shoulder
+cartilage injuries
+ligament injuries
+occupational exposure to noise
+arterial hypertension
+portal hypertensive gastropathy
+asthma
+kidney enlargement
+renal vein thrombosis
+pneumonia
+lower respiratory tract infection
+herpes zoster
+herpes simplex
+urinary tract infection
+upper respiratory tract infection
+sinusitis
+oral candidiasis
+oral fungal infection
+general condition
+localized tetanus
+meningitis
+parameters
+facial pain
+inflammatory bowel diseases
+sex perversions
+coxitis
+rheumatic
+progressive multifocal leukoencephalopathy
+increased heart rate
+heart murmur
+low blood pressure
+hypertensive cardiomyopathy
+hypertensive
+cancer of the digestive system
+mitral insufficiency
+therapy discontinued
+hemorrhagic shock
+traumatic shock
+atopic dermatitis
+arrhythmogenic right ventricular dysplasia
+lyell s syndrome
+stevens johnson syndrome
+malignant skin tumours
+leptospirosis
+behr s syndrome
+acute heart infarct
+cholesteatoma
+narrowed coronary arteries
+sharp s syndrome
+mixed collagen disease
+hyperhidrosis
+rotatio dentis
+infectious hepatitis
+respiratory viral infections
+acute respiratory infections
+acute respiratory insufficiency
+pneumothorax
+hepatic impairment
+personality disorders
+hemolysis
+thromboembolic disease
+embolism of cardiac origin
+open anterior luxation of the hip
+newborn
+aneurysm
+congestive heart failure
+oncocytosis
+embolisms
+lymphangioma
+emergency
+abdominal pain
+difficulties
+arterial hypertension
+breathlessness
+production of red blood cells reduced
+tiredness
+automutilation
+alopecia areata
+nodular regenerative hyperplasia of the liver
+angioneuroma
+personality dimensions
+thrombocyte aggregation inhibition
+bartter syndrome
+suffering
+urinary tract infection
+fat embolism
+reflux gastritis
+von hippel lindau disease
+virus infection
+increase in serum creatinine level
+thrombophlebitis
+epigastric disorders
+tumor
+uterine hypoplasia
+diabetes mellitus
+ascites
+chlamydia trachomatis infection
+bladder tumors
+infiltrating
+tumors
+embolism
+spinocerebellar ataxia type 6
+spinocerebellar ataxia type 6
+cholesteatoma of the middle ear
+poliomyelitis
+benign bone tumors
+tubular kidney diseases
+restless legs syndrome
+chagas disease
+carotid stenosis
+indicated
+heart patients
+hemorrhagic shock
+adverse reactions
+chills
+headache
+vomiting
+nausea
+arthralgia
+low blood pressure
+low back pain
+marriage
+suicide
+aplastic anaemia
+violence
+disorders of sleep
+pernicious anemia
+rash
+itching
+sensation of warmth
+trouble breathing
+swelling of the lips
+swelling of the face
+abdominal angina
+congestive cardiac failure
+arteriovenous fistula
+illness
+sick
+functional bowel disorders
+digestive gas
+cardia carcinoma
+cholera
+hypoplasia
+foreign body granuloma
+disease
+tuberculosis
+autoimmune
+rosacea
+allergic rhinitis
+dizziness
+blurred vision
+ability to drive
+lupus like syndromes
+attack
+apnea
+disease
+pain
+chronic obstructive airway disease
+brain tumors
+health belief
+chronic respiratory insufficiency
+asthma
+chronic bronchitis
+intra articular fractures
+broken bones
+pain
+problems
+mobility
+dowager’ s hump
+coronary spasm
+double teeth
+fallot s tetralogy
+impotence
+diabetic
+osteoporosis
+cardiotoxicity
+burns
+atopic dermatitis
+proliferative
+disorder
+disorder
+problems
+hygiene
+septic shock
+diabetes mellitus
+morphological
+tumor
+renal cell tumors
+overdose
+liver damage
+attempt suicide
+chronic hepatitis
+diabetic retinopathy
+asthma
+pseudo obstruction of the colon
+nursing diagnosis
+multiple sclerosis
+worse
+tingling of skin
+numbness of skin
+middle lobe syndrome
+obesity
+diabetes mellitus
+leiomyosarcoma of the small intestine
+myopathies
+follicular non hodgkin lymphomas
+minimal residual disease
+lymph node metastases
+haemophilus ducrey
+diaphragmatic eventration
+megacolon
+leg pains
+hernia
+acute promyelocytic leukemia
+chromosomal translocations
+periarteritis nodosa
+bronchial asthma
+chronic diarrhea
+cutaneous toxicity
+renal failure
+diabetes mellitus
+arterial hypertension
+thromboembolic disorder
+thromboembolic disorder
+unstable angina
+acute coronary syndrome
+first myocardial infarction
+myocardial infarction
+sudden death
+transient ischemic attack
+stroke
+atherosclerosis
+thrombophlebitis
+arterial embolism
+cerebral arterial thrombosis
+kidney embolism
+thrombosis
+thrombosis
+deep vein thrombosis
+venous thrombosis
+pulmonary embolism
+peripheral occlusive arterial disease
+coronary arterial thrombosis
+parinaud s syndrome
+sign
+obstructive hydrocephalus
+heart disease
+conditions
+diseases
+diseases
+skin diseases
+psoriasis
+inflammatory bowel disease
+crohn s disease
+ulcerative colitis
+adult respiratory distress syndrome
+dermatitis
+meningitis
+encephalitis
+allergic conditions
+eczema
+asthma
+infiltration
+skin hypersensitivity
+hypersensitivity reactions
+atherosclerosis
+leukocyte adhesion deficiency
+autoimmune diseases
+rheumatoid arthritis
+diabetes mellitus
+multiple sclerosis
+experimental autoimmune encephalomyelitis
+type 1 diabetes
+juvenile onset diabetes
+delayed hypersensitivity
+tuberculosis
+sarcoidosis
+polymyositis
+granulomatosis
+vasculitis
+pernicious anemia
+syndrome
+septicaemia
+graft vs host disease
+host vs graft disease
+uveitic
+sjorgen s syndrome
+reynaud s syndrome
+myethamia gravis
+immune disorder
+chronic inflammatory responses
+systemic lupus erythematosus
+systemic lupus erythematosus
+cns inflammatory disorder
+autoimmune haemolytic anemia
+inflammatory disorder
+trigeminal neuralgia
+pregnant
+pregnant
+gastroesophageal reflux disease
+clinical condition
+arterial hypertension
+osteoid osteoma
+primary infection
+dilatation
+double uterus
+anorexia
+vomiting
+diarrhoea
+irritability
+high pitched crying
+depressive diseases
+stage i non small cell bronchogenic carcinoma
+corneal degeneration
+problem
+gastroesophageal reflux
+normal infants
+unable to swallow
+toxoplasmosis
+hypovolemia
+postoperative hemorrhage
+delivery
+willebrand s disease
+granulosa cell cancer
+cardiac insufficiency
+myocardial infarct
+anxiety state
+atopic
+cruralgia
+morphology
+autoimmune disease
+inflammatory response
+intermittent claudication
+trisomy 9p
+hiv infection
+complications
+posture
+arteriosclerosis
+solid tumours
+proliferative retinopathies
+angiogenesis
+angiogenesis
+pleural effusions
+chronic pancreatitis
+spinal deformities
+disease
+condition
+disorder
+intractable pain
+acute pain
+cancer pain
+postsurgical pain
+back pain
+orthostatic hypotension
+autoimmune diseases
+disease progression
+hypertensive diseases
+perforation of the uterus
+atrial flutter
+chronic urticaria
+pyelonephritis
+tubular apocrine adenoma
+solitary bone cyst
+falls
+supranuclear gaze palsy
+induced hypothermia
+prostate tumours
+multiple malignant neoplasms
+coma
+keratoderma
+cysticercosis
+tumors
+tumour
+elevation of thyroid stimulating hormone levels
+meningitis
+varicellae
+sandhoff s disease
+gm2 gangliosidosis type ii
+carrier
+rarefying
+osteopathies
+traumatic diaphragmatic rupture
+hyperprolactinemia
+hypertension
+infestation
+periodontal disease
+band form of scleroderma
+dependence
+salivary duct carcinoma
+arthritis
+neuropathic pain
+tarlov cyst
+bacillus cereus infection
+corneal anesthesis
+depersonalisation
+tumors
+hyperthyroidism
+diseases
