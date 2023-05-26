@@ -72,8 +72,7 @@ def parse_args():
     parser.add_argument('--common_hard_pairs', action="store_true")
     parser.add_argument('--fuse_unimodal_embeddings', action="store_true")
     parser.add_argument('--cross_fusion', action="store_true")
-
-
+    parser.add_argument('--inmodal_fusion', action="store_true")
 
     # Tokenizer settings
     parser.add_argument('--max_length', default=25, type=int)
@@ -200,6 +199,7 @@ def main(args):
     chp_str = "common_hp" if args.common_hard_pairs else ""
     fuse_s = "FUSE" if args.fuse_unimodal_embeddings else ""
     fuse_s = f"CROSS_{fuse_s}" if args.cross_fusion else fuse_s
+    fuse_s = f"INM_{fuse_s}" if args.inmodal_fusion else fuse_s
 
     output_subdir = f"gatv2_{'.'.join((str(x) for x in args.gat_num_neighbors))}_{args.gat_num_hidden_channels}" \
                     f"_{args.gat_num_outer_layers}_{args.gat_num_inner_layers}_{args.gat_dropout_p}_" \
@@ -342,7 +342,7 @@ def main(args):
                                       remove_activations=args.remove_activations,
                                       apply_text_loss_to_all_neighbors=args.apply_text_loss_to_all_neighbors,
                                       fuse_unimodal_embeddings=args.fuse_unimodal_embeddings,
-                                      cross_fusion=args.cross_fusion).to(device)
+                                      cross_fusion=args.cross_fusion, inmodal_fusion=args.inmodal_fusion).to(device)
 
 
     start = time.time()

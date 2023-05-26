@@ -23,7 +23,8 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
                  sapbert_loss_weight: float = 1., modality_distance=None, freeze_neighbors=False,
                  apply_text_loss_to_all_neighbors=False, intermodal_loss_type="sapbert",
                  intermodal_strategy=None, use_detached_text=False, remove_activations=False,
-                 common_hard_pairs=False, fuse_unimodal_embeddings=False, cross_fusion=False):
+                 common_hard_pairs=False, fuse_unimodal_embeddings=False, cross_fusion=False,
+                 inmodal_fusion=False):
 
         logging.info(f"Sap_Metric_Learning! use_cuda={use_cuda} loss={loss} use_miner={miner_margin}"
                      f"miner_margin={miner_margin} type_of_triplets={type_of_triplets} agg_mode={agg_mode}")
@@ -75,6 +76,7 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
         self.common_hard_pairs = common_hard_pairs
         self.fuse_unimodal_embeddings = fuse_unimodal_embeddings
         self.cross_fusion = cross_fusion
+        self.inmodal_fusion = inmodal_fusion
         if self.fuse_unimodal_embeddings:
             self.textual_weight_layer = nn.Sequential(
                 nn.Linear(2 * self.bert_hidden_dim, self.bert_hidden_dim),
@@ -145,16 +147,28 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
                                                       dim=-1)
                 concat_text_graph_embed_2 = torch.cat((text_embed_1[:batch_size], pos_graph_embs_2[:batch_size]),
                                                       dim=-1)
+                # <batch, 2 *  emb_size> -> <batch, 1>
+                text_weight_1 = self.textual_weight_layer(concat_text_graph_embed_1)
+                text_weight_2 = self.textual_weight_layer(concat_text_graph_embed_2)
+            elif self.inmodal_fusion:
+                concat_text_embed = torch.cat((text_embed_1[:batch_size], text_embed_2[:batch_size]), dim=-1)
+                # <batch, 2 *  emb_size> -> <batch, 1>
+                text_weight_1 = self.textual_weight_layer(concat_text_embed)
+                text_weight_2 = text_weight_1
+
             else:
                 concat_text_graph_embed_1 = torch.cat((text_embed_1[:batch_size], pos_graph_embs_1[:batch_size]),
                                                       dim=-1)
                 concat_text_graph_embed_2 = torch.cat((text_embed_2[:batch_size], pos_graph_embs_2[:batch_size]),
                                                       dim=-1)
+                # <batch, 2 *  emb_size> -> <batch, 1>
+                text_weight_1 = self.textual_weight_layer(concat_text_graph_embed_1)
+                text_weight_2 = self.textual_weight_layer(concat_text_graph_embed_2)
 
 
-            # <batch, 2 *  emb_size> -> <batch, 1>
-            text_weight_1 = self.textual_weight_layer(concat_text_graph_embed_1)
-            text_weight_2 = self.textual_weight_layer(concat_text_graph_embed_2)
+            # # <batch, 2 *  emb_size> -> <batch, 1>
+            # text_weight_1 = self.textual_weight_layer(concat_text_graph_embed_1)
+            # text_weight_2 = self.textual_weight_layer(concat_text_graph_embed_2)
 
             text_embed_transformed_1 = self.text_emb2bimodal_transformation(text_embed_1[:batch_size])
             text_embed_transformed_2 = self.text_emb2bimodal_transformation(text_embed_2[:batch_size])
