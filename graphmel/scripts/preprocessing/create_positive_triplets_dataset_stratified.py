@@ -170,7 +170,9 @@ def main(args):
                        output_node_id2cui_path=output_node_id2cui_path,
                        output_edges_path=output_edges_path, output_rel2rel_id_path=output_rel2rel_id_path,
                        output_rela2rela_id_path=output_rela2rela_id_path, ignore_not_mapped_edges=True, )
-    pos_pairs = generate_positive_pairs(mrconso_df=mrconso_df, mrrel_df=mrrel_df, cui2node_id=cui2node_id)
+    pos_pairs = generate_positive_pairs(mrconso_df=mrconso_df, mrrel_df=mrrel_df, cui2node_id=cui2node_id,
+                                        max_pairs_per_single_lang=args.max_pairs_per_single_lang,
+                                        max_pairs_crosslingual=args.max_pairs_crosslingual)
     if args.split_val:
         output_train_pos_pairs_path = os.path.join(output_dir, f"train_pos_pairs")
         output_val_pos_pairs_path = os.path.join(output_dir, f"val_pos_pairs")
