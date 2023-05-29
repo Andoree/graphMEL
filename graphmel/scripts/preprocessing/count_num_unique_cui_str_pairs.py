@@ -7,6 +7,8 @@ from graphmel.scripts.utils.io import read_mrconso
 
 
 def main():
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s',
+                        datefmt='%Y-%m-%d %H:%M:%S', )
     parser = ArgumentParser()
     parser.add_argument('--mrconso')
     parser.add_argument('--output_dir')
