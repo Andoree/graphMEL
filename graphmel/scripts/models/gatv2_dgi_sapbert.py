@@ -5,6 +5,7 @@ import torch
 from pytorch_metric_learning import miners, losses
 from torch import nn as nn
 from torch.cuda.amp import autocast
+import torch.nn.functional as F
 
 from graphmel.scripts.models.abstract_dgi_model import AbstractDGIModel
 from graphmel.scripts.models.abstract_graphsapbert_model import AbstractGraphSapMetricLearningModel
@@ -24,7 +25,7 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
                  apply_text_loss_to_all_neighbors=False, intermodal_loss_type="sapbert",
                  intermodal_strategy=None, use_detached_text=False, remove_activations=False,
                  common_hard_pairs=False, fuse_unimodal_embeddings=False, cross_fusion=False,
-                 inmodal_fusion=False):
+                 inmodal_fusion=False, global_fusion=False, fusion_text_weight=None):
 
         logging.info(f"Sap_Metric_Learning! use_cuda={use_cuda} loss={loss} use_miner={miner_margin}"
                      f"miner_margin={miner_margin} type_of_triplets={type_of_triplets} agg_mode={agg_mode}")
@@ -77,6 +78,11 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
         self.fuse_unimodal_embeddings = fuse_unimodal_embeddings
         self.cross_fusion = cross_fusion
         self.inmodal_fusion = inmodal_fusion
+        self.global_fusion = global_fusion
+        if self.global_fusion:
+            self.fusion_text_weight = nn.Parameter(torch.empty(1))
+            self.fusion_text_weight.data.fill_(fusion_text_weight)
+
         if self.fuse_unimodal_embeddings:
             self.textual_weight_layer = nn.Sequential(
                 nn.Linear(2 * self.bert_hidden_dim, self.bert_hidden_dim),
@@ -156,6 +162,9 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
                 text_weight_1 = self.textual_weight_layer(concat_text_embed)
                 text_weight_2 = text_weight_1
 
+            elif self.global_fusion:
+                text_weight_1 = F.sigmoid(self.fusion_text_weight)
+                text_weight_2 = text_weight_1
             else:
                 concat_text_graph_embed_1 = torch.cat((text_embed_1[:batch_size], pos_graph_embs_1[:batch_size]),
                                                       dim=-1)
