@@ -2,8 +2,9 @@
 #SBATCH --job-name=create_pos_pairs          # Название задачи
 #SBATCH --error=/home/etutubalina/graph_entity_linking/graphmel/logs/create_pos_pairs_dataset/create_pos_pairs_dataset_full_multilingual_all_languages_stratified_15_50.err        # Файл для вывода ошибок
 #SBATCH --output=/home/etutubalina/graph_entity_linking/graphmel/logs/create_pos_pairs_dataset/create_pos_pairs_dataset_full_multilingual_all_languages_stratified_15_50.txt       # Файл для вывода результатов
-#SBATCH --time=09:50:00                      # Максимальное время выполнения
-#SBATCH --cpus-per-task=1                   # Количество CPU на одну задачу
+#SBATCH --time=19:50:00                      # Максимальное время выполнения
+#SBATCH --cpus-per-task=2                   # Количество CPU на одну задачу
+#SBATCH --constraint=type_b
 
 python /home/etutubalina/graph_entity_linking/graphmel/graphmel/scripts/preprocessing/create_positive_triplets_dataset_stratified.py --mrconso "/home/etutubalina/graph_entity_linking/UMLS/2020AB/MRCONSO.RRF" \
 --mrrel "/home/etutubalina/graph_entity_linking/UMLS/2020AB/MRREL.RRF" \
