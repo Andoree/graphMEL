@@ -70,7 +70,7 @@ def generate_language_aware_positive_pairs_from_synonyms(concept_id2synonyms_lis
                 if lang_pair_label == "ENG" or (not limit_english_only):
                     label_limit = max_pairs_per_single_lang
                 else:
-                    label_limit = 1000
+                    label_limit = 50
             if len(synonym_pair_tuples) > label_limit:
                 synonym_pair_tuples = random.sample(synonym_pair_tuples, label_limit)
             for (syn_1, syn_2) in synonym_pair_tuples:
