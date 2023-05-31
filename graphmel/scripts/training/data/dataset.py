@@ -211,22 +211,31 @@ class Node2vecDataset(Dataset):
 
 def load_data_and_bert_model(train_node2terms_path: str, train_edges_path: str, val_node2terms_path: str,
                              val_edges_path: str, text_encoder_name: str, text_encoder_seq_length: int,
-                             drop_relations_info: bool, use_fast: bool = True, do_lower_case=True):
+                             drop_relations_info: bool, use_fast: bool = True, do_lower_case=True,
+                             no_val=True):
     train_node_id2terms_dict = load_node_id2terms_list(dict_path=train_node2terms_path, )
     train_edges_tuples = load_edges_tuples(train_edges_path)
     if drop_relations_info:
         train_edges_tuples = [(t[0], t[1]) for t in train_edges_tuples]
-    val_node_id2terms_dict = load_node_id2terms_list(dict_path=val_node2terms_path, )
-    val_edges_tuples = load_edges_tuples(val_edges_path)
-    if drop_relations_info:
-        val_edges_tuples = [(t[0], t[1]) for t in val_edges_tuples]
 
     tokenizer = AutoTokenizer.from_pretrained(text_encoder_name, do_lower_case=do_lower_case, use_fast=use_fast)
     bert_encoder = AutoModel.from_pretrained(text_encoder_name, )
+
+    val_node_id2token_ids_dict = None
+    val_edges_tuples = None
+    if not no_val:
+        val_node_id2terms_dict = load_node_id2terms_list(dict_path=val_node2terms_path, )
+        val_edges_tuples = load_edges_tuples(val_edges_path)
+        if drop_relations_info:
+            val_edges_tuples = [(t[0], t[1]) for t in val_edges_tuples]
+        logging.info("Tokenizing val node names")
+        val_node_id2token_ids_dict = tokenize_node_terms(val_node_id2terms_dict, tokenizer,
+                                                         max_length=text_encoder_seq_length)
+
+    logging.info("Tokenizing training node names")
     train_node_id2token_ids_dict = tokenize_node_terms(train_node_id2terms_dict, tokenizer,
                                                        max_length=text_encoder_seq_length)
-    val_node_id2token_ids_dict = tokenize_node_terms(val_node_id2terms_dict, tokenizer,
-                                                     max_length=text_encoder_seq_length)
+
 
     return bert_encoder, tokenizer, train_node_id2token_ids_dict, train_edges_tuples, val_node_id2token_ids_dict, val_edges_tuples
 

@@ -244,7 +244,8 @@ def main(args):
                                  train_edges_path=edges_path, use_fast=True, do_lower_case=True,
                                  val_node2terms_path=node2terms_path,
                                  val_edges_path=edges_path, text_encoder_name=args.text_encoder,
-                                 text_encoder_seq_length=args.max_length, drop_relations_info=False)
+                                 text_encoder_seq_length=args.max_length, drop_relations_info=False,
+                                 no_val=True)
 
     del _
 
