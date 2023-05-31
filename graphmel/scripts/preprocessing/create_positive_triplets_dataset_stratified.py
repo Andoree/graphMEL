@@ -54,17 +54,23 @@ def gen_pairs_groupby_language_pair(synonyms_list: List[Tuple[str, str]]) -> Dic
 
 def generate_language_aware_positive_pairs_from_synonyms(concept_id2synonyms_list: Dict[str, List[Tuple[str, str]]],
                                                          max_pairs_per_single_lang,
-                                                         max_pairs_crosslingual) -> List[str]:
+                                                         max_pairs_crosslingual,
+                                                         limit_english_only) -> List[str]:
     pos_pairs = []
     for concept_id, synonyms_list in tqdm(concept_id2synonyms_list.items()):
         concept_pos_pairs = set()
         # synonym_pairs = gen_pairs(synonyms_list)
         lang_pair_label2synonym_pair = gen_pairs_groupby_language_pair(synonyms_list=synonyms_list)
         for lang_pair_label, synonym_pair_tuples in lang_pair_label2synonym_pair.items():
-            if lang_pair_label != "CROSS":
+            if lang_pair_label == "CROSS":
                 label_limit = max_pairs_crosslingual
             else:
-                label_limit = max_pairs_per_single_lang
+                assert len(lang_pair_label) == 3
+                # if (limit_english_only and lang_pair_label) or (not limit_english_only):
+                if lang_pair_label == "ENG" or (not limit_english_only):
+                    label_limit = max_pairs_per_single_lang
+                else:
+                    label_limit = 1000
             if len(synonym_pair_tuples) > label_limit:
                 synonym_pair_tuples = random.sample(synonym_pair_tuples, label_limit)
             for (syn_1, syn_2) in synonym_pair_tuples:
@@ -210,6 +216,7 @@ if __name__ == '__main__':
     parser.add_argument('--split_val', action="store_true")
     parser.add_argument('--max_pairs_per_single_lang', type=int)
     parser.add_argument('--max_pairs_crosslingual', type=int)
+    parser.add_argument('--limit_english_only', type=int)
     parser.add_argument('--train_proportion', type=float)
     parser.add_argument('--ontology', default=None, nargs='+')
     parser.add_argument('--output_dir', type=str)
