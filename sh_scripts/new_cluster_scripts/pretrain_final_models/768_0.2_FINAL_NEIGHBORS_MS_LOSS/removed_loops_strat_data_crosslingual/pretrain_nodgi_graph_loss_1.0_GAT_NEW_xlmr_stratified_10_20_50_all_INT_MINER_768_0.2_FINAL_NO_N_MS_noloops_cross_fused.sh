@@ -36,7 +36,7 @@ python /home/etutubalina/graph_entity_linking/graphmel/graphmel/scripts/self_ali
 --use_cuda \
 --learning_rate=2e-5 \
 --weight_decay=0.01  \
---batch_size=192 \
+--batch_size=128 \
 --num_epochs=1 \
 --amp \
 --parallel \
