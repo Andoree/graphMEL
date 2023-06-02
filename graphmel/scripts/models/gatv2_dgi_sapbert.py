@@ -90,7 +90,7 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
                 nn.Linear(self.bert_hidden_dim, 1),
                 nn.Sigmoid()
             )
-            assert self.dgi_loss_weight == 0
+            # assert self.dgi_loss_weight == 0
 
             self.text_emb2bimodal_transformation = nn.Sequential(
                 nn.Linear(self.bert_hidden_dim, self.bert_hidden_dim),
