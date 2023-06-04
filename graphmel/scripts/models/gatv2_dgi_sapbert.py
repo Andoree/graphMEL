@@ -98,15 +98,15 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
                 nn.Linear(self.bert_hidden_dim, self.bert_hidden_dim),
             )
 
-        self.gat_encoder = GATv2Encoder(in_channels=self.bert_hidden_dim, num_outer_layers=gat_num_outer_layers,
-                                        num_inner_layers=gat_num_inner_layers, num_relations=num_relations,
-                                        num_hidden_channels=gat_num_hidden_channels, dropout_p=gat_dropout_p,
-                                        num_att_heads=gat_num_att_heads, attention_dropout_p=gat_attention_dropout_p,
-                                        set_out_input_dim_equal=True, add_self_loops=gat_add_self_loops,
-                                        use_relational_features=gat_use_relational_features,
-                                        remove_activations=remove_activations)
+        self.graph_encoder = GATv2Encoder(in_channels=self.bert_hidden_dim, num_outer_layers=gat_num_outer_layers,
+                                          num_inner_layers=gat_num_inner_layers, num_relations=num_relations,
+                                          num_hidden_channels=gat_num_hidden_channels, dropout_p=gat_dropout_p,
+                                          num_att_heads=gat_num_att_heads, attention_dropout_p=gat_attention_dropout_p,
+                                          set_out_input_dim_equal=True, add_self_loops=gat_add_self_loops,
+                                          use_relational_features=gat_use_relational_features,
+                                          remove_activations=remove_activations)
         self.dgi = Float32DeepGraphInfomax(
-            hidden_channels=self.bert_hidden_dim, encoder=self.gat_encoder,
+            hidden_channels=self.bert_hidden_dim, encoder=self.graph_encoder,
             summary=self.summary_fn, corruption=self.corruption_fn)
 
         if self.use_miner:
@@ -141,23 +141,31 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
             self.calc_text_loss_return_text_embeddings(term_1_input_ids, term_1_att_masks,
                                                        term_2_input_ids, term_2_att_masks, concept_ids, batch_size)
 
-        pos_graph_embs_1, neg_graph_embs_1, graph_summary_1, pos_graph_embs_2, neg_graph_embs_2, graph_summary_2 = \
-            self.graph_encode(text_embed_1, text_embed_2, adjs=adjs, edge_type_list=edge_type_list,
-                              batch_size=batch_size)
+        pos_graph_embs_1, pos_graph_embs_2 = self.graph_emb(text_embed_1, text_embed_2, adjs=adjs,
+                                                            edge_type_list=edge_type_list, batch_size=batch_size)
+
         if self.fuse_unimodal_embeddings:
-            pos_graph_embs_1, pos_graph_embs_2 = self.fuse_text_graph_emb(text_emb_1=text_embed_1, text_emb_2=text_embed_2,
-                                                                          graph_emb_1=pos_graph_embs_1,
-                                                                          graph_emb_2=pos_graph_embs_2,
-                                                                          batch_size=batch_size)
-            # TODO: Может быть не совсем правильно именно так получать негативные эмбеддинги.
-            # TODO: Потому что негативные исходно получаются перестановкой нод, а при фьюжене я использую в
-            # TOOD: текстовых эмбеддингах другой порядок нод
-            neg_graph_embs_1, neg_graph_embs_2 = self.fuse_text_graph_emb(text_emb_1=text_embed_1, text_emb_2=text_embed_2,
-                                                                          graph_emb_1=neg_graph_embs_1,
-                                                                          graph_emb_2=neg_graph_embs_2,
-                                                                          batch_size=batch_size)
-            graph_summary_1 = self.summary_fn(pos_graph_embs_1, batch_size=batch_size)
-            graph_summary_2 = self.summary_fn(pos_graph_embs_2, batch_size=batch_size)
+            pos_graph_embs_1, pos_graph_embs_2, text_weight_1, text_weight_2 = \
+                self.fuse_text_graph_emb(text_emb_1=text_embed_1, text_emb_2=text_embed_2,
+                                         graph_emb_1=pos_graph_embs_1, graph_emb_2=pos_graph_embs_2,
+                                         batch_size=batch_size)
+
+        text_embed_corr_1, adjs_corr_1 = self.corruption_fn(embs=text_embed_1, adjs=adjs)
+        text_embed_corr_2, adjs_corr_2 = self.corruption_fn(embs=text_embed_2, adjs=adjs)
+        neg_graph_embs_1, neg_graph_embs_2 = self.graph_emb(text_embed_corr_1, text_embed_corr_2, adjs=adjs_corr_2,
+                                                            edge_type_list=edge_type_list, batch_size=batch_size)
+        if self.fuse_unimodal_embeddings:
+            text_embed_transformed_1 = self.text_emb2bimodal_transformation(text_embed_corr_1[:batch_size])
+            text_embed_transformed_2 = self.text_emb2bimodal_transformation(text_embed_corr_2[:batch_size])
+
+            neg_graph_embs_1 = text_weight_1 * text_embed_transformed_1[:batch_size] + \
+                               (1 - text_weight_1) * neg_graph_embs_1[:batch_size]
+            neg_graph_embs_2 = text_weight_2 * text_embed_transformed_2[:batch_size] + \
+                               (1 - text_weight_2) * neg_graph_embs_2[:batch_size]
+
+        graph_summary_1 = self.summary_fn(pos_graph_embs_1)
+        graph_summary_2 = self.summary_fn(pos_graph_embs_2)
+
         dgi_loss_1 = self.dgi.loss(pos_graph_embs_1, neg_graph_embs_1, graph_summary_1)
         dgi_loss_2 = self.dgi.loss(pos_graph_embs_2, neg_graph_embs_2, graph_summary_2)
 
@@ -230,4 +238,4 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
         graph_embs_2 = text_weight_2 * text_embed_transformed_2[:batch_size] + \
                        (1 - text_weight_2) * graph_emb_2[:batch_size]
 
-        return graph_embs_1, graph_embs_2
+        return graph_embs_1, graph_embs_2, text_weight_1, text_weight_2
