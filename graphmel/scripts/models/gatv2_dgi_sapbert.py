@@ -144,21 +144,22 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
         pos_graph_embs_1, neg_graph_embs_1, graph_summary_1, pos_graph_embs_2, neg_graph_embs_2, graph_summary_2 = \
             self.graph_encode(text_embed_1, text_embed_2, adjs=adjs, edge_type_list=edge_type_list,
                               batch_size=batch_size)
-        pos_graph_embs_1, pos_graph_embs_2 = self.fuse_text_graph_emb(text_emb_1=text_embed_1, text_emb_2=text_embed_2,
-                                                                      graph_emb_1=pos_graph_embs_1,
-                                                                      graph_emb_2=pos_graph_embs_2,
-                                                                      batch_size=batch_size)
-        # TODO: Может быть не совсем правильно именно так получать негативные эмбеддинги.
-        # TODO: Потому что негативные исходно получаются перестановкой нод, а при фьюжене я использую в
-        # TOOD: текстовых эмбеддингах другой порядок нод
-        neg_graph_embs_1, neg_graph_embs_2 = self.fuse_text_graph_emb(text_emb_1=text_embed_1, text_emb_2=text_embed_2,
-                                                                      graph_emb_1=neg_graph_embs_1,
-                                                                      graph_emb_2=neg_graph_embs_2,
-                                                                      batch_size=batch_size)
-        graph_summary_1 = self.summary_fn(pos_graph_embs_1, batch_size=batch_size)
-        graph_summary_2 = self.summary_fn(pos_graph_embs_2, batch_size=batch_size)
-        dgi_loss_1 = self.dgi.loss(pos_graph_embs_1, neg_graph_embs_1, graph_summary_1)
-        dgi_loss_2 = self.dgi.loss(pos_graph_embs_2, neg_graph_embs_2, graph_summary_2)
+        if self.fuse_unimodal_embeddings:
+            pos_graph_embs_1, pos_graph_embs_2 = self.fuse_text_graph_emb(text_emb_1=text_embed_1, text_emb_2=text_embed_2,
+                                                                          graph_emb_1=pos_graph_embs_1,
+                                                                          graph_emb_2=pos_graph_embs_2,
+                                                                          batch_size=batch_size)
+            # TODO: Может быть не совсем правильно именно так получать негативные эмбеддинги.
+            # TODO: Потому что негативные исходно получаются перестановкой нод, а при фьюжене я использую в
+            # TOOD: текстовых эмбеддингах другой порядок нод
+            neg_graph_embs_1, neg_graph_embs_2 = self.fuse_text_graph_emb(text_emb_1=text_embed_1, text_emb_2=text_embed_2,
+                                                                          graph_emb_1=neg_graph_embs_1,
+                                                                          graph_emb_2=neg_graph_embs_2,
+                                                                          batch_size=batch_size)
+            graph_summary_1 = self.summary_fn(pos_graph_embs_1, batch_size=batch_size)
+            graph_summary_2 = self.summary_fn(pos_graph_embs_2, batch_size=batch_size)
+            dgi_loss_1 = self.dgi.loss(pos_graph_embs_1, neg_graph_embs_1, graph_summary_1)
+            dgi_loss_2 = self.dgi.loss(pos_graph_embs_2, neg_graph_embs_2, graph_summary_2)
 
         if self.common_hard_pairs:
             graph_loss, hard_pairs = self.calculate_sapbert_loss(pos_graph_embs_1[:batch_size],
