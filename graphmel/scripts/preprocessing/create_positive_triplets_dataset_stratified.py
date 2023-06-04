@@ -37,14 +37,23 @@ def create_lang_aware_tradename_mapping(mrrel_df: pd.DataFrame, cui2synonyms_lis
     return tradename_mapping
 
 
-def gen_pairs_groupby_language_pair(synonyms_list: List[Tuple[str, str]]) -> Dict[str, List[Tuple[str, str]]]:
+def gen_pairs_groupby_language_pair(synonyms_list: List[Tuple[str, str]], eng_crosslingual_only) \
+        -> Dict[str, List[Tuple[str, str]]]:
     lang_synonym_tuple_pairs = list(itertools.combinations(synonyms_list, r=2))
     lang_pair_label2synonym_pair: Dict[str, List[Tuple[str, str]]] = {}
     for ((lang_1, synonym_1), (lang_2, synonym_2)) in lang_synonym_tuple_pairs:
         if lang_1 == lang_2:
             label = lang_1
         else:
-            label = "CROSS"
+            if eng_crosslingual_only:
+                if lang_1 == "ENG" or lang_2 == "ENG":
+                    (lang_1, lang_2) = (lang_2, lang_1) if lang_2 == "ENG" else (lang_1, lang_2)
+                    label = f"{lang_1}|{lang_2}"
+                    # label = "CROSS"
+                else:
+                    continue
+            else:
+                label = "CROSS"
         if lang_pair_label2synonym_pair.get(label) is None:
             lang_pair_label2synonym_pair[label] = []
         lang_pair_label2synonym_pair[label].append((synonym_1, synonym_2))
@@ -55,21 +64,23 @@ def gen_pairs_groupby_language_pair(synonyms_list: List[Tuple[str, str]]) -> Dic
 def generate_language_aware_positive_pairs_from_synonyms(concept_id2synonyms_list: Dict[str, List[Tuple[str, str]]],
                                                          max_pairs_eng,
                                                          max_pairs_non_eng,
-                                                         max_pairs_crosslingual) -> List[str]:
+                                                         max_pairs_crosslingual,
+                                                         eng_crosslingual_only) -> List[str]:
     pos_pairs = []
     for concept_id, synonyms_list in tqdm(concept_id2synonyms_list.items()):
         concept_pos_pairs = set()
         # synonym_pairs = gen_pairs(synonyms_list)
-        lang_pair_label2synonym_pair = gen_pairs_groupby_language_pair(synonyms_list=synonyms_list)
+        lang_pair_label2synonym_pair = gen_pairs_groupby_language_pair(synonyms_list=synonyms_list,
+                                                                       eng_crosslingual_only=eng_crosslingual_only)
         for lang_pair_label, synonym_pair_tuples in lang_pair_label2synonym_pair.items():
-            if lang_pair_label == "CROSS":
-                label_limit = max_pairs_crosslingual
-            else:
+            if len(lang_pair_label) == 3:
                 assert len(lang_pair_label) == 3
                 if lang_pair_label == "ENG":
                     label_limit = max_pairs_eng
                 else:
                     label_limit = max_pairs_non_eng
+            else:
+                label_limit = max_pairs_crosslingual
             if len(synonym_pair_tuples) > label_limit:
                 synonym_pair_tuples = random.sample(synonym_pair_tuples, label_limit)
             for (syn_1, syn_2) in synonym_pair_tuples:
@@ -81,9 +92,10 @@ def generate_language_aware_positive_pairs_from_synonyms(concept_id2synonyms_lis
 
 def generate_positive_pairs(mrconso_df: pd.DataFrame, mrrel_df: pd.DataFrame,
                             cui2node_id: Dict[str, int],
-                            max_pairs_eng:int,
-                            max_pairs_non_eng:int ,
-                            max_pairs_crosslingual: int) -> List[str]:
+                            max_pairs_eng: int,
+                            max_pairs_non_eng: int,
+                            max_pairs_crosslingual: int,
+                            eng_crosslingual_only: bool) -> List[str]:
     cui_lang_synonym_set: Set[Tuple[str, str, str]] = set()
     for idx, row in tqdm(mrconso_df.iterrows()):
         cui, lang, synonym = row["CUI"], row["LAT"], row["STR"]
@@ -117,7 +129,8 @@ def generate_positive_pairs(mrconso_df: pd.DataFrame, mrrel_df: pd.DataFrame,
     pos_pairs = generate_language_aware_positive_pairs_from_synonyms(concept_id2synonyms_list=node_id2synonyms_list,
                                                                      max_pairs_eng=max_pairs_eng,
                                                                      max_pairs_non_eng=max_pairs_non_eng,
-                                                                     max_pairs_crosslingual=max_pairs_crosslingual)
+                                                                     max_pairs_crosslingual=max_pairs_crosslingual,
+                                                                     eng_crosslingual_only=eng_crosslingual_only)
 
     return pos_pairs
 
@@ -175,7 +188,8 @@ def main(args):
     pos_pairs = generate_positive_pairs(mrconso_df=mrconso_df, mrrel_df=mrrel_df, cui2node_id=cui2node_id,
                                         max_pairs_eng=args.max_pairs_eng,
                                         max_pairs_non_eng=args.max_pairs_non_eng,
-                                        max_pairs_crosslingual=args.max_pairs_crosslingual)
+                                        max_pairs_crosslingual=args.max_pairs_crosslingual,
+                                        eng_crosslingual_only=args.eng_crosslingual_only)
     if args.split_val:
         output_train_pos_pairs_path = os.path.join(output_dir, f"train_pos_pairs")
         output_val_pos_pairs_path = os.path.join(output_dir, f"val_pos_pairs")
@@ -211,6 +225,7 @@ if __name__ == '__main__':
     parser.add_argument('--mrrel', type=str)
     parser.add_argument('--langs', nargs='+', default=None)
     parser.add_argument('--split_val', action="store_true")
+    parser.add_argument('--eng_crosslingual_only', action="store_true")
     parser.add_argument('--max_pairs_eng', type=int)
     parser.add_argument('--max_pairs_non_eng', type=int)
     parser.add_argument('--max_pairs_crosslingual', type=int)
