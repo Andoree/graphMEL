@@ -158,8 +158,8 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
                                                                           batch_size=batch_size)
             graph_summary_1 = self.summary_fn(pos_graph_embs_1, batch_size=batch_size)
             graph_summary_2 = self.summary_fn(pos_graph_embs_2, batch_size=batch_size)
-            dgi_loss_1 = self.dgi.loss(pos_graph_embs_1, neg_graph_embs_1, graph_summary_1)
-            dgi_loss_2 = self.dgi.loss(pos_graph_embs_2, neg_graph_embs_2, graph_summary_2)
+        dgi_loss_1 = self.dgi.loss(pos_graph_embs_1, neg_graph_embs_1, graph_summary_1)
+        dgi_loss_2 = self.dgi.loss(pos_graph_embs_2, neg_graph_embs_2, graph_summary_2)
 
         if self.common_hard_pairs:
             graph_loss, hard_pairs = self.calculate_sapbert_loss(pos_graph_embs_1[:batch_size],
