@@ -8,8 +8,6 @@ from torch_geometric.loader.neighbor_sampler import EdgeIndex
 
 
 class AbstractDGIModel(ABC):
-    graph_encoder = None
-
     @staticmethod
     def summary_fn(z, *args, **kwargs):
         batch_size = kwargs.get("batch_size")
