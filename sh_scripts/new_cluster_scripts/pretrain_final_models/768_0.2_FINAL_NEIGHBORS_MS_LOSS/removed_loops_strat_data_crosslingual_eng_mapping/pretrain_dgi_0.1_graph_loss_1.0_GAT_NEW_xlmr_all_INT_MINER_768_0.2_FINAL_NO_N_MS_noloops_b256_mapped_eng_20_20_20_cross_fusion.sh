@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=mu_gat_dg          # Название задачи
-#SBATCH --error=/home/etutubalina/graph_entity_linking/graphmel/logs/pretrain_graph_models_final/pretrain_dgi_1.0_graph_loss_1.0_GAT_NEW_xlmr_all_INT_MINER_768_0.2_FINAL_NO_N_MS_noloops_b256_mapped_eng_20_20_20_cross_fusion.err        # Файл для вывода ошибок
-#SBATCH --output=/home/etutubalina/graph_entity_linking/graphmel/logs/pretrain_graph_models_final/pretrain_dgi_1.0_graph_loss_1.0_GAT_NEW_xlmr_all_INT_MINER_768_0.2_FINAL_NO_N_MS_noloops_b256_mapped_eng_20_20_20_cross_fusion.txt       # Файл для вывода результатов
+#SBATCH --error=/home/etutubalina/graph_entity_linking/graphmel/logs/pretrain_graph_models_final/pretrain_dgi_0.1_graph_loss_1.0_GAT_NEW_xlmr_all_INT_MINER_768_0.2_FINAL_NO_N_MS_noloops_b256_mapped_eng_20_20_20_cross_fusion.err        # Файл для вывода ошибок
+#SBATCH --output=/home/etutubalina/graph_entity_linking/graphmel/logs/pretrain_graph_models_final/pretrain_dgi_0.1_graph_loss_1.0_GAT_NEW_xlmr_all_INT_MINER_768_0.2_FINAL_NO_N_MS_noloops_b256_mapped_eng_20_20_20_cross_fusion.txt       # Файл для вывода результатов
 #SBATCH --time=47:58:59                      # Максимальное время выполнения
 #SBATCH --cpus-per-task=4                   # Количество CPU на одну задачу
 #SBATCH --gpus=4                   # Требуемое количество GPU
@@ -20,10 +20,9 @@ python /home/etutubalina/graph_entity_linking/graphmel/graphmel/scripts/self_ali
 --gat_num_att_heads 2 \
 --gat_dropout_p 0.3 \
 --gat_attention_dropout_p 0.1 \
---gat_use_relational_features \
 --use_rel_or_rela "rel" \
 --graph_loss_weight 1.0 \
---dgi_loss_weight 1.0 \
+--dgi_loss_weight 0.1 \
 --intermodal_loss_weight 1.0 \
 --remove_selfloops \
 --text_loss_weight 1.0 \
