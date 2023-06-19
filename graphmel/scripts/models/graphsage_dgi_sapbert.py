@@ -21,7 +21,8 @@ class GraphSAGEDGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningMod
                  multigpu_flag, use_intermodal_miner=True, intermodal_miner_margin=0.2, use_miner=True,
                  miner_margin=0.2, type_of_triplets="all", agg_mode="cls", modality_distance=None,
                  sapbert_loss_weight: float = 1.0, graph_loss_weight=0.0, freeze_neighbors=False,
-                 apply_text_loss_to_all_neighbors=False, common_hard_pairs=False, use_detached_text=False):
+                 apply_text_loss_to_all_neighbors=False, common_hard_pairs=False, use_detached_text=False,
+                 corruption_type="trg"):
 
         logging.info(
             "Sap_Metric_Learning! use_cuda={} loss={} use_miner={} miner_margin={} type_of_triplets={} agg_mode={}".format(
@@ -69,6 +70,15 @@ class GraphSAGEDGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningMod
                                                    dropout_p=graphsage_dropout_p,
                                                    num_hidden_channels=graphsage_num_hidden_channels,
                                                    set_out_input_dim_equal=True)
+
+        self.corruption_type = corruption_type
+        if self.corruption_type == "trg":
+            self.corruption_fn = self.trg_corruption_fn
+        elif self.corruption_type == "src":
+            self.corruption_fn = self.src_corruption_fn
+        else:
+            raise Exception(f"Invalid corruption_type {corruption_type}")
+
         self.dgi = Float32DeepGraphInfomax(
             hidden_channels=self.bert_hidden_dim, encoder=self.graphhsage_encoder,
             summary=self.summary_fn, corruption=self.corruption_fn)

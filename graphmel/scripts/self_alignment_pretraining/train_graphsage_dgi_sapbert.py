@@ -59,6 +59,7 @@ def parse_args():
     parser.add_argument('--apply_text_loss_to_all_neighbors', action="store_true", )
     parser.add_argument('--common_hard_pairs', action="store_true")
     parser.add_argument('--remove_selfloops', action="store_true")
+    parser.add_argument('--corruption_type', type=str, choices=("src", "trg"), default="trg")
 
     # Tokenizer settings
     parser.add_argument('--max_length', default=25, type=int)
@@ -189,8 +190,8 @@ def main(args):
                     f"_{args.graphsage_dropout_p}_remove_loops_{args.remove_selfloops}_graph_{args.graph_loss_weight}" \
                     f"_dgi_{args.dgi_loss_weight}_modal_{args.modality_distance}_{args.intermodal_loss_weight}" \
                     f"_intermodal_miner_{args.use_intermodal_miner}_{args.intermodal_miner_margin}" \
-                    f"_text_loss_neighbors_{args.apply_text_loss_to_all_neighbors}" \
-                    f"_freeze_neigh_{args.freeze_neighbors}_{chp_str}_lr_{args.learning_rate}_b_{args.batch_size}"
+                    f"_text_loss_neighbors_{args.apply_text_loss_to_all_neighbors}_freeze_neigh" \
+                    f"_{args.freeze_neighbors}_{chp_str}_lr_{args.learning_rate}_b_{args.batch_size}_{args.corruption_type}"
     output_dir = os.path.join(output_dir, output_subdir)
     if not os.path.exists(output_dir) and output_dir != '':
         os.makedirs(output_dir)
@@ -217,7 +218,8 @@ def main(args):
                                  train_edges_path=edges_path, use_fast=True, do_lower_case=True,
                                  val_node2terms_path=node2terms_path,
                                  val_edges_path=edges_path, text_encoder_name=args.text_encoder,
-                                 text_encoder_seq_length=args.max_length, drop_relations_info=True)
+                                 text_encoder_seq_length=args.max_length, drop_relations_info=True,
+                                 no_val=True)
     del _
     edge_index = convert_edges_tuples_to_edge_index(edges_tuples=edges_tuples, remove_selfloops=args.remove_selfloops)
     num_nodes = len(set(node_id2token_ids_dict.keys()))
@@ -289,7 +291,8 @@ def main(args):
                                           use_intermodal_miner=args.use_intermodal_miner,
                                           intermodal_miner_margin=args.intermodal_miner_margin,
                                           apply_text_loss_to_all_neighbors=args.apply_text_loss_to_all_neighbors,
-                                          common_hard_pairs=args.common_hard_pairs).to(device)
+                                          common_hard_pairs=args.common_hard_pairs,
+                                          corruption_type=args.corruption_type).to(device)
 
     start = time.time()
     train_graph_sapbert_model(model=model, train_epoch_fn=train_graphsage_sapbert,
