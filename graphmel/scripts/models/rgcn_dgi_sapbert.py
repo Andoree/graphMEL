@@ -17,7 +17,8 @@ class RGCNDGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, A
                  num_relations: int, num_bases: int, num_blocks: int, use_fast_conv: bool, use_cuda, loss,
                  multigpu_flag, use_intermodal_miner=True, intermodal_miner_margin=0.2, use_miner=True,
                  miner_margin=0.2, type_of_triplets="all", agg_mode="cls", modality_distance=None,
-                 sapbert_loss_weight: float = 1.0, freeze_neighbors=False, apply_text_loss_to_all_neighbors=False):
+                 sapbert_loss_weight: float = 1.0, freeze_neighbors=False, apply_text_loss_to_all_neighbors=False,
+                 use_detached_text=False, corruption_type="trg"):
 
         logging.info(
             "Sap_Metric_Learning! use_cuda={} loss={} use_miner={} miner_margin={} type_of_triplets={} agg_mode={}".format(
@@ -60,6 +61,14 @@ class RGCNDGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, A
                                      dropout_p=rgcn_dropout_p, num_relations=num_relations, num_blocks=num_blocks,
                                      num_bases=num_bases, use_fast_conv=use_fast_conv,
                                      set_out_input_dim_equal=True)
+        self.use_detached_text = use_detached_text
+        self.corruption_type = corruption_type
+        if self.corruption_type == "trg":
+            self.corruption_fn = self.trg_corruption_fn
+        elif self.corruption_type == "src":
+            self.corruption_fn = self.src_corruption_fn
+        else:
+            raise Exception(f"Invalid corruption_type {corruption_type}")
 
         self.dgi = Float32DeepGraphInfomax(
             hidden_channels=self.bert_hidden_dim, encoder=self.rgcn_conv,
