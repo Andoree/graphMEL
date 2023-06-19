@@ -75,6 +75,8 @@ def parse_args():
     parser.add_argument('--inmodal_fusion', action="store_true")
     parser.add_argument('--global_fusion', action="store_true")
     parser.add_argument('--fusion_text_weight', type=float)
+    parser.add_argument('--corruption_type', type=str, choices=("src", "trg"), default="trg")
+
     # Tokenizer settings
     parser.add_argument('--max_length', default=25, type=int)
 
@@ -214,7 +216,7 @@ def main(args):
                     f"{args.gat_use_relational_features}_freeze_{args.freeze_neighbors}" \
                     f"_tl_neigh_{args.apply_text_loss_to_all_neighbors}_ilt_{args.intermodal_loss_type}" \
                     f"_istrat_{args.intermodal_strategy}_det_txt_{args.use_detached_text}_{args.intermodal_loss_weight}" \
-                    f"_lr_{args.learning_rate}_b_{args.batch_size}_{activ_str}_{chp_str}_{fuse_s}"
+                    f"_lr_{args.learning_rate}_b_{args.batch_size}_{activ_str}_{chp_str}_{fuse_s}_{args.corruption_type}"
     modality_distance = args.modality_distance
     if modality_distance == "None":
         modality_distance = None
@@ -349,7 +351,8 @@ def main(args):
                                       fuse_unimodal_embeddings=args.fuse_unimodal_embeddings,
                                       cross_fusion=args.cross_fusion, inmodal_fusion=args.inmodal_fusion,
                                       global_fusion=args.global_fusion,
-                                      fusion_text_weight=args.fusion_text_weight).to(device)
+                                      fusion_text_weight=args.fusion_text_weight,
+                                      corruption_type=args.corruption_type).to(device)
 
     start = time.time()
     train_graph_sapbert_model(model=model, train_epoch_fn=train_gatv2_dgi_sapbert,

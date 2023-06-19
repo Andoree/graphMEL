@@ -25,7 +25,7 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
                  apply_text_loss_to_all_neighbors=False, intermodal_loss_type="sapbert",
                  intermodal_strategy=None, use_detached_text=False, remove_activations=False,
                  common_hard_pairs=False, fuse_unimodal_embeddings=False, cross_fusion=False,
-                 inmodal_fusion=False, global_fusion=False, fusion_text_weight=None):
+                 inmodal_fusion=False, global_fusion=False, fusion_text_weight=None, corruption_type="trg"):
 
         logging.info(f"Sap_Metric_Learning! use_cuda={use_cuda} loss={loss} use_miner={miner_margin}"
                      f"miner_margin={miner_margin} type_of_triplets={type_of_triplets} agg_mode={agg_mode}")
@@ -105,6 +105,14 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
                                           set_out_input_dim_equal=True, add_self_loops=gat_add_self_loops,
                                           use_relational_features=gat_use_relational_features,
                                           remove_activations=remove_activations)
+        self.corruption_type = corruption_type
+        if self.corruption_type == "trg":
+            self.corruption_fn = self.trg_corruption_fn
+        elif self.corruption_type == "src":
+            self.corruption_fn = self.src_corruption_fn
+        else:
+            raise Exception(f"Invalid corruption_type {corruption_type}")
+
         self.dgi = Float32DeepGraphInfomax(
             hidden_channels=self.bert_hidden_dim, encoder=self.graph_encoder,
             summary=self.summary_fn, corruption=self.corruption_fn)

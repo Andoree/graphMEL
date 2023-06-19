@@ -16,7 +16,7 @@ class AbstractDGIModel(ABC):
         return torch.sigmoid(z.mean(dim=0))
 
     @staticmethod
-    def corruption_fn(embs, adjs: List[EdgeIndex], *args, **kwargs):
+    def trg_corruption_fn(embs, adjs: List[EdgeIndex], *args, **kwargs):
         corrupted_adjs_list = []
         for adj in adjs:
             edge_index = adj.edge_index
@@ -27,6 +27,22 @@ class AbstractDGIModel(ABC):
             perm_trg_nodes = torch.randperm(num_edges)
             corr_edge_index_trg = edge_index_trg[perm_trg_nodes]
             corr_edge_index = torch.stack((edge_index_src, corr_edge_index_trg)).to(edge_index.device)
+            corrupted_adj = EdgeIndex(corr_edge_index, adj.e_id, adj.size).to(edge_index.device)
+            corrupted_adjs_list.append(corrupted_adj)
+        return embs, corrupted_adjs_list
+
+    @staticmethod
+    def src_corruption_fn(embs, adjs: List[EdgeIndex], *args, **kwargs):
+        corrupted_adjs_list = []
+        for adj in adjs:
+            edge_index = adj.edge_index
+            # size = adj.size
+            edge_index_src = edge_index[0]
+            edge_index_trg = edge_index[1]
+            num_edges = len(edge_index_src)
+            perm_src_nodes = torch.randperm(num_edges)
+            corr_edge_index_src = edge_index_src[perm_src_nodes]
+            corr_edge_index = torch.stack((corr_edge_index_src, edge_index_trg)).to(edge_index.device)
             corrupted_adj = EdgeIndex(corr_edge_index, adj.e_id, adj.size).to(edge_index.device)
             corrupted_adjs_list.append(corrupted_adj)
         return embs, corrupted_adjs_list
@@ -43,7 +59,6 @@ class AbstractDGIModel(ABC):
         pos_graph_embs_2, neg_graph_embs_2 = pos_graph_embs_2[:batch_size], neg_graph_embs_2[:batch_size]
         assert pos_graph_embs_1.size()[0] == neg_graph_embs_1.size()[0] == batch_size
         assert pos_graph_embs_2.size()[0] == neg_graph_embs_2.size()[0] == batch_size
-
 
         return pos_graph_embs_1, neg_graph_embs_1, graph_summary_1, pos_graph_embs_2, neg_graph_embs_2, graph_summary_2
 
