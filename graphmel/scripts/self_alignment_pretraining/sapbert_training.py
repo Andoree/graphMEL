@@ -1,3 +1,4 @@
+import itertools
 import logging
 import os
 from torch.cuda.amp import autocast
@@ -5,6 +6,7 @@ import torch
 from tqdm import tqdm
 from graphmel.scripts.models.abstract_graphsapbert_model import AbstractGraphSapMetricLearningModel
 from graphmel.scripts.utils.io import update_log_file
+
 
 def graph_sapbert_val_step(model: AbstractGraphSapMetricLearningModel, batch, amp, device):
     term_1_input_ids, term_1_att_masks = batch["term_1_input"]
@@ -48,6 +50,7 @@ def train_graph_sapbert_model(model, train_epoch_fn, train_loader, val_loader, c
                               save_chkpnt_epoch_interval: int, amp: bool, scaler, device: torch.device,
                               save_chkpnts=True, val_epoch_fn=graph_sapbert_val_epoch, **kwargs):
     parallel = kwargs["parallel"]
+    bert_learning_rate = kwargs.get("bert_learning_rate")
     if chkpnt_path is not None:
         logging.info(f"Successfully loaded checkpoint from: {chkpnt_path}")
         checkpoint = torch.load(chkpnt_path)
@@ -57,7 +60,16 @@ def train_graph_sapbert_model(model, train_epoch_fn, train_loader, val_loader, c
     else:
         start_epoch = 0
         # optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-        optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+        if bert_learning_rate is None:
+            optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+        else:
+            logging.info(f"Using {bert_learning_rate} LR for BERT and {learning_rate} for other parameters")
+            non_bert_modules = [module for name, module in model._modules.items() if name != 'bert_encoder']
+            non_bert_params = itertools.chain((m.parameters() for m in non_bert_modules))
+            optimizer = torch.optim.AdamW([{"params": non_bert_params},
+                                           {"params": model.bert_encoder.parameters(), "lr": bert_learning_rate}],
+                                          lr=learning_rate, weight_decay=0.2)
+
     log_file_path = os.path.join(output_dir, "training_log.txt")
     train_loss_history = []
     val_loss_history = []
@@ -102,6 +114,3 @@ def train_graph_sapbert_model(model, train_epoch_fn, train_loader, val_loader, c
     chkpnt_path = os.path.join(output_dir, f"checkpoint_e_{start_epoch + num_epochs}_steps_{global_num_steps}.pth")
     if save_chkpnts:
         torch.save(checkpoint, chkpnt_path)
-
-
-

@@ -65,7 +65,7 @@ def parse_args():
     parser.add_argument('--apply_text_loss_to_all_neighbors', action="store_true", )
     parser.add_argument('--modality_distance', type=str, required=False, choices=(None, "sapbert", "cosine", "MSE"))
     parser.add_argument('--intermodal_loss_type', type=str, required=False, default="sapbert",
-                        choices=("sapbert", "cosine", ))
+                        choices=("sapbert", "cosine",))
     parser.add_argument('--intermodal_strategy', type=str, required=False, choices=(None, "hard", "soft",))
     parser.add_argument('--use_detached_text', action="store_true", )
     parser.add_argument('--remove_activations', action="store_true", )
@@ -85,6 +85,8 @@ def parse_args():
     parser.add_argument('--learning_rate',
                         help='learning rate',
                         default=0.0001, type=float)
+    parser.add_argument('--bert_learning_rate', help='bert encoder learning rate', required=False, type=float)
+
     parser.add_argument('--weight_decay',
                         help='weight decay',
                         default=0.01, type=float)
@@ -136,18 +138,20 @@ def gatv2_dgi_sapbert_train_step(model: GATv2DGISapMetricLearning, batch, amp, d
     if amp:
         with autocast():
             sapbert_loss, graph_loss, dgi_loss, intermodal_loss = model(term_1_input_ids=term_1_input_ids,
-                                                            term_1_att_masks=term_1_att_masks,
-                                                            term_2_input_ids=term_2_input_ids,
-                                                            term_2_att_masks=term_2_att_masks,
-                                                            concept_ids=concept_ids, adjs=adjs,
-                                                            edge_type_list=edge_type_list, batch_size=batch_size)
+                                                                        term_1_att_masks=term_1_att_masks,
+                                                                        term_2_input_ids=term_2_input_ids,
+                                                                        term_2_att_masks=term_2_att_masks,
+                                                                        concept_ids=concept_ids, adjs=adjs,
+                                                                        edge_type_list=edge_type_list,
+                                                                        batch_size=batch_size)
     else:
         sapbert_loss, graph_loss, dgi_loss, intermodal_loss = model(term_1_input_ids=term_1_input_ids,
-                                                        term_1_att_masks=term_1_att_masks,
-                                                        term_2_input_ids=term_2_input_ids,
-                                                        term_2_att_masks=term_2_att_masks,
-                                                        concept_ids=concept_ids, adjs=adjs,
-                                                        edge_type_list=edge_type_list, batch_size=batch_size)
+                                                                    term_1_att_masks=term_1_att_masks,
+                                                                    term_2_input_ids=term_2_input_ids,
+                                                                    term_2_att_masks=term_2_att_masks,
+                                                                    concept_ids=concept_ids, adjs=adjs,
+                                                                    edge_type_list=edge_type_list,
+                                                                    batch_size=batch_size)
     # logging.info(f"Train loss: {float(loss)}")
     return sapbert_loss, graph_loss, dgi_loss, intermodal_loss
 
@@ -157,13 +161,14 @@ def train_gatv2_dgi_sapbert(model: GATv2DGISapMetricLearning, train_loader: Posi
     model.train()
     # total_loss = 0
 
-    losses_dict = {"total": 0, "sapbert": 0, "graph": 0,  "dgi": 0, "intermodal": 0}
+    losses_dict = {"total": 0, "sapbert": 0, "graph": 0, "dgi": 0, "intermodal": 0}
     num_steps = 0
     pbar = tqdm(train_loader, miniters=len(train_loader) // 100, total=len(train_loader))
     for batch in pbar:
         optimizer.zero_grad()
-        sapbert_loss, graph_loss, dgi_loss, intermodal_loss = gatv2_dgi_sapbert_train_step(model=model, batch=batch, amp=amp,
-                                                                               device=device)
+        sapbert_loss, graph_loss, dgi_loss, intermodal_loss = gatv2_dgi_sapbert_train_step(model=model, batch=batch,
+                                                                                           amp=amp,
+                                                                                           device=device)
         sapbert_loss = sapbert_loss * model.sapbert_loss_weight
         graph_loss = graph_loss * model.graph_loss_weight
         dgi_loss = dgi_loss * model.dgi_loss_weight
@@ -198,7 +203,7 @@ def train_gatv2_dgi_sapbert(model: GATv2DGISapMetricLearning, train_loader: Posi
 def main(args):
     print(args)
     output_dir = args.output_dir
-    activ_str =  "NO_ACTIV" if args.remove_activations else "ACTIV"
+    activ_str = "NO_ACTIV" if args.remove_activations else "ACTIV"
     chp_str = "common_hp" if args.common_hard_pairs else ""
     fuse_s = "FUSE" if args.fuse_unimodal_embeddings else ""
     fuse_s = f"CROSS_{fuse_s}" if args.cross_fusion else fuse_s
@@ -361,7 +366,8 @@ def main(args):
                               learning_rate=args.learning_rate, weight_decay=args.weight_decay,
                               num_epochs=args.num_epochs, output_dir=output_dir,
                               save_chkpnt_epoch_interval=args.save_every_N_epoch,
-                              amp=args.amp, scaler=scaler, device=device, chkpnt_path=args.model_checkpoint_path)
+                              amp=args.amp, scaler=scaler, device=device, chkpnt_path=args.model_checkpoint_path,
+                              bert_learning_rate=args.bert_learning_rate)
     end = time.time()
     training_time = end - start
     training_hour = int(training_time / 60 / 60)
