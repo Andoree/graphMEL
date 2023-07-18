@@ -221,7 +221,8 @@ def main(args):
                     f"{args.gat_use_relational_features}_freeze_{args.freeze_neighbors}" \
                     f"_tl_neigh_{args.apply_text_loss_to_all_neighbors}_ilt_{args.intermodal_loss_type}" \
                     f"_istrat_{args.intermodal_strategy}_det_txt_{args.use_detached_text}_{args.intermodal_loss_weight}" \
-                    f"_lr_{args.learning_rate}_b_{args.batch_size}_{activ_str}_{chp_str}_{fuse_s}_{args.corruption_type}"
+                    f"_lr_{args.learning_rate}_blr_{args.bert_learning_rate}_b_{args.batch_size}_{activ_str}_{chp_str}" \
+                    f"_{fuse_s}_{args.corruption_type}"
     modality_distance = args.modality_distance
     if modality_distance == "None":
         modality_distance = None
