@@ -64,12 +64,7 @@ def train_graph_sapbert_model(model, train_epoch_fn, train_loader, val_loader, c
             optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
         else:
             logging.info(f"Using {bert_learning_rate} LR for BERT and {learning_rate} for other parameters")
-            for name, module in model._modules.items():
-                print(f">> {name} >> {type(module)} >> {module}")
             non_bert_modules = [module for name, module in model._modules.items() if name != 'bert_encoder']
-            print('--' * 5)
-            for e in non_bert_modules:
-                print(f">> {type(e)}")
             non_bert_params = itertools.chain(*(m.parameters() for m in non_bert_modules))
             optimizer = torch.optim.AdamW([{"params": non_bert_params},
                                            {"params": model.bert_encoder.parameters(), "lr": bert_learning_rate}],
