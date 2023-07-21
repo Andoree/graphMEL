@@ -70,7 +70,7 @@ def train_graph_sapbert_model(model, train_epoch_fn, train_loader, val_loader, c
             print('--' * 5)
             for e in non_bert_modules:
                 print(f">> {type(e)}")
-            non_bert_params = itertools.chain((m.parameters() for m in non_bert_modules))
+            non_bert_params = itertools.chain(*(m.parameters() for m in non_bert_modules))
             optimizer = torch.optim.AdamW([{"params": non_bert_params},
                                            {"params": model.bert_encoder.parameters(), "lr": bert_learning_rate}],
                                           lr=learning_rate, weight_decay=0.2)
