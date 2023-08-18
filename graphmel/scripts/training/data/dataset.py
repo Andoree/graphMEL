@@ -9,6 +9,7 @@ from torch_cluster import random_walk
 import torch
 from torch_sparse import SparseTensor
 from torch_geometric.utils.num_nodes import maybe_num_nodes
+from tqdm import tqdm
 from transformers import AutoTokenizer, AutoModel, BertTokenizerFast
 
 from graphmel.scripts.utils.io import load_node_id2terms_list, load_edges_tuples, load_adjacency_list
@@ -30,6 +31,7 @@ def tokenize_node_terms(node_id_to_terms_dict, tokenizer, max_length: int) -> Di
 def tokenize_node_terms_faster(node_id_to_terms_dict, tokenizer, max_length: int) -> Dict[int, List[List[int]]]:
     terms: List[str] = []
     n_ids = []
+    logging.info(f"using faster tokenization")
     for key in sorted(node_id_to_terms_dict.keys()):
         t_list: List[str] = node_id_to_terms_dict[key]
         num_terms = len(t_list)
@@ -42,7 +44,7 @@ def tokenize_node_terms_faster(node_id_to_terms_dict, tokenizer, max_length: int
     assert len(tokenizer_output["input_ids"]) == len(n_ids)
     del terms
     node_id_to_token_ids_dict = {}
-    for i in range(len(n_ids)):
+    for i in tqdm(range(len(n_ids))):
         inp_ids = tokenizer_output["input_ids"][i]
         att_mask = tokenizer_output["attention_mask"][i]
         node_id = n_ids[i]
@@ -52,7 +54,6 @@ def tokenize_node_terms_faster(node_id_to_terms_dict, tokenizer, max_length: int
             "input_ids": inp_ids,
             "attention_mask": att_mask
         })
-
 
     return node_id_to_token_ids_dict
 
@@ -368,6 +369,7 @@ def create_term_id2tokenizer_output(term2id: Dict[str, int], max_length: int, to
     logging.info("Finished tokenizing terms....")
     return term_id2tok_out
 
+
 def create_term_id2tokenizer_output_old(term2id: Dict[str, int], max_length: int, tokenizer: BertTokenizerFast):
     logging.info("Tokenizing terms....")
     term_id2tok_out = {}
@@ -383,25 +385,27 @@ def create_term_id2tokenizer_output_old(term2id: Dict[str, int], max_length: int
     logging.info("Finished tokenizing terms....")
     return term_id2tok_out
 
+
 def create_term_id2tokenizer_output_faster(term2id: Dict[str, int], max_length: int, tokenizer: BertTokenizerFast):
-    logging.info("Tokenizing terms....")
+    logging.info("Tokenizing terms (FASTER VERSION)....")
 
     terms_sorted = list(sorted(term2id.keys()))
     ids_sorted = [term2id[term] for term in terms_sorted]
     tok_out = tokenizer.batch_encode_plus(terms_sorted, max_length=max_length, padding="max_length",
-                truncation=True, add_special_tokens=True, return_tensors="pt")
+                                          truncation=True, add_special_tokens=True, return_tensors="pt")
     assert len(ids_sorted) == len(tok_out["input_ids"])
     assert len(tok_out["input_ids"][0]) == max_length
     assert tok_out["input_ids"].size() == (len(ids_sorted), max_length)
     # TODO: Остановился тут. Теперь надо переписать использование этих данных в классе датасета
     term_id2tok_out = {
-        "input_ids" : {node_id : inp_ids for node_id, inp_ids in zip(ids_sorted, tok_out["input_ids"])},
+        "input_ids": {node_id: inp_ids for node_id, inp_ids in zip(ids_sorted, tok_out["input_ids"])},
         "attention_mask": {node_id: att_mask for node_id, att_mask in zip(ids_sorted, tok_out["attention_mask"])}
 
     }
 
     logging.info("Finished tokenizing terms....")
     return term_id2tok_out
+
 
 def load_tree_dataset_and_bert_model(node2terms_path: str, text_encoder_name: str,
                                      parent_children_adjacency_list_path: str, child_parents_adjacency_list_path: str,
