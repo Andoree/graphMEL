@@ -5,7 +5,7 @@ import torch
 
 
 def node_ids2tokenizer_output(batch: torch.Tensor, node_id_to_token_ids_dict: Dict[int, List[List[Dict[str, int]]]],
-                              seq_max_length: int):
+                              seq_max_length: int, code_version="old"):
     """
     Given a batch of node ids, for each node in the batch samples a random term of this node.
     Then, takes pre-calculated BERT tokenizer output of this term. Returns a term's token ids and attention masks
@@ -17,8 +17,14 @@ def node_ids2tokenizer_output(batch: torch.Tensor, node_id_to_token_ids_dict: Di
     output_shape = list(batch.size()) + [seq_max_length, ]
     tokenizer_outputs = [random.choice(node_id_to_token_ids_dict[node_id.item()]) for node_id in
                          batch.view(-1)]
-    batch_input_ids = torch.stack([tok_output["input_ids"][0] for tok_output in tokenizer_outputs])
-    batch_attention_masks = torch.stack([tok_output["attention_mask"][0] for tok_output in tokenizer_outputs])
+    if code_version == "old":
+        batch_input_ids = torch.stack([tok_output["input_ids"][0] for tok_output in tokenizer_outputs])
+        batch_attention_masks = torch.stack([tok_output["attention_mask"][0] for tok_output in tokenizer_outputs])
+    elif code_version == "faster":
+        batch_input_ids = torch.stack([tok_output["input_ids"] for tok_output in tokenizer_outputs])
+        batch_attention_masks = torch.stack([tok_output["attention_mask"] for tok_output in tokenizer_outputs])
+    else:
+        raise Exception(f"Invalid code_version string: {code_version}")
 
     batch_input_ids = batch_input_ids.view(output_shape)
     batch_attention_masks = batch_attention_masks.view(output_shape)

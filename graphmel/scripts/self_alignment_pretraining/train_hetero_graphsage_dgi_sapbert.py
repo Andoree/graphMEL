@@ -37,28 +37,90 @@ def parse_args():
     # Required
     # parser.add_argument('--model_dir',
     #                     help='Directory for pretrained model')
+    # parser.add_argument('--train_dir', type=str, required=True,
+    #                     help='training set directory')
+    # # parser.add_argument('--val_dir', type=str, required=False,
+    # #                     help='Validation set directory')
+    # parser.add_argument('--validate', action="store_true",
+    #                     help='whether the validation of each epoch is required')
+    #
+    # parser.add_argument('--output_dir', type=str, required=True,
+    #                     help='Directory for output')
+
+    # Graphsage + DGI configuration
+    # parser.add_argument('--graphsage_num_neighbors', type=int, nargs='+')
+    # parser.add_argument('--num_graphsage_layers', type=int)
+    # parser.add_argument('--graphsage_hidden_channels', type=int)
+    # parser.add_argument('--graphsage_dropout_p', type=float, )
+    # parser.add_argument('--graph_loss_weight', type=float, )
+    # parser.add_argument('--dgi_loss_weight', type=float)
+    # # parser.add_argument('--filter_rel_types', action="store_true")
+    #
+    # parser.add_argument('--intermodal_loss_weight', type=float, required=False)
+    # parser.add_argument('--use_intermodal_miner', action="store_true")
+    # parser.add_argument('--modality_distance', type=str, required=False, choices=(None, "sapbert", "cosine", "MSE"))
+    # parser.add_argument('--text_loss_weight', type=float, required=False, default=1.0)
+    # parser.add_argument('--freeze_non_target_nodes', action="store_true")
+    #
+    # # Tokenizer settings
+    # parser.add_argument('--max_length', default=25, type=int)
+    #
+    # # Train config
+    # parser.add_argument('--use_cuda', action="store_true")
+    # parser.add_argument('--learning_rate',
+    #                     help='learning rate',
+    #                     default=0.0001, type=float)
+    # parser.add_argument('--weight_decay',
+    #                     help='weight decay',
+    #                     default=0.01, type=float)
+    # parser.add_argument('--batch_size',
+    #                     help='train batch size',
+    #                     default=240, type=int)
+    # parser.add_argument('--num_epochs',
+    #                     help='epoch to train',
+    #                     default=3, type=int)
+    # parser.add_argument('--amp', action="store_true",
+    #                     help="automatic mixed precision training")
+    # parser.add_argument('--parallel', action="store_true")
+    # parser.add_argument('--random_seed',
+    #                     help='',
+    #                     default=1996, type=int)
+    # parser.add_argument('--loss',
+    #                     help="{ms_loss|cosine_loss|circle_loss|triplet_loss}}",
+    #                     default="ms_loss")
+    # parser.add_argument('--use_miner', action="store_true")
+    # parser.add_argument('--miner_margin', default=0.2, type=float)
+    # parser.add_argument('--type_of_triplets', default="all", type=str)
+    # parser.add_argument('--agg_mode', default="cls", type=str, help="{cls|mean|mean_all_tok}")
+    #
+    # parser.add_argument('--text_encoder', type=str)
+    # parser.add_argument('--dataloader_num_workers', type=int)
+    # parser.add_argument('--save_every_N_epoch', type=int, default=1)
+    # parser.add_argument('--model_checkpoint_path', required=False, default=None)
+
     parser.add_argument('--train_dir', type=str, required=True,
-                        help='training set directory')
+                        help='training set directory',
+                        default="/home/c204/University/NLP/SCR_data/SCR_SCR_FULL")
     # parser.add_argument('--val_dir', type=str, required=False,
     #                     help='Validation set directory')
     parser.add_argument('--validate', action="store_true",
                         help='whether the validation of each epoch is required')
 
     parser.add_argument('--output_dir', type=str, required=True,
-                        help='Directory for output')
+                        help='Directory for output', default="DELETE/")
 
-    # Graphsage + DGI configuration
-    parser.add_argument('--graphsage_num_neighbors', type=int, nargs='+')
-    parser.add_argument('--num_graphsage_layers', type=int)
-    parser.add_argument('--graphsage_hidden_channels', type=int)
-    parser.add_argument('--graphsage_dropout_p', type=float, )
-    parser.add_argument('--graph_loss_weight', type=float, )
-    parser.add_argument('--dgi_loss_weight', type=float)
+    parser.add_argument('--graphsage_num_neighbors', type=int, nargs='+', default=1)
+    parser.add_argument('--num_graphsage_layers', type=int, default=3)
+    parser.add_argument('--graphsage_hidden_channels', type=int, default=324)
+    parser.add_argument('--graphsage_dropout_p', type=float, default=0.1)
+    parser.add_argument('--graph_loss_weight', type=float, default=1.0)
+    parser.add_argument('--dgi_loss_weight', type=float, default=1.0)
     # parser.add_argument('--filter_rel_types', action="store_true")
 
-    parser.add_argument('--intermodal_loss_weight', type=float, required=False)
-    parser.add_argument('--use_intermodal_miner', action="store_true")
-    parser.add_argument('--modality_distance', type=str, required=False, choices=(None, "sapbert", "cosine", "MSE"))
+    parser.add_argument('--intermodal_loss_weight', type=float, required=False, default=1.0)
+    parser.add_argument('--use_intermodal_miner', action="store_true", default=True)
+    parser.add_argument('--modality_distance', type=str, required=False, default="sapbert",
+                        choices=(None, "sapbert", "cosine", "MSE"))
     parser.add_argument('--text_loss_weight', type=float, required=False, default=1.0)
     parser.add_argument('--freeze_non_target_nodes', action="store_true")
 
@@ -75,7 +137,7 @@ def parse_args():
                         default=0.01, type=float)
     parser.add_argument('--batch_size',
                         help='train batch size',
-                        default=240, type=int)
+                        default=2, type=int)
     parser.add_argument('--num_epochs',
                         help='epoch to train',
                         default=3, type=int)
@@ -93,8 +155,8 @@ def parse_args():
     parser.add_argument('--type_of_triplets', default="all", type=str)
     parser.add_argument('--agg_mode', default="cls", type=str, help="{cls|mean|mean_all_tok}")
 
-    parser.add_argument('--text_encoder', type=str)
-    parser.add_argument('--dataloader_num_workers', type=int)
+    parser.add_argument('--text_encoder', type=str, default="prajjwal1/bert-tiny")
+    parser.add_argument('--dataloader_num_workers', type=int, default=0)
     parser.add_argument('--save_every_N_epoch', type=int, default=1)
     parser.add_argument('--model_checkpoint_path', required=False, default=None)
 
@@ -312,7 +374,8 @@ def main(args):
                                  train_edges_path=edges_path, use_fast=True, do_lower_case=True,
                                  val_node2terms_path=node2terms_path,
                                  val_edges_path=edges_path, text_encoder_name=args.text_encoder,
-                                 text_encoder_seq_length=args.max_length, drop_relations_info=False)
+                                 text_encoder_seq_length=args.max_length, drop_relations_info=False,
+                                 tokenization_type="faster")
 
     del _
     # if args.filter_rel_types:
@@ -339,7 +402,7 @@ def main(args):
         term_1_list=train_pos_pairs_term_1_list, term_2_list=train_pos_pairs_term_2_list)
     logging.info(f"There are {len(train_pos_pairs_term_1_id_list)} positive training pairs")
     train_term_id2tok_out = create_term_id2tokenizer_output(term2id=train_term2id, max_length=args.max_length,
-                                                            tokenizer=bert_tokenizer)
+                                                            tokenizer=bert_tokenizer, code_version="faster")
     del train_pos_pairs_term_1_list
     del train_pos_pairs_term_2_list
 

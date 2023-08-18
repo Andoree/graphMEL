@@ -27,6 +27,36 @@ def tokenize_node_terms(node_id_to_terms_dict, tokenizer, max_length: int) -> Di
     return node_id_to_token_ids_dict
 
 
+def tokenize_node_terms_faster(node_id_to_terms_dict, tokenizer, max_length: int) -> Dict[int, List[List[int]]]:
+    terms: List[str] = []
+    n_ids = []
+    for key in sorted(node_id_to_terms_dict.keys()):
+        t_list: List[str] = node_id_to_terms_dict[key]
+        num_terms = len(t_list)
+        terms.extend(t_list)
+        n_ids.extend([key, ] * num_terms)
+    tokenizer_output = tokenizer.batch_encode_plus(terms, max_length=max_length,
+                                                   padding="max_length", truncation=True,
+                                                   add_special_tokens=True,
+                                                   return_tensors="pt", )
+    assert len(tokenizer_output["input_ids"]) == len(n_ids)
+    del terms
+    node_id_to_token_ids_dict = {}
+    for i in range(len(n_ids)):
+        inp_ids = tokenizer_output["input_ids"][i]
+        att_mask = tokenizer_output["attention_mask"][i]
+        node_id = n_ids[i]
+        if node_id_to_token_ids_dict.get(node_id) is None:
+            node_id_to_token_ids_dict[node_id] = []
+        node_id_to_token_ids_dict[node_id].append({
+            "input_ids": inp_ids,
+            "attention_mask": att_mask
+        })
+
+
+    return node_id_to_token_ids_dict
+
+
 class NeighborSampler(RawNeighborSampler):
     def __init__(self, node_id_to_token_ids_dict, seq_max_length, random_walk_length: int, *args, **kwargs):
         super(NeighborSampler, self).__init__(*args, **kwargs)
@@ -212,7 +242,7 @@ class Node2vecDataset(Dataset):
 def load_data_and_bert_model(train_node2terms_path: str, train_edges_path: str, val_node2terms_path: str,
                              val_edges_path: str, text_encoder_name: str, text_encoder_seq_length: int,
                              drop_relations_info: bool, use_fast: bool = True, do_lower_case=True,
-                             no_val=True):
+                             no_val=True, tokenization_type="old"):
     train_node_id2terms_dict = load_node_id2terms_list(dict_path=train_node2terms_path, )
     train_edges_tuples = load_edges_tuples(train_edges_path)
     if drop_relations_info:
@@ -233,9 +263,14 @@ def load_data_and_bert_model(train_node2terms_path: str, train_edges_path: str, 
                                                          max_length=text_encoder_seq_length)
 
     logging.info("Tokenizing training node names")
-    train_node_id2token_ids_dict = tokenize_node_terms(train_node_id2terms_dict, tokenizer,
-                                                       max_length=text_encoder_seq_length)
-
+    if tokenization_type == "old":
+        train_node_id2token_ids_dict = tokenize_node_terms(train_node_id2terms_dict, tokenizer,
+                                                           max_length=text_encoder_seq_length)
+    elif tokenization_type == "faster":
+        train_node_id2token_ids_dict = tokenize_node_terms_faster(train_node_id2terms_dict, tokenizer,
+                                                                  max_length=text_encoder_seq_length)
+    else:
+        raise Exception(f"Invalid tokenization_type: {tokenization_type}")
 
     return bert_encoder, tokenizer, train_node_id2token_ids_dict, train_edges_tuples, val_node_id2token_ids_dict, val_edges_tuples
 
@@ -311,7 +346,29 @@ def map_terms2term_id(term_1_list: List[str], term_2_list: List[str]) -> Tuple[L
     return term_1_ids, term_2_ids, term2id
 
 
-def create_term_id2tokenizer_output(term2id: Dict[str, int], max_length: int, tokenizer: BertTokenizerFast):
+def create_term_id2tokenizer_output(term2id: Dict[str, int], max_length: int, tokenizer: BertTokenizerFast,
+                                    code_version="old"):
+    logging.info("Tokenizing terms....")
+    if code_version == "old":
+        term_id2tok_out = create_term_id2tokenizer_output_old(term2id, max_length, tokenizer)
+    elif code_version == "faster":
+        term_id2tok_out = create_term_id2tokenizer_output_faster(term2id, max_length, tokenizer)
+    else:
+        raise Exception(f"Invalid code_version string: {code_version}")
+    # term_id2tok_out = {}
+    # for term, term_id in term2id.items():
+    #     tok_out = tokenizer.encode_plus(
+    #         term,
+    #         max_length=max_length,
+    #         padding="max_length",
+    #         truncation=True,
+    #         add_special_tokens=True,
+    #         return_tensors="pt")
+    #     term_id2tok_out[term_id] = tok_out
+    logging.info("Finished tokenizing terms....")
+    return term_id2tok_out
+
+def create_term_id2tokenizer_output_old(term2id: Dict[str, int], max_length: int, tokenizer: BertTokenizerFast):
     logging.info("Tokenizing terms....")
     term_id2tok_out = {}
     for term, term_id in term2id.items():
@@ -326,8 +383,27 @@ def create_term_id2tokenizer_output(term2id: Dict[str, int], max_length: int, to
     logging.info("Finished tokenizing terms....")
     return term_id2tok_out
 
+def create_term_id2tokenizer_output_faster(term2id: Dict[str, int], max_length: int, tokenizer: BertTokenizerFast):
+    logging.info("Tokenizing terms....")
 
-def load_tree_dataset_and_bert_model(node2terms_path: str,  text_encoder_name: str,
+    terms_sorted = list(sorted(term2id.keys()))
+    ids_sorted = [term2id[term] for term in terms_sorted]
+    tok_out = tokenizer.batch_encode_plus(terms_sorted, max_length=max_length, padding="max_length",
+                truncation=True, add_special_tokens=True, return_tensors="pt")
+    assert len(ids_sorted) == len(tok_out["input_ids"])
+    assert len(tok_out["input_ids"][0]) == max_length
+    assert tok_out["input_ids"].size() == (len(ids_sorted), max_length)
+    # TODO: Остановился тут. Теперь надо переписать использование этих данных в классе датасета
+    term_id2tok_out = {
+        "input_ids" : {node_id : inp_ids for node_id, inp_ids in zip(ids_sorted, tok_out["input_ids"])},
+        "attention_mask": {node_id: att_mask for node_id, att_mask in zip(ids_sorted, tok_out["attention_mask"])}
+
+    }
+
+    logging.info("Finished tokenizing terms....")
+    return term_id2tok_out
+
+def load_tree_dataset_and_bert_model(node2terms_path: str, text_encoder_name: str,
                                      parent_children_adjacency_list_path: str, child_parents_adjacency_list_path: str,
                                      text_encoder_seq_length: int, use_fast: bool = True, do_lower_case=True):
     node_id2terms_dict = load_node_id2terms_list(dict_path=node2terms_path, )
@@ -338,6 +414,6 @@ def load_tree_dataset_and_bert_model(node2terms_path: str,  text_encoder_name: s
     tokenizer = AutoTokenizer.from_pretrained(text_encoder_name, do_lower_case=do_lower_case, use_fast=use_fast)
     bert_encoder = AutoModel.from_pretrained(text_encoder_name, )
     node_id2token_ids_dict = tokenize_node_terms(node_id2terms_dict, tokenizer,
-                                                       max_length=text_encoder_seq_length)
+                                                 max_length=text_encoder_seq_length)
 
     return bert_encoder, tokenizer, node_id2token_ids_dict, parent_children_adjacency_list, child_parents_adjacency_list

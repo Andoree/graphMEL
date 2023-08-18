@@ -585,15 +585,22 @@ class HeterogeneousPositivePairNeighborSampler(RawNeighborSampler):
         return len(self.pos_pairs_term_1_id_list) // self.batch_size
 
     def sample(self, batch):
+        # TODO
         term_1_ids = [self.pos_pairs_term_1_id_list[idx] for idx in batch]
         term_1_tok_out = [self.term_id2tokenizer_output[idx] for idx in term_1_ids]
-        term_1_input_ids = torch.stack([t_out["input_ids"][0] for t_out in term_1_tok_out])
-        term_1_att_masks = torch.stack([t_out["attention_mask"][0] for t_out in term_1_tok_out])
+        # TODO
+        # term_1_input_ids = torch.stack([t_out["input_ids"][0] for t_out in term_1_tok_out])
+        # term_1_att_masks = torch.stack([t_out["attention_mask"][0] for t_out in term_1_tok_out])
+        term_1_input_ids = torch.stack([t_out["input_ids"] for t_out in term_1_tok_out])
+        term_1_att_masks = torch.stack([t_out["attention_mask"] for t_out in term_1_tok_out])
 
         term_2_ids = [self.pos_pairs_term_2_id_list[idx] for idx in batch]
         term_2_tok_out = [self.term_id2tokenizer_output[idx] for idx in term_2_ids]
-        term_2_input_ids = torch.stack([t_out["input_ids"][0] for t_out in term_2_tok_out])
-        term_2_att_masks = torch.stack([t_out["attention_mask"][0] for t_out in term_2_tok_out])
+        # TODO
+        # term_2_input_ids = torch.stack([t_out["input_ids"][0] for t_out in term_2_tok_out])
+        # term_2_att_masks = torch.stack([t_out["attention_mask"][0] for t_out in term_2_tok_out])
+        term_2_input_ids = torch.stack([t_out["input_ids"] for t_out in term_2_tok_out])
+        term_2_att_masks = torch.stack([t_out["attention_mask"] for t_out in term_2_tok_out])
 
         assert term_1_input_ids.size()[1] == term_1_att_masks.size()[1] == self.seq_max_length
         assert term_2_input_ids.size()[1] == term_2_att_masks.size()[1] == self.seq_max_length
@@ -620,10 +627,10 @@ class HeterogeneousPositivePairNeighborSampler(RawNeighborSampler):
 
         term_1_neighbor_input_ids, term_1_neighbor_att_masks = node_ids2tokenizer_output(
             batch=neighbor_node_ids, node_id_to_token_ids_dict=self.node_id2token_ids_dict,
-            seq_max_length=self.seq_max_length)
+            seq_max_length=self.seq_max_length, code_version="faster")
         term_2_neighbor_input_ids, term_2_neighbor_att_masks = node_ids2tokenizer_output(
             batch=neighbor_node_ids, node_id_to_token_ids_dict=self.node_id2token_ids_dict,
-            seq_max_length=self.seq_max_length)
+            seq_max_length=self.seq_max_length, code_version="faster")
         assert term_1_neighbor_input_ids.size() == term_1_neighbor_att_masks.size() \
                == term_2_neighbor_att_masks.size()
         assert term_2_neighbor_input_ids.size() == term_2_neighbor_att_masks.size()
@@ -860,14 +867,20 @@ class HeterogeneousPositivePairNeighborSamplerV2(HGTLoader):
 
     def sample(self, batch):
         term_1_ids = [self.pos_pairs_term_1_id_list[idx] for idx in batch]
-        term_1_tok_out = [self.term_id2tokenizer_output[idx] for idx in term_1_ids]
-        term_1_input_ids = torch.stack([t_out["input_ids"][0] for t_out in term_1_tok_out])
-        term_1_att_masks = torch.stack([t_out["attention_mask"][0] for t_out in term_1_tok_out])
-
+        # term_1_tok_out = [self.term_id2tokenizer_output[idx] for idx in term_1_ids]
+        term_1_input_ids = torch.stack([self.term_id2tokenizer_output["input_ids"][idx] for idx in term_1_ids])
+        term_1_att_masks = torch.stack([self.term_id2tokenizer_output["attention_mask"][idx] for idx in term_1_ids])
+        # TODO
+        # term_1_input_ids = torch.stack([t_out["input_ids"][0] for t_out in term_1_tok_out])
+        # term_1_att_masks = torch.stack([t_out["attention_mask"][0] for t_out in term_1_tok_out])
+        # TODO: я забыл, тут точно норм?
         term_2_ids = [self.pos_pairs_term_2_id_list[idx] for idx in batch]
-        term_2_tok_out = [self.term_id2tokenizer_output[idx] for idx in term_2_ids]
-        term_2_input_ids = torch.stack([t_out["input_ids"][0] for t_out in term_2_tok_out])
-        term_2_att_masks = torch.stack([t_out["attention_mask"][0] for t_out in term_2_tok_out])
+        # term_2_tok_out = [self.term_id2tokenizer_output[idx] for idx in term_2_ids]
+        term_2_input_ids = torch.stack([self.term_id2tokenizer_output["input_ids"][idx] for idx in term_2_ids])
+        term_2_att_masks = torch.stack([self.term_id2tokenizer_output["attention_mask"][idx] for idx in term_2_ids])
+        # TODO
+        # term_2_input_ids = torch.stack([t_out["input_ids"][0] for t_out in term_2_tok_out])
+        # term_2_att_masks = torch.stack([t_out["attention_mask"][0] for t_out in term_2_tok_out])
 
         assert term_1_input_ids.size()[1] == term_1_att_masks.size()[1] == self.seq_max_length
         assert term_2_input_ids.size()[1] == term_2_att_masks.size()[1] == self.seq_max_length
@@ -895,7 +908,7 @@ class HeterogeneousPositivePairNeighborSamplerV2(HGTLoader):
         for node_type, node_ids in hetero_sub_dataset_x_dict.items():
             neighbor_input_ids, neighbor_att_masks = node_ids2tokenizer_output(
                 batch=node_ids, node_id_to_token_ids_dict=self.node_id2token_ids_dict,
-                seq_max_length=self.seq_max_length)
+                seq_max_length=self.seq_max_length, code_version="faster")
             neighbor_input = (neighbor_input_ids, neighbor_att_masks)
             assert neighbor_input_ids.size() == neighbor_att_masks.size()
 
