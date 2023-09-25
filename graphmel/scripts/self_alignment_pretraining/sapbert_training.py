@@ -48,7 +48,8 @@ def graph_sapbert_val_epoch(model: AbstractGraphSapMetricLearningModel, val_load
 def train_graph_sapbert_model(model, train_epoch_fn, train_loader, val_loader, chkpnt_path: str,
                               num_epochs: int, learning_rate: float, weight_decay: float, output_dir: str,
                               save_chkpnt_epoch_interval: int, amp: bool, scaler, device: torch.device,
-                              save_chkpnts=True, val_epoch_fn=graph_sapbert_val_epoch, **kwargs):
+                              save_chkpnts=True, val_epoch_fn=graph_sapbert_val_epoch, save_graph_encoder=False,
+                              **kwargs):
     parallel = kwargs["parallel"]
     bert_learning_rate = kwargs.get("bert_learning_rate")
     if chkpnt_path is not None:
@@ -94,9 +95,11 @@ def train_graph_sapbert_model(model, train_epoch_fn, train_loader, val_loader, c
             }
 
             if parallel:
-                checkpoint['model_state'] = model.bert_encoder.module.state_dict()
+                checkpoint['model_state'] = model.bert_encoder.cpu().module.state_dict()
             else:
-                checkpoint['model_state'] = model.bert_encoder.state_dict()
+                checkpoint['model_state'] = model.bert_encoder.cpu().state_dict()
+            if save_graph_encoder:
+                checkpoint["graph_encoder"] = model.graph_encoder.cpu().state_dict()
 
             chkpnt_path = os.path.join(output_dir, f"checkpoint_e_{i + 1}_steps_{global_num_steps}.pth")
             if save_chkpnts:
@@ -108,9 +111,12 @@ def train_graph_sapbert_model(model, train_epoch_fn, train_loader, val_loader, c
         'optimizer': optimizer,
     }
     if parallel:
-        checkpoint['model_state'] = model.bert_encoder.module.state_dict()
+        checkpoint['model_state'] = model.bert_encoder.cpu().module.state_dict()
     else:
-        checkpoint['model_state'] = model.bert_encoder.state_dict()
+        checkpoint['model_state'] = model.bert_encoder.cpu().state_dict()
+    if save_graph_encoder:
+        checkpoint["graph_encoder"] = model.graph_encoder.cpu().state_dict()
+
     chkpnt_path = os.path.join(output_dir, f"checkpoint_e_{start_epoch + num_epochs}_steps_{global_num_steps}.pth")
     if save_chkpnts:
         torch.save(checkpoint, chkpnt_path)

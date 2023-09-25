@@ -114,6 +114,7 @@ def parse_args():
     parser.add_argument('--dataloader_num_workers', type=int)
     parser.add_argument('--save_every_N_epoch', type=int, default=1)
     parser.add_argument('--model_checkpoint_path', required=False, default=None)
+    parser.add_argument('--save_graph_encoder', action="store_true")
 
     args = parser.parse_args()
     return args
@@ -367,8 +368,8 @@ def main(args):
                               learning_rate=args.learning_rate, weight_decay=args.weight_decay,
                               num_epochs=args.num_epochs, output_dir=output_dir,
                               save_chkpnt_epoch_interval=args.save_every_N_epoch,
-                              amp=args.amp, scaler=scaler, device=device, chkpnt_path=args.model_checkpoint_path,
-                              bert_learning_rate=args.bert_learning_rate)
+                              save_graph_encoder=args.save_graph_encoder, amp=args.amp, scaler=scaler, device=device,
+                              chkpnt_path=args.model_checkpoint_path, bert_learning_rate=args.bert_learning_rate)
     end = time.time()
     training_time = end - start
     training_hour = int(training_time / 60 / 60)
