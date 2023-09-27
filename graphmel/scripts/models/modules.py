@@ -125,7 +125,7 @@ class RGCNEncoder(nn.Module):
 class GATv2Encoder(nn.Module):
     def __init__(self, in_channels, num_outer_layers: int, num_inner_layers: int, num_hidden_channels, dropout_p: float,
                  num_relations: int, num_att_heads: int, attention_dropout_p: float, set_out_input_dim_equal,
-                 add_self_loops, use_relational_features, remove_activations):
+                 add_self_loops, use_relational_features, remove_activations, layernorm_output):
         super().__init__()
         self.num_outer_layers = num_outer_layers
 
@@ -160,6 +160,13 @@ class GATv2Encoder(nn.Module):
             self.relation_matrices = Parameter(
                 torch.Tensor(num_outer_layers, num_inner_layers, num_relations, in_channels * 2, in_channels))
             glorot(self.relation_matrices)
+        self.layernorm_output = layernorm_output
+        if self.layernorm_output:
+            self.out = nn.Sequential(
+                nn.Linear(in_channels, in_channels),
+                nn.LayerNorm([in_channels, ], eps=1e-12, elementwise_affine=True),
+                nn.Dropout(dropout_p)
+            )
 
     def create_edge_attrs(self, embs, adjs, edge_type_list):
         edge_attrs_list = []
@@ -206,6 +213,8 @@ class GATv2Encoder(nn.Module):
                     x = F.dropout(x, p=self.dropout_p, training=self.training)
                     if not self.remove_activations:
                         x = self.gelu(x)
-        if not self.remove_activations:
+        if self.layernorm_output:
+            x = self.out(x[:batch_size])
+        elif not self.remove_activations:
             x = self.lin_proj(x)
         return x

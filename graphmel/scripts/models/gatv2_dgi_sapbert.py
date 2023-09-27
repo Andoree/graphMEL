@@ -25,7 +25,8 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
                  apply_text_loss_to_all_neighbors=False, intermodal_loss_type="sapbert",
                  intermodal_strategy=None, use_detached_text=False, remove_activations=False,
                  common_hard_pairs=False, fuse_unimodal_embeddings=False, cross_fusion=False,
-                 inmodal_fusion=False, global_fusion=False, fusion_text_weight=None, corruption_type="trg"):
+                 inmodal_fusion=False, global_fusion=False, fusion_text_weight=None, corruption_type="trg",
+                 layernorm_output=False):
 
         logging.info(f"Sap_Metric_Learning! use_cuda={use_cuda} loss={loss} use_miner={miner_margin}"
                      f"miner_margin={miner_margin} type_of_triplets={type_of_triplets} agg_mode={agg_mode}")
@@ -104,7 +105,7 @@ class GATv2DGISapMetricLearning(nn.Module, AbstractGraphSapMetricLearningModel, 
                                           num_att_heads=gat_num_att_heads, attention_dropout_p=gat_attention_dropout_p,
                                           set_out_input_dim_equal=True, add_self_loops=gat_add_self_loops,
                                           use_relational_features=gat_use_relational_features,
-                                          remove_activations=remove_activations)
+                                          remove_activations=remove_activations, layernorm_output=layernorm_output)
         self.corruption_type = corruption_type
         if self.corruption_type == "trg":
             self.corruption_fn = self.trg_corruption_fn

@@ -82,6 +82,7 @@ def parse_args():
 
     # Train config
     parser.add_argument('--use_cuda', action="store_true")
+    parser.add_argument('--layernorm_output', action="store_true")
     parser.add_argument('--learning_rate',
                         help='learning rate',
                         default=0.0001, type=float)
@@ -223,7 +224,7 @@ def main(args):
                     f"_tl_neigh_{args.apply_text_loss_to_all_neighbors}_ilt_{args.intermodal_loss_type}" \
                     f"_istrat_{args.intermodal_strategy}_det_txt_{args.use_detached_text}_{args.intermodal_loss_weight}" \
                     f"_lr_{args.learning_rate}_blr_{args.bert_learning_rate}_b_{args.batch_size}_{activ_str}_{chp_str}" \
-                    f"_{fuse_s}_{args.corruption_type}"
+                    f"_{fuse_s}_{args.corruption_type}_lnorm_{args.layernorm_output}"
     modality_distance = args.modality_distance
     if modality_distance == "None":
         modality_distance = None
@@ -357,7 +358,7 @@ def main(args):
                                       apply_text_loss_to_all_neighbors=args.apply_text_loss_to_all_neighbors,
                                       fuse_unimodal_embeddings=args.fuse_unimodal_embeddings,
                                       cross_fusion=args.cross_fusion, inmodal_fusion=args.inmodal_fusion,
-                                      global_fusion=args.global_fusion,
+                                      global_fusion=args.global_fusion, layernorm_output=args.layernorm_output,
                                       fusion_text_weight=args.fusion_text_weight,
                                       corruption_type=args.corruption_type).to(device)
 
