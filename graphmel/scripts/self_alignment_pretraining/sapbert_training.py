@@ -77,6 +77,7 @@ def train_graph_sapbert_model(model, train_epoch_fn, train_loader, val_loader, c
     logging.info("Starting training process....")
     global_num_steps = 0
     for i in range(start_epoch, start_epoch + num_epochs):
+        model = model.to(device)
         epoch_train_loss, num_steps = train_epoch_fn(model=model, train_loader=train_loader, device=device,
                                                      optimizer=optimizer, amp=amp, scaler=scaler, **kwargs)
         global_num_steps += num_steps
